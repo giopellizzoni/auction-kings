@@ -46,7 +46,7 @@ services:
       timeout: 3s
       retries: 20
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_HOST_PORT}:${REDIS_CONTAINER_PORT}"
 
 networks:
   backend:

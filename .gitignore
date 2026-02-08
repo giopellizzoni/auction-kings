@@ -476,3 +476,4 @@ riderModule.iml
 #local env
 .env.local
 
+**/secrets/
