@@ -58,6 +58,6 @@ volumes:
 
 secrets:
   postgres_password:
-    file: ${POSTGRES_PASSWORD_FILE:-./secrets/postgres_password.txt}
+    file: ${POSTGRES_PASSWORD_FILE}
   redis_password:
-    file: ${REDIS_PASSWORD_FILE:-./secrets/redis_password.txt}
+    file: ${REDIS_PASSWORD_FILE}
