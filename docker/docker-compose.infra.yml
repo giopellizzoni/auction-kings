@@ -1,0 +1,63 @@
+name: infra
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: infra-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "${POSTGRES_HOST_PORT}:${POSTGRES_CONTAINER_PORT}"
+
+  redis:
+    image: redis:7-alpine
+    container_name: infra-redis
+    restart: unless-stopped
+    command: >
+      sh -c "redis-server
+      --appendonly yes
+      --requirepass \"$$(cat /run/secrets/redis_password)\""
+    secrets:
+      - redis_password
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'redis-cli -a "$$(cat /run/secrets/redis_password)" ping | grep PONG',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  pg_data:
+  redis_data:
+
+secrets:
+  postgres_password:
+    file: ${POSTGRES_PASSWORD_FILE:-./secrets/postgres_password.txt}
+  redis_password:
+    file: ${REDIS_PASSWORD_FILE:-./secrets/redis_password.txt}
