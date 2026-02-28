@@ -1,5 +1,3 @@
-# PRINCIPAL-ARCHITECT.md
-
 # Principal .NET Architect – High-Reliability Distributed Systems (Auction Platforms)
 
 This document defines the architectural competencies, engineering standards, and system design mindset expected from a Principal-level C# / ASP.NET Core engineer building mission-critical, high-concurrency auction systems on AWS.
