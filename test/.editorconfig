@@ -1,0 +1,3 @@
+# Test projects — relax naming rules to allow xUnit-style Fact naming (Method_Scenario_Expected)
+[*.cs]
+dotnet_diagnostic.CA1707.severity = none

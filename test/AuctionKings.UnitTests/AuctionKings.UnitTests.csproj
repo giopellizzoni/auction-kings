@@ -15,4 +15,8 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\common\AuctionKings.Shared\AuctionKings.Shared.csproj" />
+  </ItemGroup>
+
 </Project>
