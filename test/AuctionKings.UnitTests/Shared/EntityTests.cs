@@ -6,7 +6,8 @@ public class EntityTests
 {
     private sealed class TestEntity : Entity
     {
-        public TestEntity(Guid id) : base(id) { }
+        public TestEntity(Guid id)
+            : base(id) { }
     }
 
     [Fact]

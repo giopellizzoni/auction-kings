@@ -62,21 +62,24 @@ public class PagedResultTests
     [Fact]
     public void PagedResult_InvalidPage_ShouldThrow()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => new PagedResult<int>([], totalCount: 0, page: 0, pageSize: 10));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new PagedResult<int>([], totalCount: 0, page: 0, pageSize: 10)
+        );
     }
 
     [Fact]
     public void PagedResult_InvalidPageSize_ShouldThrow()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => new PagedResult<int>([], totalCount: 0, page: 1, pageSize: 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new PagedResult<int>([], totalCount: 0, page: 1, pageSize: 0)
+        );
     }
 
     [Fact]
     public void PagedResult_NegativeTotalCount_ShouldThrow()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => new PagedResult<int>([], totalCount: -1, page: 1, pageSize: 10));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new PagedResult<int>([], totalCount: -1, page: 1, pageSize: 10)
+        );
     }
 }

@@ -15,10 +15,10 @@ public class AggregateRootTests
 
     private sealed class TestAggregate : AggregateRoot
     {
-        public TestAggregate(Guid id) : base(id) { }
+        public TestAggregate(Guid id)
+            : base(id) { }
 
-        public void RaiseSomething(string payload) =>
-            AddDomainEvent(new TestEvent(payload));
+        public void RaiseSomething(string payload) => AddDomainEvent(new TestEvent(payload));
     }
 
     [Fact]

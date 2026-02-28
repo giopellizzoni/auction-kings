@@ -66,8 +66,7 @@ public class ResultTests
     public void Result_SuccessWithError_ShouldThrowOnConstruction()
     {
         // Constructing with isSuccess=true but non-None error should throw
-        Assert.Throws<InvalidOperationException>(
-            () => Result.Failure<int>(Error.None));
+        Assert.Throws<InvalidOperationException>(() => Result.Failure<int>(Error.None));
     }
 
     [Fact]
