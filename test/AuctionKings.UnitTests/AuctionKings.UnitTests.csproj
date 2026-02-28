@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\common\AuctionKings.Shared\AuctionKings.Shared.csproj" />
+    <ProjectReference Include="..\..\src\services\AuctionKings.Domain\AuctionKings.Domain.csproj" />
   </ItemGroup>
 
 </Project>
