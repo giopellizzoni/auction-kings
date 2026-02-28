@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <ItemGroup>
-    <Folder Include="Aggregates\" />
+    <ProjectReference Include="..\..\common\AuctionKings.Shared\AuctionKings.Shared.csproj" />
   </ItemGroup>
+
 </Project>
