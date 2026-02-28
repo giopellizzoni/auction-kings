@@ -87,4 +87,5 @@ Full architecture specification (in Portuguese) is in `/architecture/ARCHITECTUR
 
 ### Custom Instructions
 
-Check the `.claude` directory for skills
+- Do not supress warnings format the code as should be described on .editorconfig
+- Check the `.claude` directory for skills and create a commit and a PR yourself
