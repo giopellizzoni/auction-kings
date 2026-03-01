@@ -9,5 +9,12 @@ public interface IBidRepository
         CancellationToken cancellationToken = default
     );
 
+    Task<(IReadOnlyList<Bid> Items, int TotalCount)> GetByAuctionIdPagedAsync(
+        Guid auctionId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default
+    );
+
     Task AddAsync(Bid bid, CancellationToken cancellationToken = default);
 }
