@@ -12,6 +12,8 @@ public interface IAuctionRepository
         CancellationToken cancellationToken = default
     );
 
+    Task<int> CountActiveAuctionsAsync(CancellationToken cancellationToken = default);
+
     Task AddAsync(Auction auction, CancellationToken cancellationToken = default);
 
     Task UpdateAsync(Auction auction, CancellationToken cancellationToken = default);
