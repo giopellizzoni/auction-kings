@@ -16,7 +16,8 @@ public sealed class AuctionTests
         Money? startingPrice = null,
         DateTime? startTime = null,
         AuctionDuration? duration = null,
-        Guid? sellerId = null)
+        Guid? sellerId = null
+    )
     {
         var auction = Auction.Create(
             "Test Auction",
@@ -24,7 +25,8 @@ public sealed class AuctionTests
             startingPrice ?? StartingPrice,
             startTime ?? Now,
             duration ?? Duration,
-            sellerId ?? SellerId);
+            sellerId ?? SellerId
+        );
 
         auction.Activate(Now);
         auction.ClearDomainEvents();

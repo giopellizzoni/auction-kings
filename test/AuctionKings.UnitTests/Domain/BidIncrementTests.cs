@@ -20,7 +20,9 @@ public sealed class BidIncrementTests
     [InlineData(5000, 100)]
     [InlineData(10000, 100)]
     public void BidIncrement_ShouldReturnCorrectMinimumForPriceRange(
-        decimal currentPrice, decimal expectedIncrement)
+        decimal currentPrice,
+        decimal expectedIncrement
+    )
     {
         var price = new Money(currentPrice, "USD");
 

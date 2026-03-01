@@ -1,3 +1,8 @@
+---
+name: git-workflow
+description: Best practices for Git branching, commit messages, pull requests, and release management in C# / ASP.NET Core projects.
+---
+
 # Git Workflow (Best Practices)
 
 This repo follows a lightweight GitFlow-style workflow:
