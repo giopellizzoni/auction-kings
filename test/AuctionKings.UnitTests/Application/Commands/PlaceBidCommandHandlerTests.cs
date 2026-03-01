@@ -15,7 +15,8 @@ public sealed class PlaceBidCommandHandlerTests
     private readonly IAuctionRepository _auctionRepository = Substitute.For<IAuctionRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly IDateTimeProvider _dateTimeProvider = Substitute.For<IDateTimeProvider>();
-    private readonly IRealtimeNotificationService _notificationService = Substitute.For<IRealtimeNotificationService>();
+    private readonly IRealtimeNotificationService _notificationService =
+        Substitute.For<IRealtimeNotificationService>();
     private readonly PlaceBidCommandHandler _handler;
 
     public PlaceBidCommandHandlerTests()
@@ -25,7 +26,8 @@ public sealed class PlaceBidCommandHandlerTests
             _auctionRepository,
             _unitOfWork,
             _dateTimeProvider,
-            _notificationService);
+            _notificationService
+        );
     }
 
     private static Auction CreateActiveAuction(Guid? sellerId = null)
@@ -36,7 +38,8 @@ public sealed class PlaceBidCommandHandlerTests
             new Money(100m, "USD"),
             Now,
             AuctionDuration.FromDays(1),
-            sellerId ?? SellerId);
+            sellerId ?? SellerId
+        );
 
         auction.Activate(Now);
         return auction;
@@ -61,7 +64,9 @@ public sealed class PlaceBidCommandHandlerTests
     [Fact]
     public async Task PlaceBidCommandHandler_AuctionNotFound_ShouldReturnFailure()
     {
-        _auctionRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Auction?)null);
+        _auctionRepository
+            .GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns((Auction?)null);
 
         var command = new PlaceBidCommand(Guid.NewGuid(), Guid.NewGuid(), 110m, "USD");
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -80,12 +85,15 @@ public sealed class PlaceBidCommandHandlerTests
         var command = new PlaceBidCommand(auction.Id, bidderId, 110m, "USD");
         await _handler.Handle(command, CancellationToken.None);
 
-        await _notificationService.Received(1).NotifyBidPlacedAsync(
-            auction.Id,
-            Arg.Any<Guid>(),
-            bidderId,
-            110m,
-            "USD",
-            Arg.Any<CancellationToken>());
+        await _notificationService
+            .Received(1)
+            .NotifyBidPlacedAsync(
+                auction.Id,
+                Arg.Any<Guid>(),
+                bidderId,
+                110m,
+                "USD",
+                Arg.Any<CancellationToken>()
+            );
     }
 }

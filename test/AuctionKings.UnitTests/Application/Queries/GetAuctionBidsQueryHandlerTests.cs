@@ -19,7 +19,8 @@ public sealed class GetAuctionBidsQueryHandlerTests
 
     public GetAuctionBidsQueryHandlerTests()
     {
-        _cacheService.GetAsync<PagedResult<BidDto>>(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        _cacheService
+            .GetAsync<PagedResult<BidDto>>(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns((PagedResult<BidDto>?)null);
 
         _handler = new GetAuctionBidsQueryHandler(_bidRepository, _cacheService);
@@ -33,7 +34,8 @@ public sealed class GetAuctionBidsQueryHandlerTests
             new Money(100m, "USD"),
             Now,
             AuctionDuration.FromDays(1),
-            SellerId);
+            SellerId
+        );
 
         auction.Activate(Now);
         return auction;
@@ -49,7 +51,8 @@ public sealed class GetAuctionBidsQueryHandlerTests
 
         // Repository returns bids pre-sorted descending (as it would in production)
         var sortedBids = auction.Bids.OrderByDescending(b => b.Amount.Amount).ToList();
-        _bidRepository.GetByAuctionIdPagedAsync(auction.Id, 1, 10, Arg.Any<CancellationToken>())
+        _bidRepository
+            .GetByAuctionIdPagedAsync(auction.Id, 1, 10, Arg.Any<CancellationToken>())
             .Returns(((IReadOnlyList<Bid>)sortedBids, sortedBids.Count));
 
         var query = new GetAuctionBidsQuery(auction.Id, Page: 1, PageSize: 10);
@@ -67,7 +70,8 @@ public sealed class GetAuctionBidsQueryHandlerTests
     [Fact]
     public async Task GetAuctionBidsQueryHandler_NoBids_ShouldReturnEmptyPage()
     {
-        _bidRepository.GetByAuctionIdPagedAsync(Arg.Any<Guid>(), 1, 10, Arg.Any<CancellationToken>())
+        _bidRepository
+            .GetByAuctionIdPagedAsync(Arg.Any<Guid>(), 1, 10, Arg.Any<CancellationToken>())
             .Returns(((IReadOnlyList<Bid>)[], 0));
 
         var query = new GetAuctionBidsQuery(Guid.NewGuid(), Page: 1, PageSize: 10);

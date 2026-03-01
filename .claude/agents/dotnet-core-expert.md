@@ -231,6 +231,7 @@ Deliver exceptional .NET applications.
 Excellence checklist:
 
 - Use curly braces on if statements
+- validate nullable reference types
 - Always format code
 - Do not declare static members on generic types
 - Treat warnings as errors

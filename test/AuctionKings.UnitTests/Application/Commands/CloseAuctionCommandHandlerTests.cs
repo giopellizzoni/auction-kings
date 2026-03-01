@@ -16,7 +16,8 @@ public sealed class CloseAuctionCommandHandlerTests
     private readonly IAuctionRepository _auctionRepository = Substitute.For<IAuctionRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly IDateTimeProvider _dateTimeProvider = Substitute.For<IDateTimeProvider>();
-    private readonly IRealtimeNotificationService _notificationService = Substitute.For<IRealtimeNotificationService>();
+    private readonly IRealtimeNotificationService _notificationService =
+        Substitute.For<IRealtimeNotificationService>();
     private readonly CloseAuctionCommandHandler _handler;
 
     public CloseAuctionCommandHandlerTests()
@@ -26,7 +27,8 @@ public sealed class CloseAuctionCommandHandlerTests
             _auctionRepository,
             _unitOfWork,
             _dateTimeProvider,
-            _notificationService);
+            _notificationService
+        );
     }
 
     private static Auction CreateActiveAuction()
@@ -37,7 +39,8 @@ public sealed class CloseAuctionCommandHandlerTests
             new Money(100m, "USD"),
             Now,
             AuctionDuration.FromDays(1),
-            SellerId);
+            SellerId
+        );
 
         auction.Activate(Now);
         return auction;

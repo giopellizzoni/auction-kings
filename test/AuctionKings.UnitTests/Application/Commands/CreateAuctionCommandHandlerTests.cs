@@ -18,7 +18,11 @@ public sealed class CreateAuctionCommandHandlerTests
     public CreateAuctionCommandHandlerTests()
     {
         _dateTimeProvider.UtcNow.Returns(Now);
-        _handler = new CreateAuctionCommandHandler(_auctionRepository, _unitOfWork, _dateTimeProvider);
+        _handler = new CreateAuctionCommandHandler(
+            _auctionRepository,
+            _unitOfWork,
+            _dateTimeProvider
+        );
     }
 
     [Fact]
@@ -30,13 +34,16 @@ public sealed class CreateAuctionCommandHandlerTests
             StartingPrice: 100m,
             Currency: "USD",
             Duration: TimeSpan.FromDays(1),
-            SellerId: Guid.NewGuid());
+            SellerId: Guid.NewGuid()
+        );
 
         var result = await _handler.Handle(command, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotEqual(Guid.Empty, result.Value);
-        await _auctionRepository.Received(1).AddAsync(Arg.Any<Auction>(), Arg.Any<CancellationToken>());
+        await _auctionRepository
+            .Received(1)
+            .AddAsync(Arg.Any<Auction>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).CommitAsync(Arg.Any<CancellationToken>());
     }
 
@@ -50,11 +57,15 @@ public sealed class CreateAuctionCommandHandlerTests
             StartingPrice: 100m,
             Currency: "USD",
             Duration: TimeSpan.FromDays(1),
-            SellerId: Guid.NewGuid());
+            SellerId: Guid.NewGuid()
+        );
 
         var validationResult = await validator.ValidateAsync(command);
 
         Assert.False(validationResult.IsValid);
-        Assert.Contains(validationResult.Errors, e => e.PropertyName == nameof(CreateAuctionCommand.Title));
+        Assert.Contains(
+            validationResult.Errors,
+            e => e.PropertyName == nameof(CreateAuctionCommand.Title)
+        );
     }
 }

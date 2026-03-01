@@ -29,7 +29,8 @@ public sealed class GetAuctionDetailsQueryHandlerTests
             new Money(100m, "USD"),
             Now,
             AuctionDuration.FromDays(1),
-            SellerId);
+            SellerId
+        );
 
         auction.Activate(Now);
         return auction;
@@ -42,10 +43,10 @@ public sealed class GetAuctionDetailsQueryHandlerTests
         var bidderId = Guid.NewGuid();
         auction.PlaceBid(bidderId, new Money(150m, "USD"), Now);
 
-        _cacheService.GetAsync<AuctionDetailDto>(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        _cacheService
+            .GetAsync<AuctionDetailDto>(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns((AuctionDetailDto?)null);
-        _auctionRepository.GetByIdAsync(auction.Id, Arg.Any<CancellationToken>())
-            .Returns(auction);
+        _auctionRepository.GetByIdAsync(auction.Id, Arg.Any<CancellationToken>()).Returns(auction);
 
         var query = new GetAuctionDetailsQuery(auction.Id);
         var result = await _handler.Handle(query, CancellationToken.None);
@@ -63,9 +64,11 @@ public sealed class GetAuctionDetailsQueryHandlerTests
     [Fact]
     public async Task GetAuctionDetailsQueryHandler_NonExistent_ShouldReturnFailure()
     {
-        _cacheService.GetAsync<AuctionDetailDto>(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        _cacheService
+            .GetAsync<AuctionDetailDto>(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns((AuctionDetailDto?)null);
-        _auctionRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+        _auctionRepository
+            .GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((Auction?)null);
 
         var query = new GetAuctionDetailsQuery(Guid.NewGuid());
@@ -80,10 +83,20 @@ public sealed class GetAuctionDetailsQueryHandlerTests
     {
         var auction = CreateActiveAuction();
         var cachedDto = new AuctionDetailDto(
-            auction.Id, auction.Title, auction.Description,
-            100m, "USD", Now, Now.AddDays(1), auction.Status, 0, []);
+            auction.Id,
+            auction.Title,
+            auction.Description,
+            100m,
+            "USD",
+            Now,
+            Now.AddDays(1),
+            auction.Status,
+            0,
+            []
+        );
 
-        _cacheService.GetAsync<AuctionDetailDto>(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        _cacheService
+            .GetAsync<AuctionDetailDto>(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(cachedDto);
 
         var query = new GetAuctionDetailsQuery(auction.Id);
@@ -91,6 +104,8 @@ public sealed class GetAuctionDetailsQueryHandlerTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(cachedDto, result.Value);
-        await _auctionRepository.DidNotReceive().GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _auctionRepository
+            .DidNotReceive()
+            .GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
 }
