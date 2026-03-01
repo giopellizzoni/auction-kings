@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace AuctionKings.IntegrationTests.Repositories;
 
 [Collection("PostgreSql")]
-public sealed class AuctionRepositoryTests : IClassFixture<PostgreSqlFixture>
+public sealed class AuctionRepositoryTests
 {
     private readonly PostgreSqlFixture _fixture;
 

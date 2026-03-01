@@ -6,7 +6,7 @@ using AuctionKings.IntegrationTests.Infrastructure;
 namespace AuctionKings.IntegrationTests.Repositories;
 
 [Collection("PostgreSql")]
-public sealed class BidRepositoryTests : IClassFixture<PostgreSqlFixture>
+public sealed class BidRepositoryTests
 {
     private readonly PostgreSqlFixture _fixture;
 

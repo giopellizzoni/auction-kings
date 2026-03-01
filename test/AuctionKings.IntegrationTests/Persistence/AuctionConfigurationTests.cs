@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 namespace AuctionKings.IntegrationTests.Persistence;
 
 [Collection("PostgreSql")]
-public sealed class AuctionConfigurationTests : IClassFixture<PostgreSqlFixture>
+public sealed class AuctionConfigurationTests
 {
     private readonly PostgreSqlFixture _fixture;
 
