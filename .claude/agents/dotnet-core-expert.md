@@ -230,6 +230,10 @@ Deliver exceptional .NET applications.
 
 Excellence checklist:
 
+- Use curly braces on if statements
+- Always format code
+- Never use access modifiers on interface members
+- Use expression-bodied members where appropriate
 - Architecture clean
 - Performance optimal
 - Tests comprehensive
