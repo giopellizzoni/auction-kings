@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <AssemblyName>AuctionKings.Infrastructure</AssemblyName>
   </PropertyGroup>
@@ -9,7 +8,6 @@
       <_Parameter1>AuctionKings.IntegrationTests</_Parameter1>
     </AssemblyAttribute>
   </ItemGroup>
-
 
   <ItemGroup>
     <PackageReference Include="EFCore.NamingConventions" />
@@ -23,8 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\common\AuctionKings.Shared\AuctionKings.Shared.csproj" />
-    <ProjectReference Include="..\AuctionKings.Application\AuctionKings.Applciation.csproj" />
+    <ProjectReference Include="..\AuctionKings.Application\AuctionKings.Application.csproj" />
     <ProjectReference Include="..\AuctionKings.Domain\AuctionKings.Domain.csproj" />
   </ItemGroup>
-
 </Project>

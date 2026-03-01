@@ -7,7 +7,9 @@ public abstract class Entity : IEquatable<Entity>
     protected Entity(Guid id)
     {
         if (id == Guid.Empty)
+        {
             throw new ArgumentException("Entity Id cannot be empty.", nameof(id));
+        }
 
         Id = id;
     }
@@ -18,11 +20,20 @@ public abstract class Entity : IEquatable<Entity>
     public bool Equals(Entity? other)
     {
         if (other is null)
+        {
             return false;
+        }
+
         if (ReferenceEquals(this, other))
+        {
             return true;
+        }
+
         if (other.GetType() != GetType())
+        {
             return false;
+        }
+
         return Id == other.Id;
     }
 
@@ -33,9 +44,15 @@ public abstract class Entity : IEquatable<Entity>
     public static bool operator ==(Entity? left, Entity? right)
     {
         if (left is null && right is null)
+        {
             return true;
+        }
+
         if (left is null || right is null)
+        {
             return false;
+        }
+
         return left.Equals(right);
     }
 

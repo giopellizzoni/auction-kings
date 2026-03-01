@@ -3,7 +3,6 @@ using AuctionKings.Application.Auctions.Queries.GetAuctionDetails;
 using AuctionKings.Application.DTOs;
 using AuctionKings.Domain.Aggregates;
 using AuctionKings.Domain.ValueObjects;
-using AuctionKings.Shared.Common;
 using NSubstitute;
 
 namespace AuctionKings.UnitTests.Application.Queries;

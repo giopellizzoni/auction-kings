@@ -37,10 +37,14 @@ public sealed class Auction : AggregateRoot
         Guid sellerId)
     {
         if (string.IsNullOrWhiteSpace(title))
+        {
             throw new ArgumentException("Title cannot be empty.", nameof(title));
+        }
 
         if (sellerId == Guid.Empty)
+        {
             throw new ArgumentException("SellerId cannot be empty.", nameof(sellerId));
+        }
 
         var endTime = duration.GetEndTime(startTime);
 
@@ -71,7 +75,9 @@ public sealed class Auction : AggregateRoot
     public void Activate(DateTime now)
     {
         if (Status != AuctionStatus.Pending)
+        {
             return;
+        }
 
         Status = AuctionStatus.Active;
     }
@@ -79,14 +85,20 @@ public sealed class Auction : AggregateRoot
     public Result<Bid> PlaceBid(Guid bidderId, Money amount, DateTime now)
     {
         if (Status != AuctionStatus.Active)
+        {
             return Result.Failure<Bid>(DomainErrors.Auction.NotActive);
+        }
 
         if (bidderId == SellerId)
+        {
             return Result.Failure<Bid>(DomainErrors.Auction.CannotBidOnOwnAuction);
+        }
 
         var minimumBid = BidIncrement.GetMinimumBid(CurrentPrice);
         if (amount < minimumBid)
+        {
             return Result.Failure<Bid>(DomainErrors.Auction.BidTooLow);
+        }
 
         // Mark current winning bid as outbid
         var currentWinningBid = _bids.FirstOrDefault(b => b.Status == BidStatus.Winning);
@@ -115,10 +127,14 @@ public sealed class Auction : AggregateRoot
     public Result Close(DateTime now)
     {
         if (Status == AuctionStatus.Closed)
+        {
             return Result.Failure(DomainErrors.Auction.AlreadyClosed);
+        }
 
         if (Status == AuctionStatus.Cancelled)
+        {
             return Result.Failure(DomainErrors.Auction.AlreadyCancelled);
+        }
 
         Status = AuctionStatus.Closed;
         Version++;
@@ -144,13 +160,17 @@ public sealed class Auction : AggregateRoot
     public Result Cancel(DateTime now)
     {
         if (Status == AuctionStatus.Closed)
+        {
             return Result.Failure(DomainErrors.Auction.AlreadyClosed);
+        }
 
         Status = AuctionStatus.Cancelled;
         Version++;
 
         foreach (var bid in _bids.Where(b => b.Status is BidStatus.Active or BidStatus.Winning))
+        {
             bid.Cancel();
+        }
 
         return Result.Success();
     }

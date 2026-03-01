@@ -1,7 +1,6 @@
 using AuctionKings.Domain.Aggregates;
 using AuctionKings.Domain.ValueObjects;
 using AuctionKings.Infrastructure.Persistence;
-using AuctionKings.Infrastructure.Repositories;
 using AuctionKings.IntegrationTests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 

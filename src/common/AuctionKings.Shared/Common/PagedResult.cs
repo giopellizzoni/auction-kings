@@ -19,16 +19,22 @@ public sealed class PagedResult<T>
         ArgumentNullException.ThrowIfNull(items);
 
         if (page < 1)
+        {
             throw new ArgumentOutOfRangeException(nameof(page), "Page must be at least 1.");
+        }
 
         if (pageSize < 1)
+        {
             throw new ArgumentOutOfRangeException(nameof(pageSize), "PageSize must be at least 1.");
+        }
 
         if (totalCount < 0)
+        {
             throw new ArgumentOutOfRangeException(
                 nameof(totalCount),
                 "TotalCount cannot be negative."
             );
+        }
 
         Items = items;
         TotalCount = totalCount;

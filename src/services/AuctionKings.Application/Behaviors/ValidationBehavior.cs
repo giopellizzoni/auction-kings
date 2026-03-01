@@ -1,4 +1,3 @@
-using AuctionKings.Application.Exceptions;
 using FluentValidation;
 using MediatR;
 

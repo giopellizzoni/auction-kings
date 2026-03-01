@@ -8,10 +8,14 @@ public sealed class Money : IEquatable<Money>
     public Money(decimal amount, string currency)
     {
         if (amount < 0)
+        {
             throw new ArgumentException("Amount cannot be negative.", nameof(amount));
+        }
 
         if (string.IsNullOrWhiteSpace(currency))
+        {
             throw new ArgumentException("Currency cannot be empty.", nameof(currency));
+        }
 
         Amount = amount;
         Currency = currency.ToUpperInvariant();
@@ -30,7 +34,10 @@ public sealed class Money : IEquatable<Money>
         EnsureSameCurrency(other);
         var result = Amount - other.Amount;
         if (result < 0)
+        {
             throw new InvalidOperationException("Subtraction would result in a negative amount.");
+        }
+
         return new Money(result, Currency);
     }
 
@@ -56,13 +63,19 @@ public sealed class Money : IEquatable<Money>
     private void EnsureSameCurrency(Money other)
     {
         if (!Currency.Equals(other.Currency, StringComparison.OrdinalIgnoreCase))
+        {
             throw new InvalidOperationException(
                 $"Cannot perform operation on different currencies: {Currency} and {other.Currency}.");
+        }
     }
 
     public bool Equals(Money? other)
     {
-        if (other is null) return false;
+        if (other is null)
+        {
+            return false;
+        }
+
         return Amount == other.Amount &&
                Currency.Equals(other.Currency, StringComparison.OrdinalIgnoreCase);
     }

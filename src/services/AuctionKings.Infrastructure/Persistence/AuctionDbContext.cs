@@ -1,5 +1,4 @@
 using AuctionKings.Domain.Aggregates;
-using AuctionKings.Infrastructure.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore;
 
 namespace AuctionKings.Infrastructure.Persistence;
