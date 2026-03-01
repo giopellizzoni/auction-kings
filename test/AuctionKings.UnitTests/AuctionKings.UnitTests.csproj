@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
@@ -19,7 +18,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\common\AuctionKings.Shared\AuctionKings.Shared.csproj" />
     <ProjectReference Include="..\..\src\services\AuctionKings.Domain\AuctionKings.Domain.csproj" />
-    <ProjectReference Include="..\..\src\services\AuctionKings.Application\AuctionKings.Applciation.csproj" />
+    <ProjectReference Include="..\..\src\services\AuctionKings.Application\AuctionKings.Application.csproj" />
   </ItemGroup>
-
 </Project>

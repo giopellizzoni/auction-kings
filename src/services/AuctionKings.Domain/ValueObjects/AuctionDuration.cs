@@ -10,12 +10,16 @@ public sealed class AuctionDuration : IEquatable<AuctionDuration>
     public AuctionDuration(TimeSpan value)
     {
         if (value < Minimum)
+        {
             throw new ArgumentException(
                 $"Auction duration must be at least {Minimum.TotalMinutes} minutes.", nameof(value));
+        }
 
         if (value > Maximum)
+        {
             throw new ArgumentException(
                 $"Auction duration cannot exceed {Maximum.TotalDays} days.", nameof(value));
+        }
 
         Value = value;
     }

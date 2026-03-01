@@ -20,7 +20,9 @@ public static class BidIncrement
         foreach (var (maxPrice, increment) in Ranges)
         {
             if (currentPrice.Amount < maxPrice)
+            {
                 return new Money(increment, currentPrice.Currency);
+            }
         }
 
         return new Money(Ranges[^1].Increment, currentPrice.Currency);

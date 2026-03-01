@@ -9,7 +9,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuctionKings.API", "src\ser
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "services", "services", "{984BB9B3-3FA3-BE33-9484-CAC21695A33C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuctionKings.Applciation", "src\services\AuctionKings.Application\AuctionKings.Applciation.csproj", "{AC69856C-EE11-4320-9539-DB15870124A1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuctionKings.Application", "src\services\AuctionKings.Application\AuctionKings.Application.csproj", "{AC69856C-EE11-4320-9539-DB15870124A1}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuctionKings.Domain", "src\services\AuctionKings.Domain\AuctionKings.Domain.csproj", "{62FA878C-AF48-43EF-83FD-BA39A53E1C47}"
 EndProject

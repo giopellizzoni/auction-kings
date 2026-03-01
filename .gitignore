@@ -467,13 +467,16 @@ $RECYCLE.BIN/
 
 # Rider Idea
 .idea/
-bin/
-obj/
+**/bin/
+**/obj/
 /packages/
 riderModule.iml
 /_ReSharper.Caches/```
-
+*.dll
+*.exe
+*.exe.config
 #local env
 .env.local
 
 **/secrets/
+**/net10.0/

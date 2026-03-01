@@ -1,4 +1,4 @@
-﻿namespace AuctionKings.ArchitectureTests;
+namespace AuctionKings.ArchitectureTests;
 
 public class UnitTest1
 {

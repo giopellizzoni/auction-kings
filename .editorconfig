@@ -290,3 +290,8 @@ dotnet_style_require_accessibility_modifiers = always:warning
 
 # Unused parameters config
 dotnet_code_quality_unused_parameters = non_public
+
+# Do not require accessibility modifiers on interface members
+dotnet_diagnostic.IDE0040.severity = none
+[*.cs]
+dotnet_style_require_accessibility_modifiers = never:silent
