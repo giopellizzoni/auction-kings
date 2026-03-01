@@ -42,7 +42,7 @@ public string UN { get; set; }      // abbreviations
 
 ### Clean Architecture Layer Structure
 
-```
+```text
 src/
 ├── Domain/           # Entities, value objects, domain events
 ├── Application/      # CQRS commands, queries, handlers, interfaces
