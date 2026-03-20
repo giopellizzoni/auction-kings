@@ -19,9 +19,13 @@ internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outb
 
         builder.Property(x => x.ProcessedAt);
 
+        builder.Property(x => x.RetryCount).HasDefaultValue(0).IsRequired();
+
+        builder.Property(x => x.Failed).HasDefaultValue(false).IsRequired();
+
         builder
             .HasIndex(x => x.ProcessedAt)
-            .HasFilter("processed_at IS NULL")
+            .HasFilter("processed_at IS NULL AND failed = false")
             .HasDatabaseName("ix_outbox_messages_unprocessed");
     }
 }

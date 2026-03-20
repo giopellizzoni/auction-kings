@@ -10,6 +10,8 @@ public sealed class OutboxMessage
     public string Content { get; private set; } = string.Empty;
     public DateTime OccurredOn { get; private set; }
     public DateTime? ProcessedAt { get; private set; }
+    public int RetryCount { get; private set; }
+    public bool Failed { get; private set; }
 
     private OutboxMessage() { }
 
@@ -25,4 +27,8 @@ public sealed class OutboxMessage
     }
 
     public void MarkAsProcessed(DateTime processedAt) => ProcessedAt = processedAt;
+
+    public void IncrementRetry() => RetryCount++;
+
+    public void MarkAsFailed() => Failed = true;
 }
