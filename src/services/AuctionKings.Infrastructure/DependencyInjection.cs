@@ -1,6 +1,8 @@
 using AuctionKings.Application.Abstractions;
+using AuctionKings.Infrastructure.Outbox;
 using AuctionKings.Infrastructure.Persistence;
 using AuctionKings.Infrastructure.Repositories;
+using AuctionKings.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,6 +31,8 @@ public static class DependencyInjection
         services.AddScoped<IAuctionRepository, AuctionRepository>();
         services.AddScoped<IBidRepository, BidRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IIdempotencyService, IdempotencyService>();
+        services.AddScoped<IOutboxRepository, OutboxRepository>();
 
         return services;
     }
