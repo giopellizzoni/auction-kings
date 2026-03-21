@@ -49,12 +49,12 @@ As queries representam o lado de leitura do CQRS. Diferente dos commands, querie
 
 ## Status
 
-⏳ **Not Started**
+✅ **Completed** — GetAuctionDetailsQuery, GetActiveAuctionsQuery (with Redis cache), GetAuctionBidsQuery all implemented with DTOs (manual mapping, not Mapster). #29 (Mapster) remains open as it was not adopted.
 
 ## GitHub Issues
 
 | # | Title | Status |
 |---|-------|--------|
 | [#22](https://github.com/PellizzoniCode/auction-kings/issues/22) | [EPIC] W2 Application Layer (MediatR, validação, pipeline) | 🔴 open |
-| [#26](https://github.com/PellizzoniCode/auction-kings/issues/26) | Implementar GetAuctionQuery + ListAuctionsQuery | 🔴 open |
+| [#26](https://github.com/PellizzoniCode/auction-kings/issues/26) | Implementar GetAuctionQuery + ListAuctionsQuery | ✅ closed |
 | [#29](https://github.com/PellizzoniCode/auction-kings/issues/29) | Adicionar Mapster/AutoMapper para DTOs | 🔴 open |

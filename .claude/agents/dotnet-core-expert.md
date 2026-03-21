@@ -80,3 +80,31 @@ When invoked:
 - [ ] No static state unless absolutely necessary
 - [ ] Resources disposed with `using` declarations
 - [ ] Treat warnings as errors — no `#pragma warning disable` without justification
+
+## Task Tracking
+
+All implementation tasks are documented in `tasks/TaskNN.md`. When implementing a task:
+
+1. **Before starting** — read the relevant `tasks/TaskNN.md` to understand scope, acceptance criteria, and dependencies
+2. **Check current status** — the `## Status` section shows ✅ Completed / 🔄 In Progress / ⏳ Not Started
+3. **After completing** — update the task file:
+   - Change `## Status` to `✅ **Completed**` with a brief summary of what was implemented
+   - Update the `## GitHub Issues` table: mark resolved issues as `✅ closed`
+   - Update `README.md` task progress table if the status changed
+4. **Close GitHub issues** — for any issue whose acceptance criteria is now met, close it via `gh issue close <number> --repo PellizzoniCode/auction-kings`
+
+### Current Task Status (as of 2026-03-21)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Task 01–08 | ✅ Completed | Domain, Application, Infrastructure, Redis Cache fully done |
+| Task 09 | ⏳ Not Started | SignalR hubs are empty stubs |
+| Task 10 | ⏳ Not Started | All three controllers are empty stubs |
+| Task 11 | ⏳ Not Started | GlobalExceptionFilter is a stub |
+| Task 12 | 🔄 In Progress | Basic /health endpoint done; full DB/Redis/Outbox checks pending |
+| Task 13 | 🔄 In Progress | OutboxProcessor done; AuctionCloseWorker/CleanupWorker pending |
+| Task 14 | ✅ Completed | Comprehensive unit tests across all layers |
+| Task 15 | 🔄 In Progress | Testcontainers + repo/cache tests done; controller tests blocked on Task 10 |
+| Task 16 | ⏳ Not Started | Only placeholder test exists |
+| Task 17 | 🔄 In Progress | CI runs unit tests; integration/arch tests not yet wired |
+| Task 18 | ⏳ Not Started | Only placeholder test exists |

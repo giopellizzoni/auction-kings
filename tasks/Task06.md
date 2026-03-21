@@ -57,7 +57,7 @@ A camada de infraestrutura implementa as interfaces definidas na Application Lay
 
 ## Status
 
-🔄 **In Progress** (core EF Core / repositories done; concurrency token and outbox table pending)
+✅ **Completed** — DbContext, EF Core configurations (AuctionConfiguration, BidConfiguration, OutboxMessageConfiguration, IdempotencyKeyConfiguration), AuctionRepository, BidRepository, UnitOfWork (with outbox integration), xmin concurrency token (shadow property), and InitialCreate migration all implemented.
 
 ## GitHub Issues
 
@@ -67,5 +67,5 @@ A camada de infraestrutura implementa as interfaces definidas na Application Lay
 | [#16](https://github.com/PellizzoniCode/auction-kings/issues/16) | Configurar EF Core + Postgres (DbContext) | ✅ closed |
 | [#17](https://github.com/PellizzoniCode/auction-kings/issues/17) | Definir schema inicial (Auctions, Bids) | ✅ closed |
 | [#18](https://github.com/PellizzoniCode/auction-kings/issues/18) | Implementar Repositories básicos | ✅ closed |
-| [#31](https://github.com/PellizzoniCode/auction-kings/issues/31) | Configurar concorrência otimista via xmin (Postgres) | 🔴 open |
-| [#35](https://github.com/PellizzoniCode/auction-kings/issues/35) | Criar Outbox table e modelo | 🔴 open |
+| [#31](https://github.com/PellizzoniCode/auction-kings/issues/31) | Configurar concorrência otimista via xmin (Postgres) | ✅ closed |
+| [#35](https://github.com/PellizzoniCode/auction-kings/issues/35) | Criar Outbox table e modelo | ✅ closed |

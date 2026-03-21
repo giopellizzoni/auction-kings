@@ -50,16 +50,16 @@ O Outbox Pattern garante consistência entre a persistência de aggregates e a p
 
 ## Status
 
-⏳ **Not Started**
+✅ **Completed** — OutboxProcessor (BackgroundService with batch processing, retries, SKIP LOCKED), IdempotencyBehavior (pipeline behavior), IdempotencyService, DomainEventTypeRegistry all implemented. UnitOfWork integrates outbox on every commit. Bus strategy is MediatR in-memory (#38 remains open for future SQS migration decision).
 
 ## GitHub Issues
 
 | # | Title | Status |
 |---|-------|--------|
 | [#30](https://github.com/PellizzoniCode/auction-kings/issues/30) | [EPIC] W3 Concorrência + Idempotência + Outbox | 🔴 open |
-| [#33](https://github.com/PellizzoniCode/auction-kings/issues/33) | Adicionar Idempotency (header X-Request-Id) | 🔴 open |
-| [#34](https://github.com/PellizzoniCode/auction-kings/issues/34) | Adicionar tabela IdempotencyKeys + índice unique | 🔴 open |
-| [#35](https://github.com/PellizzoniCode/auction-kings/issues/35) | Criar Outbox table e modelo | 🔴 open |
-| [#36](https://github.com/PellizzoniCode/auction-kings/issues/36) | Integrar Outbox no PlaceBid (gravar evento BidPlaced) | 🔴 open |
-| [#37](https://github.com/PellizzoniCode/auction-kings/issues/37) | Implementar OutboxProcessor BackgroundService (SKIP LOCKED) | 🔴 open |
+| [#33](https://github.com/PellizzoniCode/auction-kings/issues/33) | Adicionar Idempotency (header X-Request-Id) | ✅ closed |
+| [#34](https://github.com/PellizzoniCode/auction-kings/issues/34) | Adicionar tabela IdempotencyKeys + índice unique | ✅ closed |
+| [#35](https://github.com/PellizzoniCode/auction-kings/issues/35) | Criar Outbox table e modelo | ✅ closed |
+| [#36](https://github.com/PellizzoniCode/auction-kings/issues/36) | Integrar Outbox no PlaceBid (gravar evento BidPlaced) | ✅ closed |
+| [#37](https://github.com/PellizzoniCode/auction-kings/issues/37) | Implementar OutboxProcessor BackgroundService (SKIP LOCKED) | ✅ closed |
 | [#38](https://github.com/PellizzoniCode/auction-kings/issues/38) | Escolher bus inicial: InMemory -> depois SQS | 🔴 open |

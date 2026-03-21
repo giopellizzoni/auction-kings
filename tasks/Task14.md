@@ -63,7 +63,7 @@ Todos os testes listados nas Tasks 01-05 e 07 devem estar aqui, totalizando no m
 
 ## Status
 
-🔄 **In Progress** (domain unit tests done via issue #14; application/behavior tests pending)
+✅ **Completed** — Comprehensive unit tests across Domain (Auction, Bid, ValueObjects), Application (CreateAuction, PlaceBid, CloseAuction handlers; GetActiveAuctions, GetAuctionDetails, GetAuctionBids queries; LoggingBehavior, PerformanceBehavior, ValidationBehavior, IdempotencyBehavior), Shared (AggregateRoot, Entity, Result, PagedResult), and Infrastructure (OutboxProcessor) — well over 31 tests, all passing.
 
 ## GitHub Issues
 

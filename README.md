@@ -235,6 +235,31 @@ Check Redis status:
 docker logs infra-redis
 ```
 
+## Task Progress
+
+| Task | Description | Status |
+|------|-------------|--------|
+| [Task 01](tasks/Task01.md) | Base Classes: Entity, AggregateRoot, Result, Error | ✅ Completed |
+| [Task 02](tasks/Task02.md) | Domain Model: Auction aggregate, Bid, Value Objects, Events | ✅ Completed |
+| [Task 03](tasks/Task03.md) | Application Layer: MediatR, CQRS pipeline behaviors, interfaces | ✅ Completed |
+| [Task 04](tasks/Task04.md) | Commands: CreateAuction, PlaceBid, CloseAuction | ✅ Completed |
+| [Task 05](tasks/Task05.md) | Queries: GetAuctionDetails, GetActiveAuctions, GetAuctionBids | ✅ Completed |
+| [Task 06](tasks/Task06.md) | Infrastructure: EF Core, DbContext, Repositories, UnitOfWork | ✅ Completed |
+| [Task 07](tasks/Task07.md) | Outbox Processor and Idempotency | ✅ Completed |
+| [Task 08](tasks/Task08.md) | Redis Cache Service and Rate Limiter | ✅ Completed |
+| [Task 09](tasks/Task09.md) | SignalR Hubs: AuctionHub, NotificationHub | ⏳ Not Started |
+| [Task 10](tasks/Task10.md) | API Controllers: Auctions, Bids, Users | ⏳ Not Started |
+| [Task 11](tasks/Task11.md) | Middleware: Global Exception Filter, Correlation ID | ⏳ Not Started |
+| [Task 12](tasks/Task12.md) | Health Checks: DB, Redis, OutboxProcessor | 🔄 In Progress |
+| [Task 13](tasks/Task13.md) | Background Workers: AuctionCloseWorker, CleanupWorker | 🔄 In Progress |
+| [Task 14](tasks/Task14.md) | Unit Tests: Domain, Application, Behaviors, Shared | ✅ Completed |
+| [Task 15](tasks/Task15.md) | Integration Tests with Testcontainers | 🔄 In Progress |
+| [Task 16](tasks/Task16.md) | Architecture Tests with NetArchTest | ⏳ Not Started |
+| [Task 17](tasks/Task17.md) | CI Pipeline: GitHub Actions | 🔄 In Progress |
+| [Task 18](tasks/Task18.md) | Load Tests with NBomber | ⏳ Not Started |
+
+**Legend:** ✅ Completed · 🔄 In Progress · ⏳ Not Started
+
 ## Contributing
 
 1. Create a feature branch from `develop`

@@ -48,11 +48,11 @@ O `AuctionKings.BackgroundWorkers` é um projeto console separado que roda worke
 
 ## Status
 
-⏳ **Not Started**
+🔄 **In Progress** — OutboxProcessor (BackgroundService) is implemented in the BackgroundWorkers project. AuctionCloseWorker and CleanupExpiredDataWorker are not yet implemented.
 
 ## GitHub Issues
 
 | # | Title | Status |
 |---|-------|--------|
 | [#30](https://github.com/PellizzoniCode/auction-kings/issues/30) | [EPIC] W3 Concorrência + Idempotência + Outbox | 🔴 open |
-| [#37](https://github.com/PellizzoniCode/auction-kings/issues/37) | Implementar OutboxProcessor BackgroundService (SKIP LOCKED) | 🔴 open |
+| [#37](https://github.com/PellizzoniCode/auction-kings/issues/37) | Implementar OutboxProcessor BackgroundService (SKIP LOCKED) | ✅ closed |
