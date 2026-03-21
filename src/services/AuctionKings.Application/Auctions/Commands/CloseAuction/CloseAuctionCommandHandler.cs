@@ -11,17 +11,20 @@ public sealed class CloseAuctionCommandHandler : IRequestHandler<CloseAuctionCom
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDateTimeProvider _dateTimeProvider;
     private readonly IRealtimeNotificationService _notificationService;
+    private readonly ICacheInvalidationService _cacheInvalidation;
 
     public CloseAuctionCommandHandler(
         IAuctionRepository auctionRepository,
         IUnitOfWork unitOfWork,
         IDateTimeProvider dateTimeProvider,
-        IRealtimeNotificationService notificationService)
+        IRealtimeNotificationService notificationService,
+        ICacheInvalidationService cacheInvalidation)
     {
         _auctionRepository = auctionRepository;
         _unitOfWork = unitOfWork;
         _dateTimeProvider = dateTimeProvider;
         _notificationService = notificationService;
+        _cacheInvalidation = cacheInvalidation;
     }
 
     public async Task<Result> Handle(CloseAuctionCommand request, CancellationToken cancellationToken)
@@ -43,11 +46,14 @@ public sealed class CloseAuctionCommandHandler : IRequestHandler<CloseAuctionCom
         await _auctionRepository.UpdateAsync(auction, cancellationToken);
         await _unitOfWork.CommitAsync(cancellationToken);
 
-        // Notification failure must not prevent the auction from closing (fire-and-forget).
+        // Notification and cache invalidation failures must not prevent the auction from closing (fire-and-forget).
         await _notificationService.NotifyAuctionClosedAsync(
             auction.Id,
             auction.WinnerId,
             CancellationToken.None);
+
+        await _cacheInvalidation.InvalidateAuctionAsync(auction.Id, CancellationToken.None);
+        await _cacheInvalidation.InvalidateActiveListingsAsync(CancellationToken.None);
 
         return Result.Success();
     }

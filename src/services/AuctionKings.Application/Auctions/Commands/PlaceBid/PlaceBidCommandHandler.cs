@@ -12,17 +12,20 @@ public sealed class PlaceBidCommandHandler : IRequestHandler<PlaceBidCommand, Re
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDateTimeProvider _dateTimeProvider;
     private readonly IRealtimeNotificationService _notificationService;
+    private readonly ICacheInvalidationService _cacheInvalidation;
 
     public PlaceBidCommandHandler(
         IAuctionRepository auctionRepository,
         IUnitOfWork unitOfWork,
         IDateTimeProvider dateTimeProvider,
-        IRealtimeNotificationService notificationService)
+        IRealtimeNotificationService notificationService,
+        ICacheInvalidationService cacheInvalidation)
     {
         _auctionRepository = auctionRepository;
         _unitOfWork = unitOfWork;
         _dateTimeProvider = dateTimeProvider;
         _notificationService = notificationService;
+        _cacheInvalidation = cacheInvalidation;
     }
 
     public async Task<Result<Guid>> Handle(PlaceBidCommand request, CancellationToken cancellationToken)
@@ -49,7 +52,7 @@ public sealed class PlaceBidCommandHandler : IRequestHandler<PlaceBidCommand, Re
         await _auctionRepository.UpdateAsync(auction, cancellationToken);
         await _unitOfWork.CommitAsync(cancellationToken);
 
-        // Notification failure must not prevent the bid from succeeding (fire-and-forget).
+        // Notification and cache invalidation failures must not prevent the bid from succeeding (fire-and-forget).
         await _notificationService.NotifyBidPlacedAsync(
             auction.Id,
             bid.Id,
@@ -57,6 +60,9 @@ public sealed class PlaceBidCommandHandler : IRequestHandler<PlaceBidCommand, Re
             bid.Amount.Amount,
             bid.Amount.Currency,
             CancellationToken.None);
+
+        await _cacheInvalidation.InvalidateAuctionAsync(auction.Id, CancellationToken.None);
+        await _cacheInvalidation.InvalidateActiveListingsAsync(CancellationToken.None);
 
         return Result.Success(bid.Id);
     }

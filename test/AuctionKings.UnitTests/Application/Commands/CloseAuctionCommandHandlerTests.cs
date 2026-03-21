@@ -18,6 +18,8 @@ public sealed class CloseAuctionCommandHandlerTests
     private readonly IDateTimeProvider _dateTimeProvider = Substitute.For<IDateTimeProvider>();
     private readonly IRealtimeNotificationService _notificationService =
         Substitute.For<IRealtimeNotificationService>();
+    private readonly ICacheInvalidationService _cacheInvalidation =
+        Substitute.For<ICacheInvalidationService>();
     private readonly CloseAuctionCommandHandler _handler;
 
     public CloseAuctionCommandHandlerTests()
@@ -27,7 +29,8 @@ public sealed class CloseAuctionCommandHandlerTests
             _auctionRepository,
             _unitOfWork,
             _dateTimeProvider,
-            _notificationService
+            _notificationService,
+            _cacheInvalidation
         );
     }
 

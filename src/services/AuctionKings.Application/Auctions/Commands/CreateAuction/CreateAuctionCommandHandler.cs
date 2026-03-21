@@ -11,15 +11,18 @@ public sealed class CreateAuctionCommandHandler : IRequestHandler<CreateAuctionC
     private readonly IAuctionRepository _auctionRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDateTimeProvider _dateTimeProvider;
+    private readonly ICacheInvalidationService _cacheInvalidation;
 
     public CreateAuctionCommandHandler(
         IAuctionRepository auctionRepository,
         IUnitOfWork unitOfWork,
-        IDateTimeProvider dateTimeProvider)
+        IDateTimeProvider dateTimeProvider,
+        ICacheInvalidationService cacheInvalidation)
     {
         _auctionRepository = auctionRepository;
         _unitOfWork = unitOfWork;
         _dateTimeProvider = dateTimeProvider;
+        _cacheInvalidation = cacheInvalidation;
     }
 
     public async Task<Result<Guid>> Handle(CreateAuctionCommand request, CancellationToken cancellationToken)
@@ -38,6 +41,9 @@ public sealed class CreateAuctionCommandHandler : IRequestHandler<CreateAuctionC
 
         await _auctionRepository.AddAsync(auction, cancellationToken);
         await _unitOfWork.CommitAsync(cancellationToken);
+
+        // Cache invalidation failure must not prevent the auction from being created (fire-and-forget).
+        await _cacheInvalidation.InvalidateActiveListingsAsync(CancellationToken.None);
 
         return Result.Success(auction.Id);
     }

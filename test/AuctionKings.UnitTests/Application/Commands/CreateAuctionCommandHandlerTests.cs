@@ -13,6 +13,8 @@ public sealed class CreateAuctionCommandHandlerTests
     private readonly IAuctionRepository _auctionRepository = Substitute.For<IAuctionRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly IDateTimeProvider _dateTimeProvider = Substitute.For<IDateTimeProvider>();
+    private readonly ICacheInvalidationService _cacheInvalidation =
+        Substitute.For<ICacheInvalidationService>();
     private readonly CreateAuctionCommandHandler _handler;
 
     public CreateAuctionCommandHandlerTests()
@@ -21,7 +23,8 @@ public sealed class CreateAuctionCommandHandlerTests
         _handler = new CreateAuctionCommandHandler(
             _auctionRepository,
             _unitOfWork,
-            _dateTimeProvider
+            _dateTimeProvider,
+            _cacheInvalidation
         );
     }
 
