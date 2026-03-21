@@ -55,6 +55,6 @@ Redis serve dois propósitos principais: cache distribuído para queries frequen
 
 ## GitHub Issues
 
-| #                                                                | Title                                                    | Status      |
-| ---------------------------------------------------------------- | -------------------------------------------------------- | ----------- |
+| #                                                                | Title                                                    | Status    |
+| ---------------------------------------------------------------- | -------------------------------------------------------- | --------- |
 | [#51](https://github.com/PellizzoniCode/auction-kings/issues/51) | Rate limiting básico (in-memory) para endpoints críticos | 🟢 closed |
