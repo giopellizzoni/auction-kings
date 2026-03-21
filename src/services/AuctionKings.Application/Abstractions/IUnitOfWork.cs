@@ -8,4 +8,7 @@ public interface IUnitOfWork
     Task<int> CommitAsync(CancellationToken cancellationToken = default);
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Detaches all tracked entities, allowing a clean retry read.</summary>
+    void ClearTracking();
 }

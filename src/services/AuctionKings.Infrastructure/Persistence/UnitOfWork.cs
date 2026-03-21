@@ -1,5 +1,7 @@
 using AuctionKings.Application.Abstractions;
+using AuctionKings.Application.Exceptions;
 using AuctionKings.Shared.Common;
+using Microsoft.EntityFrameworkCore;
 
 namespace AuctionKings.Infrastructure.Persistence;
 
@@ -24,11 +26,20 @@ internal sealed class UnitOfWork : IUnitOfWork
             await _context.OutboxMessages.AddRangeAsync(outboxMessages, cancellationToken);
         }
 
-        return await _context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            return await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            throw new ConcurrencyException(ex);
+        }
     }
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         return _context.SaveChangesAsync(cancellationToken);
     }
+
+    public void ClearTracking() => _context.ChangeTracker.Clear();
 }

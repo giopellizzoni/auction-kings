@@ -8,6 +8,7 @@ using NSubstitute;
 
 namespace AuctionKings.UnitTests.Application.Queries;
 
+[Collection(nameof(MapsterCollection))]
 public sealed class GetActiveAuctionsQueryHandlerTests
 {
     private static readonly DateTime Now = new(2025, 1, 1, 12, 0, 0, DateTimeKind.Utc);

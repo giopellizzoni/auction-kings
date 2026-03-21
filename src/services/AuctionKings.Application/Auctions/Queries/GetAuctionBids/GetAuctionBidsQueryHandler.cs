@@ -1,6 +1,7 @@
 using AuctionKings.Application.Abstractions;
 using AuctionKings.Application.DTOs;
 using AuctionKings.Shared.Common;
+using Mapster;
 using MediatR;
 
 namespace AuctionKings.Application.Auctions.Queries.GetAuctionBids;
@@ -37,9 +38,7 @@ public sealed class GetAuctionBidsQueryHandler
             request.PageSize,
             cancellationToken);
 
-        var items = bids
-            .Select(b => new BidDto(b.Id, b.BidderId, b.Amount.Amount, b.Amount.Currency, b.PlacedAt, b.Status))
-            .ToList();
+        var items = bids.Adapt<List<BidDto>>();
 
         var result = new PagedResult<BidDto>(items, totalCount, request.Page, request.PageSize);
 

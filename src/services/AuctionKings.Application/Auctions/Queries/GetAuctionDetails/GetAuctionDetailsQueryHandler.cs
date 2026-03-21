@@ -1,8 +1,8 @@
 using AuctionKings.Application.Abstractions;
 using AuctionKings.Application.DTOs;
-using AuctionKings.Domain.Aggregates;
 using AuctionKings.Domain.Errors;
 using AuctionKings.Shared.Common;
+using Mapster;
 using MediatR;
 
 namespace AuctionKings.Application.Auctions.Queries.GetAuctionDetails;
@@ -11,7 +11,6 @@ public sealed class GetAuctionDetailsQueryHandler
     : IRequestHandler<GetAuctionDetailsQuery, Result<AuctionDetailDto>>
 {
     private static readonly TimeSpan CacheExpiry = TimeSpan.FromMinutes(5);
-    private const int TopBidsCount = 10;
 
     private readonly IAuctionRepository _auctionRepository;
     private readonly ICacheService _cacheService;
@@ -42,31 +41,10 @@ public sealed class GetAuctionDetailsQueryHandler
             return Result.Failure<AuctionDetailDto>(DomainErrors.Auction.NotFound);
         }
 
-        var dto = MapToDto(auction);
+        var dto = auction.Adapt<AuctionDetailDto>();
 
         await _cacheService.SetAsync(cacheKey, dto, CacheExpiry, cancellationToken);
 
         return Result.Success(dto);
-    }
-
-    private static AuctionDetailDto MapToDto(Auction auction)
-    {
-        var topBids = auction.Bids
-            .OrderByDescending(b => b.Amount.Amount)
-            .Take(TopBidsCount)
-            .Select(b => new BidDto(b.Id, b.BidderId, b.Amount.Amount, b.Amount.Currency, b.PlacedAt, b.Status))
-            .ToList();
-
-        return new AuctionDetailDto(
-            auction.Id,
-            auction.Title,
-            auction.Description,
-            auction.CurrentPrice.Amount,
-            auction.CurrentPrice.Currency,
-            auction.StartTime,
-            auction.EndTime,
-            auction.Status,
-            auction.Bids.Count,
-            topBids);
     }
 }

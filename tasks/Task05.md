@@ -49,11 +49,11 @@ As queries representam o lado de leitura do CQRS. Diferente dos commands, querie
 
 ## Status
 
-✅ **Completed** — GetAuctionDetailsQuery, GetActiveAuctionsQuery (with Redis cache), GetAuctionBidsQuery all implemented with DTOs (manual mapping, not Mapster). #29 (Mapster) remains open as it was not adopted.
+✅ **Completed** — GetAuctionDetailsQuery, GetActiveAuctionsQuery (with Redis cache), GetAuctionBidsQuery all implemented with DTOs. Mapster 7.4.0 adopted via `IRegister` config (`AuctionMappingConfig`) with `ConstructUsing` for Money flattening and top-10 bids projection. Manual `MapToDto` methods removed from all three handlers.
 
 ## GitHub Issues
 
 | #                                                                | Title                                               | Status    |
 | ---------------------------------------------------------------- | --------------------------------------------------- | --------- |
 | [#26](https://github.com/PellizzoniCode/auction-kings/issues/26) | Implementar GetAuctionQuery + ListAuctionsQuery     | ✅ closed |
-| [#29](https://github.com/PellizzoniCode/auction-kings/issues/29) | Adicionar Mapster/AutoMapper para DTOs              | 🔴 open   |
+| [#29](https://github.com/PellizzoniCode/auction-kings/issues/29) | Adicionar Mapster/AutoMapper para DTOs              | ✅ closed |

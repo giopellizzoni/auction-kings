@@ -61,10 +61,10 @@ A camada de infraestrutura implementa as interfaces definidas na Application Lay
 
 ## GitHub Issues
 
-| # | Title | Status |
-|---|-------|--------|
-| [#16](https://github.com/PellizzoniCode/auction-kings/issues/16) | Configurar EF Core + Postgres (DbContext) | ✅ closed |
-| [#17](https://github.com/PellizzoniCode/auction-kings/issues/17) | Definir schema inicial (Auctions, Bids) | ✅ closed |
-| [#18](https://github.com/PellizzoniCode/auction-kings/issues/18) | Implementar Repositories básicos | ✅ closed |
+| #                                                                | Title                                                | Status    |
+| ---------------------------------------------------------------- | ---------------------------------------------------- | --------- |
+| [#16](https://github.com/PellizzoniCode/auction-kings/issues/16) | Configurar EF Core + Postgres (DbContext)            | ✅ closed |
+| [#17](https://github.com/PellizzoniCode/auction-kings/issues/17) | Definir schema inicial (Auctions, Bids)              | ✅ closed |
+| [#18](https://github.com/PellizzoniCode/auction-kings/issues/18) | Implementar Repositories básicos                     | ✅ closed |
 | [#31](https://github.com/PellizzoniCode/auction-kings/issues/31) | Configurar concorrência otimista via xmin (Postgres) | ✅ closed |
-| [#35](https://github.com/PellizzoniCode/auction-kings/issues/35) | Criar Outbox table e modelo | ✅ closed |
+| [#35](https://github.com/PellizzoniCode/auction-kings/issues/35) | Criar Outbox table e modelo                          | ✅ closed |
