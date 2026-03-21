@@ -17,6 +17,8 @@ public sealed class PlaceBidCommandHandlerTests
     private readonly IDateTimeProvider _dateTimeProvider = Substitute.For<IDateTimeProvider>();
     private readonly IRealtimeNotificationService _notificationService =
         Substitute.For<IRealtimeNotificationService>();
+    private readonly ICacheInvalidationService _cacheInvalidation =
+        Substitute.For<ICacheInvalidationService>();
     private readonly PlaceBidCommandHandler _handler;
 
     public PlaceBidCommandHandlerTests()
@@ -26,7 +28,8 @@ public sealed class PlaceBidCommandHandlerTests
             _auctionRepository,
             _unitOfWork,
             _dateTimeProvider,
-            _notificationService
+            _notificationService,
+            _cacheInvalidation
         );
     }
 
