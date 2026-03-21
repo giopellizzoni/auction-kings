@@ -60,3 +60,14 @@ Todos os testes listados nas Tasks 01-05 e 07 devem estar aqui, totalizando no m
 - **Task 03** — pipeline behaviors implementados
 - **Task 04** — command handlers implementados
 - **Task 05** — query handlers implementados
+
+## Status
+
+🔄 **In Progress** (domain unit tests done via issue #14; application/behavior tests pending)
+
+## GitHub Issues
+
+| # | Title | Status |
+|---|-------|--------|
+| [#14](https://github.com/PellizzoniCode/auction-kings/issues/14) | Unit tests do Domínio (Auction/Bid/VOs) | ✅ closed |
+| [#59](https://github.com/PellizzoniCode/auction-kings/issues/59) | [EPIC] W7 Testes Sênior (Unit/Integration/Architecture) + Load Test | 🔴 open |

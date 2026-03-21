@@ -45,3 +45,14 @@ O `AuctionKings.BackgroundWorkers` é um projeto console separado que roda worke
 - **Task 04** — `CloseAuctionCommand` e handler
 - **Task 06** — infraestrutura (DbContext, repositories) para queries de leilões expirados
 - **Task 07** — Outbox processor (pode rodar no mesmo host ou separadamente)
+
+## Status
+
+⏳ **Not Started**
+
+## GitHub Issues
+
+| # | Title | Status |
+|---|-------|--------|
+| [#30](https://github.com/PellizzoniCode/auction-kings/issues/30) | [EPIC] W3 Concorrência + Idempotência + Outbox | 🔴 open |
+| [#37](https://github.com/PellizzoniCode/auction-kings/issues/37) | Implementar OutboxProcessor BackgroundService (SKIP LOCKED) | 🔴 open |

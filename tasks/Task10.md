@@ -46,3 +46,16 @@ Os três controllers (`AuctionsController`, `BidsController`, `UsersControllers`
 - **Task 04** — commands (CreateAuction, PlaceBid, CloseAuction)
 - **Task 05** — queries (GetAuctionDetails, GetActiveAuctions, GetAuctionBids)
 - **Task 06** — infraestrutura registrada no DI
+
+## Status
+
+⏳ **Not Started**
+
+## GitHub Issues
+
+| # | Title | Status |
+|---|-------|--------|
+| [#15](https://github.com/PellizzoniCode/auction-kings/issues/15) | [EPIC] W2 Infra de Dados + API MVP | ✅ closed |
+| [#19](https://github.com/PellizzoniCode/auction-kings/issues/19) | Criar endpoints REST básicos (Auctions) | 🔴 open |
+| [#20](https://github.com/PellizzoniCode/auction-kings/issues/20) | Criar endpoint de lance (sem real-time ainda) | 🔴 open |
+| [#21](https://github.com/PellizzoniCode/auction-kings/issues/21) | Adicionar OpenAPI/Swagger + versionamento (v1) | 🔴 open |

@@ -49,3 +49,16 @@ Com o pipeline MediatR e as interfaces definidos (Task 03), é hora de implement
 
 - **Task 02** — domain model (Auction aggregate, Bid entity)
 - **Task 03** — MediatR pipeline, interfaces de repositório, `IRealtimeNotificationService`
+
+## Status
+
+⏳ **Not Started**
+
+## GitHub Issues
+
+| # | Title | Status |
+|---|-------|--------|
+| [#22](https://github.com/PellizzoniCode/auction-kings/issues/22) | [EPIC] W2 Application Layer (MediatR, validação, pipeline) | 🔴 open |
+| [#24](https://github.com/PellizzoniCode/auction-kings/issues/24) | Implementar CreateAuctionCommand + Handler | 🔴 open |
+| [#25](https://github.com/PellizzoniCode/auction-kings/issues/25) | Implementar PlaceBidCommand + Handler | 🔴 open |
+| [#32](https://github.com/PellizzoniCode/auction-kings/issues/32) | Implementar estratégia de retry para conflito de concorrência | 🔴 open |

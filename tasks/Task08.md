@@ -48,3 +48,14 @@ Redis serve dois propósitos principais: cache distribuído para queries frequen
 
 - **Task 03** — interface `ICacheService`
 - **Task 06** — `DependencyInjection.cs` da infra (para adicionar registros)
+
+## Status
+
+✅ **Completed** (merged via PR [#81](https://github.com/PellizzoniCode/auction-kings/pull/81))
+
+## GitHub Issues
+
+| # | Title | Status |
+|---|-------|--------|
+| [#46](https://github.com/PellizzoniCode/auction-kings/issues/46) | Configurar Redis backplane para SignalR (dev) | 🔴 open |
+| [#51](https://github.com/PellizzoniCode/auction-kings/issues/51) | Rate limiting básico (in-memory) para endpoints críticos | 🔴 open |

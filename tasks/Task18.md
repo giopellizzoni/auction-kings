@@ -47,3 +47,16 @@ O projeto `AuctionKings.LoadTests` existe com teste placeholder. Load tests vali
 - **Task 09** — SignalR hubs implementados (para teste de conexões)
 - **Task 06** — infraestrutura completa (DB real necessário)
 - **Task 08** — Redis configurado
+
+## Status
+
+⏳ **Not Started**
+
+## GitHub Issues
+
+| # | Title | Status |
+|---|-------|--------|
+| [#59](https://github.com/PellizzoniCode/auction-kings/issues/59) | [EPIC] W7 Testes Sênior (Unit/Integration/Architecture) + Load Test | 🔴 open |
+| [#62](https://github.com/PellizzoniCode/auction-kings/issues/62) | Criar k6 load test para PlaceBid | 🔴 open |
+| [#63](https://github.com/PellizzoniCode/auction-kings/issues/63) | Executar tuning básico (índices, queries) baseado no k6 | 🔴 open |
+| [#64](https://github.com/PellizzoniCode/auction-kings/issues/64) | Documentar resultados do load test (p95, throughput) | 🔴 open |

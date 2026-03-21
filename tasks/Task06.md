@@ -54,3 +54,18 @@ A camada de infraestrutura implementa as interfaces definidas na Application Lay
 - **Task 01** — `Entity`, `AggregateRoot` (para mapeamento EF Core)
 - **Task 02** — `Auction`, `Bid`, domain events (entidades a persistir)
 - **Task 03** — interfaces `IAuctionRepository`, `IBidRepository`, `IUnitOfWork` (a implementar)
+
+## Status
+
+🔄 **In Progress** (core EF Core / repositories done; concurrency token and outbox table pending)
+
+## GitHub Issues
+
+| # | Title | Status |
+|---|-------|--------|
+| [#15](https://github.com/PellizzoniCode/auction-kings/issues/15) | [EPIC] W2 Infra de Dados + API MVP | ✅ closed |
+| [#16](https://github.com/PellizzoniCode/auction-kings/issues/16) | Configurar EF Core + Postgres (DbContext) | ✅ closed |
+| [#17](https://github.com/PellizzoniCode/auction-kings/issues/17) | Definir schema inicial (Auctions, Bids) | ✅ closed |
+| [#18](https://github.com/PellizzoniCode/auction-kings/issues/18) | Implementar Repositories básicos | ✅ closed |
+| [#31](https://github.com/PellizzoniCode/auction-kings/issues/31) | Configurar concorrência otimista via xmin (Postgres) | 🔴 open |
+| [#35](https://github.com/PellizzoniCode/auction-kings/issues/35) | Criar Outbox table e modelo | 🔴 open |

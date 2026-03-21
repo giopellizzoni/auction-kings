@@ -47,3 +47,19 @@ O Outbox Pattern garante consistência entre a persistência de aggregates e a p
 
 - **Task 06** — `OutboxMessage` entity, `AuctionDbContext` com tabela outbox
 - **Task 03** — MediatR `IPublisher` para dispatch de events, pipeline behaviors
+
+## Status
+
+⏳ **Not Started**
+
+## GitHub Issues
+
+| # | Title | Status |
+|---|-------|--------|
+| [#30](https://github.com/PellizzoniCode/auction-kings/issues/30) | [EPIC] W3 Concorrência + Idempotência + Outbox | 🔴 open |
+| [#33](https://github.com/PellizzoniCode/auction-kings/issues/33) | Adicionar Idempotency (header X-Request-Id) | 🔴 open |
+| [#34](https://github.com/PellizzoniCode/auction-kings/issues/34) | Adicionar tabela IdempotencyKeys + índice unique | 🔴 open |
+| [#35](https://github.com/PellizzoniCode/auction-kings/issues/35) | Criar Outbox table e modelo | 🔴 open |
+| [#36](https://github.com/PellizzoniCode/auction-kings/issues/36) | Integrar Outbox no PlaceBid (gravar evento BidPlaced) | 🔴 open |
+| [#37](https://github.com/PellizzoniCode/auction-kings/issues/37) | Implementar OutboxProcessor BackgroundService (SKIP LOCKED) | 🔴 open |
+| [#38](https://github.com/PellizzoniCode/auction-kings/issues/38) | Escolher bus inicial: InMemory -> depois SQS | 🔴 open |

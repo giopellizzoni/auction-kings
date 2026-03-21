@@ -45,3 +45,15 @@ O `Program.cs` atual registra `AddHealthChecks()` e mapeia apenas `/health/live`
 
 - **Task 06** — DbContext disponível (para database health check)
 - **Task 08** — Redis configurado (para Redis health check)
+
+## Status
+
+🔄 **In Progress** (basic `/health/live` done via issue #8; full DB/Redis/Outbox checks pending)
+
+## GitHub Issues
+
+| # | Title | Status |
+|---|-------|--------|
+| [#8](https://github.com/PellizzoniCode/auction-kings/issues/8) | Configurar HealthCheck básico (/health) | ✅ closed |
+| [#53](https://github.com/PellizzoniCode/auction-kings/issues/53) | [EPIC] W6 Observabilidade + Resiliência | 🔴 open |
+| [#56](https://github.com/PellizzoniCode/auction-kings/issues/56) | Health checks: DB, Redis, OutboxProcessor | 🔴 open |
