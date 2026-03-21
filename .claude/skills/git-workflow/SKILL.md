@@ -11,8 +11,8 @@ This repo follows a lightweight GitFlow-style workflow:
 - `develop` (optional) = integration branch for larger teams/releases
 - short-lived feature branches = all work happens here
 - pull requests required (even for small changes, when possible), but must wait for user approval to create a PR
-
-If your team does not use `develop`, merge feature branches directly into `main`.
+- commit messages must follow Conventional Commits format for clarity and automated tooling compatibility
+- If your team does not use `develop`, merge feature branches directly into `main`.
 
 ---
 
