@@ -55,11 +55,10 @@ O sistema de tempo real é um diferencial da plataforma. Dois hubs SignalR estã
 
 ## GitHub Issues
 
-| # | Title | Status |
-|---|-------|--------|
-| [#42](https://github.com/PellizzoniCode/auction-kings/issues/42) | [EPIC] W4 Real-Time (SignalR) + State Sync | 🔴 open |
-| [#43](https://github.com/PellizzoniCode/auction-kings/issues/43) | Adicionar SignalR e criar AuctionHub | 🔴 open |
-| [#44](https://github.com/PellizzoniCode/auction-kings/issues/44) | Broadcast de BidPlaced para grupo do leilão | 🔴 open |
-| [#45](https://github.com/PellizzoniCode/auction-kings/issues/45) | Implementar state sync na reconexão | 🔴 open |
-| [#46](https://github.com/PellizzoniCode/auction-kings/issues/46) | Configurar Redis backplane para SignalR (dev) | 🔴 open |
+| #                                                                | Title                                                         | Status  |
+| ---------------------------------------------------------------- | ------------------------------------------------------------- | ------- |
+| [#43](https://github.com/PellizzoniCode/auction-kings/issues/43) | Adicionar SignalR e criar AuctionHub                          | 🔴 open |
+| [#44](https://github.com/PellizzoniCode/auction-kings/issues/44) | Broadcast de BidPlaced para grupo do leilão                   | 🔴 open |
+| [#45](https://github.com/PellizzoniCode/auction-kings/issues/45) | Implementar state sync na reconexão                           | 🔴 open |
+| [#46](https://github.com/PellizzoniCode/auction-kings/issues/46) | Configurar Redis backplane para SignalR (dev)                 | 🔴 open |
 | [#47](https://github.com/PellizzoniCode/auction-kings/issues/47) | Teste manual e script simples para simular múltiplos clientes | 🔴 open |

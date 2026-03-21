@@ -56,10 +56,8 @@ Nenhuma — esta é a tarefa fundacional.
 
 ## GitHub Issues
 
-| # | Title | Status |
-|---|-------|--------|
-| [#2](https://github.com/PellizzoniCode/auction-kings/issues/2) | [EPIC] W1 Fundação e Base do Repositório | ✅ closed |
-| [#3](https://github.com/PellizzoniCode/auction-kings/issues/3) | Criar solução e estrutura inicial de projetos (.NET) | ✅ closed |
-| [#4](https://github.com/PellizzoniCode/auction-kings/issues/4) | Adicionar Directory.Build.props e Directory.Packages.props | ✅ closed |
-| [#9](https://github.com/PellizzoniCode/auction-kings/issues/9) | [EPIC] W1 Domínio (Modelagem e Regras) | ✅ closed |
-| [#12](https://github.com/PellizzoniCode/auction-kings/issues/12) | Implementar Result pattern + Domain Errors | ✅ closed |
+| #                                                                | Title                                                      | Status    |
+| ---------------------------------------------------------------- | ---------------------------------------------------------- | --------- |
+| [#3](https://github.com/PellizzoniCode/auction-kings/issues/3)   | Criar solução e estrutura inicial de projetos (.NET)       | ✅ closed |
+| [#4](https://github.com/PellizzoniCode/auction-kings/issues/4)   | Adicionar Directory.Build.props e Directory.Packages.props | ✅ closed |
+| [#12](https://github.com/PellizzoniCode/auction-kings/issues/12) | Implementar Result pattern + Domain Errors                 | ✅ closed |

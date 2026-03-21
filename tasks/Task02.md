@@ -63,11 +63,10 @@ O core do domínio é o aggregate `Auction` que controla o ciclo de vida de um l
 
 ## GitHub Issues
 
-| # | Title | Status |
-|---|-------|--------|
-| [#9](https://github.com/PellizzoniCode/auction-kings/issues/9) | [EPIC] W1 Domínio (Modelagem e Regras) | ✅ closed |
-| [#10](https://github.com/PellizzoniCode/auction-kings/issues/10) | Implementar entidades do domínio: Auction, Bid | ✅ closed |
+| #                                                                | Title                                                  | Status    |
+| ---------------------------------------------------------------- | ------------------------------------------------------ | --------- |
+| [#10](https://github.com/PellizzoniCode/auction-kings/issues/10) | Implementar entidades do domínio: Auction, Bid         | ✅ closed |
 | [#11](https://github.com/PellizzoniCode/auction-kings/issues/11) | Implementar Value Objects (Money, AuctionId, BidderId) | ✅ closed |
-| [#12](https://github.com/PellizzoniCode/auction-kings/issues/12) | Implementar Result pattern + Domain Errors | ✅ closed |
-| [#13](https://github.com/PellizzoniCode/auction-kings/issues/13) | Regras de negócio: place bid (validações) | ✅ closed |
-| [#14](https://github.com/PellizzoniCode/auction-kings/issues/14) | Unit tests do Domínio (Auction/Bid/VOs) | ✅ closed |
+| [#12](https://github.com/PellizzoniCode/auction-kings/issues/12) | Implementar Result pattern + Domain Errors             | ✅ closed |
+| [#13](https://github.com/PellizzoniCode/auction-kings/issues/13) | Regras de negócio: place bid (validações)              | ✅ closed |
+| [#14](https://github.com/PellizzoniCode/auction-kings/issues/14) | Unit tests do Domínio (Auction/Bid/VOs)                | ✅ closed |

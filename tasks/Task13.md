@@ -54,5 +54,4 @@ O `AuctionKings.BackgroundWorkers` é um projeto console separado que roda worke
 
 | # | Title | Status |
 |---|-------|--------|
-| [#30](https://github.com/PellizzoniCode/auction-kings/issues/30) | [EPIC] W3 Concorrência + Idempotência + Outbox | 🔴 open |
 | [#37](https://github.com/PellizzoniCode/auction-kings/issues/37) | Implementar OutboxProcessor BackgroundService (SKIP LOCKED) | ✅ closed |

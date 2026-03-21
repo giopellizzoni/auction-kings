@@ -54,12 +54,11 @@ O Outbox Pattern garante consistência entre a persistência de aggregates e a p
 
 ## GitHub Issues
 
-| # | Title | Status |
-|---|-------|--------|
-| [#30](https://github.com/PellizzoniCode/auction-kings/issues/30) | [EPIC] W3 Concorrência + Idempotência + Outbox | 🔴 open |
-| [#33](https://github.com/PellizzoniCode/auction-kings/issues/33) | Adicionar Idempotency (header X-Request-Id) | ✅ closed |
-| [#34](https://github.com/PellizzoniCode/auction-kings/issues/34) | Adicionar tabela IdempotencyKeys + índice unique | ✅ closed |
-| [#35](https://github.com/PellizzoniCode/auction-kings/issues/35) | Criar Outbox table e modelo | ✅ closed |
-| [#36](https://github.com/PellizzoniCode/auction-kings/issues/36) | Integrar Outbox no PlaceBid (gravar evento BidPlaced) | ✅ closed |
+| #                                                                | Title                                                       | Status    |
+| ---------------------------------------------------------------- | ----------------------------------------------------------- | --------- |
+| [#33](https://github.com/PellizzoniCode/auction-kings/issues/33) | Adicionar Idempotency (header X-Request-Id)                 | ✅ closed |
+| [#34](https://github.com/PellizzoniCode/auction-kings/issues/34) | Adicionar tabela IdempotencyKeys + índice unique            | ✅ closed |
+| [#35](https://github.com/PellizzoniCode/auction-kings/issues/35) | Criar Outbox table e modelo                                 | ✅ closed |
+| [#36](https://github.com/PellizzoniCode/auction-kings/issues/36) | Integrar Outbox no PlaceBid (gravar evento BidPlaced)       | ✅ closed |
 | [#37](https://github.com/PellizzoniCode/auction-kings/issues/37) | Implementar OutboxProcessor BackgroundService (SKIP LOCKED) | ✅ closed |
-| [#38](https://github.com/PellizzoniCode/auction-kings/issues/38) | Escolher bus inicial: InMemory -> depois SQS | 🔴 open |
+| [#38](https://github.com/PellizzoniCode/auction-kings/issues/38) | Escolher bus inicial: InMemory -> depois SQS                | 🔴 open   |

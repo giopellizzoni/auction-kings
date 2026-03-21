@@ -70,4 +70,3 @@ Todos os testes listados nas Tasks 01-05 e 07 devem estar aqui, totalizando no m
 | # | Title | Status |
 |---|-------|--------|
 | [#14](https://github.com/PellizzoniCode/auction-kings/issues/14) | Unit tests do Domínio (Auction/Bid/VOs) | ✅ closed |
-| [#59](https://github.com/PellizzoniCode/auction-kings/issues/59) | [EPIC] W7 Testes Sênior (Unit/Integration/Architecture) + Load Test | 🔴 open |

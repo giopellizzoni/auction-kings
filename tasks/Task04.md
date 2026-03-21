@@ -56,9 +56,8 @@ Com o pipeline MediatR e as interfaces definidos (Task 03), é hora de implement
 
 ## GitHub Issues
 
-| # | Title | Status |
-|---|-------|--------|
-| [#22](https://github.com/PellizzoniCode/auction-kings/issues/22) | [EPIC] W2 Application Layer (MediatR, validação, pipeline) | 🔴 open |
-| [#24](https://github.com/PellizzoniCode/auction-kings/issues/24) | Implementar CreateAuctionCommand + Handler | ✅ closed |
-| [#25](https://github.com/PellizzoniCode/auction-kings/issues/25) | Implementar PlaceBidCommand + Handler | ✅ closed |
-| [#32](https://github.com/PellizzoniCode/auction-kings/issues/32) | Implementar estratégia de retry para conflito de concorrência | 🔴 open |
+| #                                                                | Title                                                         | Status    |
+| ---------------------------------------------------------------- | ------------------------------------------------------------- | --------- |
+| [#24](https://github.com/PellizzoniCode/auction-kings/issues/24) | Implementar CreateAuctionCommand + Handler                    | ✅ closed |
+| [#25](https://github.com/PellizzoniCode/auction-kings/issues/25) | Implementar PlaceBidCommand + Handler                         | ✅ closed |
+| [#32](https://github.com/PellizzoniCode/auction-kings/issues/32) | Implementar estratégia de retry para conflito de concorrência | 🔴 open   |

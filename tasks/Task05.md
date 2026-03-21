@@ -53,8 +53,7 @@ As queries representam o lado de leitura do CQRS. Diferente dos commands, querie
 
 ## GitHub Issues
 
-| # | Title | Status |
-|---|-------|--------|
-| [#22](https://github.com/PellizzoniCode/auction-kings/issues/22) | [EPIC] W2 Application Layer (MediatR, validação, pipeline) | 🔴 open |
-| [#26](https://github.com/PellizzoniCode/auction-kings/issues/26) | Implementar GetAuctionQuery + ListAuctionsQuery | ✅ closed |
-| [#29](https://github.com/PellizzoniCode/auction-kings/issues/29) | Adicionar Mapster/AutoMapper para DTOs | 🔴 open |
+| #                                                                | Title                                               | Status    |
+| ---------------------------------------------------------------- | --------------------------------------------------- | --------- |
+| [#26](https://github.com/PellizzoniCode/auction-kings/issues/26) | Implementar GetAuctionQuery + ListAuctionsQuery     | ✅ closed |
+| [#29](https://github.com/PellizzoniCode/auction-kings/issues/29) | Adicionar Mapster/AutoMapper para DTOs              | 🔴 open   |

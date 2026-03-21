@@ -55,5 +55,4 @@ O `Program.cs` atual registra `AddHealthChecks()` e mapeia apenas `/health/live`
 | # | Title | Status |
 |---|-------|--------|
 | [#8](https://github.com/PellizzoniCode/auction-kings/issues/8) | Configurar HealthCheck básico (/health) | ✅ closed |
-| [#53](https://github.com/PellizzoniCode/auction-kings/issues/53) | [EPIC] W6 Observabilidade + Resiliência | 🔴 open |
 | [#56](https://github.com/PellizzoniCode/auction-kings/issues/56) | Health checks: DB, Redis, OutboxProcessor | 🔴 open |

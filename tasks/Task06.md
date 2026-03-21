@@ -63,7 +63,6 @@ A camada de infraestrutura implementa as interfaces definidas na Application Lay
 
 | # | Title | Status |
 |---|-------|--------|
-| [#15](https://github.com/PellizzoniCode/auction-kings/issues/15) | [EPIC] W2 Infra de Dados + API MVP | ✅ closed |
 | [#16](https://github.com/PellizzoniCode/auction-kings/issues/16) | Configurar EF Core + Postgres (DbContext) | ✅ closed |
 | [#17](https://github.com/PellizzoniCode/auction-kings/issues/17) | Definir schema inicial (Auctions, Bids) | ✅ closed |
 | [#18](https://github.com/PellizzoniCode/auction-kings/issues/18) | Implementar Repositories básicos | ✅ closed |

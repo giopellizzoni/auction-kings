@@ -55,5 +55,4 @@ O workflow de CI em `.github/workflows/ci.yml` existe mas contém apenas `echo` 
 
 | # | Title | Status |
 |---|-------|--------|
-| [#65](https://github.com/PellizzoniCode/auction-kings/issues/65) | [EPIC] W8 CI/CD + Docker + Deploy (staging) + Polimento de Portfólio | 🔴 open |
 | [#66](https://github.com/PellizzoniCode/auction-kings/issues/66) | Adicionar GitHub Actions: build + test + lint | 🔴 open |

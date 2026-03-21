@@ -56,9 +56,8 @@ A camada Application orquestra os use cases via CQRS (Command/Query Responsibili
 
 ## GitHub Issues
 
-| # | Title | Status |
-|---|-------|--------|
-| [#22](https://github.com/PellizzoniCode/auction-kings/issues/22) | [EPIC] W2 Application Layer (MediatR, validação, pipeline) | ✅ closed |
-| [#23](https://github.com/PellizzoniCode/auction-kings/issues/23) | Configurar MediatR e padrões CQRS | ✅ closed |
-| [#27](https://github.com/PellizzoniCode/auction-kings/issues/27) | Adicionar FluentValidation para commands | ✅ closed |
+| #                                                                | Title                                               | Status    |
+| ---------------------------------------------------------------- | --------------------------------------------------- | --------- |
+| [#23](https://github.com/PellizzoniCode/auction-kings/issues/23) | Configurar MediatR e padrões CQRS                   | ✅ closed |
+| [#27](https://github.com/PellizzoniCode/auction-kings/issues/27) | Adicionar FluentValidation para commands            | ✅ closed |
 | [#28](https://github.com/PellizzoniCode/auction-kings/issues/28) | Adicionar Pipeline Behavior de Logging + Validation | ✅ closed |

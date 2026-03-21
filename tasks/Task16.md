@@ -64,5 +64,4 @@ Architecture tests garantem que as regras de dependência da Clean Architecture 
 
 | # | Title | Status |
 |---|-------|--------|
-| [#59](https://github.com/PellizzoniCode/auction-kings/issues/59) | [EPIC] W7 Testes Sênior (Unit/Integration/Architecture) + Load Test | 🔴 open |
 | [#61](https://github.com/PellizzoniCode/auction-kings/issues/61) | Adicionar Architecture tests (camadas e referências) | 🔴 open |
