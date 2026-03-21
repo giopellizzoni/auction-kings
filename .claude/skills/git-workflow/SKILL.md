@@ -207,30 +207,6 @@ Automate changelogs/releases with tools like:
 
 ### Don’t
 
-: breaking change
-
-- MINOR: new feature (backward compatible)
-- PATCH: bug fix (backward compatible)
-
-Automate changelogs/releases with tools like:
-
-- semantic-release
-- release-please
-- conventional-changelog
-
----
-
-## Do / Don’t
-
-### Do
-
-- write clear commit messages
-- rebase frequently
-- keep PRs small and focused
-- document behavior changes
-
-### Don’t
-
 - commit secrets or credentials
 - push directly to `main`
 - mix refactors + features + formatting in one PR

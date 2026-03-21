@@ -46,10 +46,10 @@ if [ -f "$TARGET" ]; then
     echo "Skipped: Code analysis runs on projects, not individual files"
 else
     # Find and analyze all C# projects
-    find "$TARGET" -name "*.csproj" -type f | while read -r project; do
+    while read -r project; do
         echo "Analyzing: $project"
         dotnet build "$project" /p:EnforceCodeStyleInBuild=true /p:EnableNETAnalyzers=true -v minimal 2>/dev/null || EXIT_CODE=1
-    done
+    done < <(find "$TARGET" -name "*.csproj" -type f)
 fi
 
 echo ""

@@ -73,14 +73,6 @@ Secrets are in `/docker/secrets/` (not committed). DB: `AuctionKingsDB`, user: `
 
 ### Current State
 
-### Build Configuration
-
-- Centralized NuGet versions in `Directory.Packages.props` — add packages there, not in individual `.csproj` files
-- Global build settings in `Directory.Build.props` — targets `net10.0`, C# 14, nullable enabled, analyzers enforced
-- Code style rules in `.editorconfig`
-
-### Current State
-
 Most controllers (`AuctionsController`, `BidsController`, `UsersControllers`), hubs, and filters are scaffolded stubs awaiting implementation. The domain base classes and infrastructure setup are in place.
 
 Full architecture specification (in Portuguese) is in `/architecture/ARCHITECTURE.md`, covering the planned v2.0 roadmap including AWS deployment (ECS Fargate, RDS, DynamoDB, Cognito), saga pattern, and full observability stack.
@@ -88,4 +80,4 @@ Full architecture specification (in Portuguese) is in `/architecture/ARCHITECTUR
 ### Custom Instructions
 
 - Do not supress warnings format the code as should be described on .editorconfig
-- Check the `.claude` directory for skills and create a commit and a PR yourself
+- Always search for **agents** and **skills** to help you implement the tasks
