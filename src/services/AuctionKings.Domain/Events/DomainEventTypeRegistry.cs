@@ -1,5 +1,3 @@
-using AuctionKings.Shared.Common;
-
 namespace AuctionKings.Domain.Events;
 
 public static class DomainEventTypeRegistry
