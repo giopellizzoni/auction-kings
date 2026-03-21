@@ -55,7 +55,7 @@ A API precisa de middleware e filters cross-cutting: tratamento global de exceç
 
 ## GitHub Issues
 
-| # | Title | Status |
-|---|-------|--------|
+| #                                                                | Title                                       | Status  |
+| ---------------------------------------------------------------- | ------------------------------------------- | ------- |
 | [#33](https://github.com/PellizzoniCode/auction-kings/issues/33) | Adicionar Idempotency (header X-Request-Id) | 🔴 open |
-| [#55](https://github.com/PellizzoniCode/auction-kings/issues/55) | Adicionar Correlation ID middleware | 🔴 open |
+| [#55](https://github.com/PellizzoniCode/auction-kings/issues/55) | Adicionar Correlation ID middleware         | 🔴 open |

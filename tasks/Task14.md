@@ -36,6 +36,7 @@ O projeto `AuctionKings.UnitTests` contém apenas um teste vazio placeholder. Un
 ## Testes Obrigatórios
 
 Todos os testes listados nas Tasks 01-05 e 07 devem estar aqui, totalizando no mínimo:
+
 - 10+ testes de Domain (Auction, Bid, Value Objects)
 - 7+ testes de Command Handlers
 - 5+ testes de Query Handlers
@@ -67,6 +68,7 @@ Todos os testes listados nas Tasks 01-05 e 07 devem estar aqui, totalizando no m
 
 ## GitHub Issues
 
-| # | Title | Status |
-|---|-------|--------|
+| #                                                                | Title                                   | Status    |
+| ---------------------------------------------------------------- | --------------------------------------- | --------- |
+| ---                                                              | -------                                 | --------  |
 | [#14](https://github.com/PellizzoniCode/auction-kings/issues/14) | Unit tests do Domínio (Auction/Bid/VOs) | ✅ closed |

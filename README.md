@@ -53,6 +53,7 @@ cd auction-kings
 ### 2. Setup Database Credentials
 
 The project uses Docker secrets for secure password management. Password files already exist in `docker/secrets/`:
+
 - `postgres_password.txt` - PostgreSQL password
 - `redis_password.txt` - Redis password
 
@@ -74,6 +75,7 @@ docker ps
 ```
 
 You should see:
+
 - `infra-postgres` (PostgreSQL 16) on port 5432
 - `infra-redis` (Redis 7) on port 6379
 
@@ -98,6 +100,7 @@ dotnet run --project src/services/AuctionKings.API/AuctionKings.API.csproj
 ```
 
 The API will be available at:
+
 - HTTP: `http://localhost:5081`
 - HTTPS: `https://localhost:7145`
 - Swagger UI: `http://localhost:5081/swagger` (Development environment)
@@ -160,6 +163,7 @@ Real-time features are available through SignalR hubs:
 ### Database Connection
 
 Database configuration is managed through:
+
 - User: `dev`
 - Database: `AuctionKingsDB`
 - Host: `localhost`
@@ -169,6 +173,7 @@ Database configuration is managed through:
 ### Redis Connection
 
 Redis configuration:
+
 - Host: `localhost`
 - Port: `6379`
 - Password: See `docker/secrets/redis_password.txt`
@@ -176,6 +181,7 @@ Redis configuration:
 ### Environment Variables
 
 Key environment variables are in `docker/.env`:
+
 - `POSTGRES_USER`, `POSTGRES_DB`, `POSTGRES_HOST_PORT`
 - `REDIS_HOST_PORT`
 - Password file paths for secrets
@@ -185,6 +191,7 @@ Key environment variables are in `docker/.env`:
 ### Architecture Patterns
 
 The project follows Clean Architecture principles with:
+
 - **Entity & AggregateRoot** base classes for DDD
 - **Repository Pattern** for data access
 - **CQRS** considerations (separate read/write models)
@@ -237,26 +244,26 @@ docker logs infra-redis
 
 ## Task Progress
 
-| Task | Description | Status | Notes |
-|------|-------------|--------|-------|
-| [Task 01](tasks/Task01.md) | Base Classes: Entity, AggregateRoot, Result, Error | ✅ Completed | |
-| [Task 02](tasks/Task02.md) | Domain Model: Auction aggregate, Bid, Value Objects, Events | ✅ Completed | |
-| [Task 03](tasks/Task03.md) | Application Layer: MediatR, CQRS pipeline behaviors, interfaces | ✅ Completed | |
-| [Task 04](tasks/Task04.md) | Commands: CreateAuction, PlaceBid, CloseAuction | ✅ Completed | |
-| [Task 05](tasks/Task05.md) | Queries: GetAuctionDetails, GetActiveAuctions, GetAuctionBids | ✅ Completed | |
-| [Task 06](tasks/Task06.md) | Infrastructure: EF Core, DbContext, Repositories, UnitOfWork | ✅ Completed | |
-| [Task 07](tasks/Task07.md) | Outbox Processor and Idempotency | ✅ Completed | |
-| [Task 08](tasks/Task08.md) | Redis Cache Service and Rate Limiter | ✅ Completed | |
-| [Task 09](tasks/Task09.md) | SignalR Hubs: AuctionHub, NotificationHub | ⏳ Not Started | 🔴 [#43](https://github.com/PellizzoniCode/auction-kings/issues/43) [#44](https://github.com/PellizzoniCode/auction-kings/issues/44) [#45](https://github.com/PellizzoniCode/auction-kings/issues/45) [#46](https://github.com/PellizzoniCode/auction-kings/issues/46) [#47](https://github.com/PellizzoniCode/auction-kings/issues/47) |
-| [Task 10](tasks/Task10.md) | API Controllers: Auctions, Bids, Users | ⏳ Not Started | 🔴 [#19](https://github.com/PellizzoniCode/auction-kings/issues/19) [#20](https://github.com/PellizzoniCode/auction-kings/issues/20) [#21](https://github.com/PellizzoniCode/auction-kings/issues/21) |
-| [Task 11](tasks/Task11.md) | Middleware: Global Exception Filter, Correlation ID | ⏳ Not Started | 🔴 [#33](https://github.com/PellizzoniCode/auction-kings/issues/33) [#55](https://github.com/PellizzoniCode/auction-kings/issues/55) |
-| [Task 12](tasks/Task12.md) | Health Checks: DB, Redis, OutboxProcessor | 🔄 In Progress | ✅ [#8](https://github.com/PellizzoniCode/auction-kings/issues/8) · 🔴 [#56](https://github.com/PellizzoniCode/auction-kings/issues/56) |
-| [Task 13](tasks/Task13.md) | Background Workers: AuctionCloseWorker, CleanupWorker | 🔄 In Progress | ✅ [#37](https://github.com/PellizzoniCode/auction-kings/issues/37) |
-| [Task 14](tasks/Task14.md) | Unit Tests: Domain, Application, Behaviors, Shared | ✅ Completed | |
-| [Task 15](tasks/Task15.md) | Integration Tests with Testcontainers | 🔄 In Progress | ✅ [#60](https://github.com/PellizzoniCode/auction-kings/issues/60) · 🔴 [#39](https://github.com/PellizzoniCode/auction-kings/issues/39) [#40](https://github.com/PellizzoniCode/auction-kings/issues/40) |
-| [Task 16](tasks/Task16.md) | Architecture Tests with NetArchTest | ⏳ Not Started | 🔴 [#61](https://github.com/PellizzoniCode/auction-kings/issues/61) |
-| [Task 17](tasks/Task17.md) | CI Pipeline: GitHub Actions | 🔄 In Progress | 🔴 [#66](https://github.com/PellizzoniCode/auction-kings/issues/66) |
-| [Task 18](tasks/Task18.md) | Load Tests with NBomber | ⏳ Not Started | 🔴 [#62](https://github.com/PellizzoniCode/auction-kings/issues/62) [#63](https://github.com/PellizzoniCode/auction-kings/issues/63) [#64](https://github.com/PellizzoniCode/auction-kings/issues/64) |
+| Task                       | Description                                                     | Status         | Notes                                                                                                                                                                                                                                                                                                                                   |
+| -------------------------- | --------------------------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Task 01](tasks/Task01.md) | Base Classes: Entity, AggregateRoot, Result, Error              | ✅ Completed   |                                                                                                                                                                                                                                                                                                                                         |
+| [Task 02](tasks/Task02.md) | Domain Model: Auction aggregate, Bid, Value Objects, Events     | ✅ Completed   |                                                                                                                                                                                                                                                                                                                                         |
+| [Task 03](tasks/Task03.md) | Application Layer: MediatR, CQRS pipeline behaviors, interfaces | ✅ Completed   |                                                                                                                                                                                                                                                                                                                                         |
+| [Task 04](tasks/Task04.md) | Commands: CreateAuction, PlaceBid, CloseAuction                 | ✅ Completed   |                                                                                                                                                                                                                                                                                                                                         |
+| [Task 05](tasks/Task05.md) | Queries: GetAuctionDetails, GetActiveAuctions, GetAuctionBids   | ✅ Completed   |                                                                                                                                                                                                                                                                                                                                         |
+| [Task 06](tasks/Task06.md) | Infrastructure: EF Core, DbContext, Repositories, UnitOfWork    | ✅ Completed   |                                                                                                                                                                                                                                                                                                                                         |
+| [Task 07](tasks/Task07.md) | Outbox Processor and Idempotency                                | ✅ Completed   | 🔴 [#38](https://github.com/PellizzoniCode/auction-kings/issues/38)                                                                                                                                                                                                                                                                     |
+| [Task 08](tasks/Task08.md) | Redis Cache Service and Rate Limiter                            | ✅ Completed   |                                                                                                                                                                                                                                                                                                                                         |
+| [Task 09](tasks/Task09.md) | SignalR Hubs: AuctionHub, NotificationHub                       | ⏳ Not Started | 🔴 [#43](https://github.com/PellizzoniCode/auction-kings/issues/43) [#44](https://github.com/PellizzoniCode/auction-kings/issues/44) [#45](https://github.com/PellizzoniCode/auction-kings/issues/45) [#46](https://github.com/PellizzoniCode/auction-kings/issues/46) [#47](https://github.com/PellizzoniCode/auction-kings/issues/47) |
+| [Task 10](tasks/Task10.md) | API Controllers: Auctions, Bids, Users                          | ⏳ Not Started | 🔴 [#19](https://github.com/PellizzoniCode/auction-kings/issues/19) [#20](https://github.com/PellizzoniCode/auction-kings/issues/20) [#21](https://github.com/PellizzoniCode/auction-kings/issues/21)                                                                                                                                   |
+| [Task 11](tasks/Task11.md) | Middleware: Global Exception Filter, Correlation ID             | ⏳ Not Started | 🔴 [#33](https://github.com/PellizzoniCode/auction-kings/issues/33) [#55](https://github.com/PellizzoniCode/auction-kings/issues/55)                                                                                                                                                                                                    |
+| [Task 12](tasks/Task12.md) | Health Checks: DB, Redis, OutboxProcessor                       | 🔄 In Progress | ✅ [#8](https://github.com/PellizzoniCode/auction-kings/issues/8) · 🔴 [#56](https://github.com/PellizzoniCode/auction-kings/issues/56)                                                                                                                                                                                                 |
+| [Task 13](tasks/Task13.md) | Background Workers: AuctionCloseWorker, CleanupWorker           | 🔄 In Progress | ✅ [#37](https://github.com/PellizzoniCode/auction-kings/issues/37)                                                                                                                                                                                                                                                                     |
+| [Task 14](tasks/Task14.md) | Unit Tests: Domain, Application, Behaviors, Shared              | ✅ Completed   |                                                                                                                                                                                                                                                                                                                                         |
+| [Task 15](tasks/Task15.md) | Integration Tests with Testcontainers                           | 🔄 In Progress | ✅ [#60](https://github.com/PellizzoniCode/auction-kings/issues/60) · 🔴 [#39](https://github.com/PellizzoniCode/auction-kings/issues/39) [#40](https://github.com/PellizzoniCode/auction-kings/issues/40)                                                                                                                              |
+| [Task 16](tasks/Task16.md) | Architecture Tests with NetArchTest                             | ⏳ Not Started | 🔴 [#61](https://github.com/PellizzoniCode/auction-kings/issues/61)                                                                                                                                                                                                                                                                     |
+| [Task 17](tasks/Task17.md) | CI Pipeline: GitHub Actions                                     | 🔄 In Progress | 🔴 [#66](https://github.com/PellizzoniCode/auction-kings/issues/66)                                                                                                                                                                                                                                                                     |
+| [Task 18](tasks/Task18.md) | Load Tests with NBomber                                         | ⏳ Not Started | 🔴 [#62](https://github.com/PellizzoniCode/auction-kings/issues/62) [#63](https://github.com/PellizzoniCode/auction-kings/issues/63) [#64](https://github.com/PellizzoniCode/auction-kings/issues/64)                                                                                                                                   |
 
 **Legend:** ✅ Completed · 🔄 In Progress · ⏳ Not Started
 
@@ -269,4 +276,4 @@ docker logs infra-redis
 
 ## License
 
-[Add your license here]
+This project is licensed under the [MIT License](LICENSE).

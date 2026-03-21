@@ -65,8 +65,8 @@ Integration tests verificam o funcionamento end-to-end das camadas juntas: API �
 
 ## GitHub Issues
 
-| # | Title | Status |
-|---|-------|--------|
-| [#39](https://github.com/PellizzoniCode/auction-kings/issues/39) | Integration test: concorrência de lances (n threads) | 🔴 open |
-| [#40](https://github.com/PellizzoniCode/auction-kings/issues/40) | Integration test: idempotência (mesmo X-Request-Id) | 🔴 open |
-| [#60](https://github.com/PellizzoniCode/auction-kings/issues/60) | Configurar Testcontainers para Postgres e Redis | ✅ closed |
+| #                                                                | Title                                                | Status    |
+| ---------------------------------------------------------------- | ---------------------------------------------------- | --------- |
+| [#39](https://github.com/PellizzoniCode/auction-kings/issues/39) | Integration test: concorrência de lances (n threads) | 🔴 open   |
+| [#40](https://github.com/PellizzoniCode/auction-kings/issues/40) | Integration test: idempotência (mesmo X-Request-Id)  | 🔴 open   |
+| [#60](https://github.com/PellizzoniCode/auction-kings/issues/60) | Configurar Testcontainers para Postgres e Redis      | ✅ closed |

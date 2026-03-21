@@ -52,6 +52,6 @@ O `AuctionKings.BackgroundWorkers` é um projeto console separado que roda worke
 
 ## GitHub Issues
 
-| # | Title | Status |
-|---|-------|--------|
+| #                                                                | Title                                                       | Status    |
+| ---------------------------------------------------------------- | ----------------------------------------------------------- | --------- |
 | [#37](https://github.com/PellizzoniCode/auction-kings/issues/37) | Implementar OutboxProcessor BackgroundService (SKIP LOCKED) | ✅ closed |
