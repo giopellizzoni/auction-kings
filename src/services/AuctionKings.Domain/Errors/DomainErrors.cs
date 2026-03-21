@@ -26,6 +26,9 @@ public static class DomainErrors
 
         public static readonly Error InvalidDuration =
             Error.Validation("Auction.InvalidDuration", "The auction duration is invalid.");
+
+        public static readonly Error ConcurrencyConflict =
+            Error.Conflict("Auction.ConcurrencyConflict", "The bid could not be placed due to a concurrent update. Please try again.");
     }
 
     public static class Bid

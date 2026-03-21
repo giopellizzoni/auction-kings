@@ -1,5 +1,6 @@
 using AuctionKings.Application.Behaviors;
 using FluentValidation;
+using Mapster;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,6 +24,11 @@ public static class DependencyInjection
         });
 
         services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
+
+        var config = TypeAdapterConfig.GlobalSettings;
+        config.Scan(assembly);
+        config.Compile();
+        services.AddSingleton(config);
 
         return services;
     }

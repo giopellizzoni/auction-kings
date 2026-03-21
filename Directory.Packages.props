@@ -12,6 +12,8 @@
     <PackageVersion Include="MediatR" Version="14.0.0" />
     <PackageVersion Include="FluentValidation" Version="12.1.1" />
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
+    <PackageVersion Include="Mapster" Version="7.4.0" />
+    <PackageVersion Include="Mapster.DependencyInjection" Version="1.0.1" />
   </ItemGroup>
 
   <ItemGroup Label="Infrastructure">

@@ -1,7 +1,7 @@
 using AuctionKings.Application.Abstractions;
 using AuctionKings.Application.DTOs;
-using AuctionKings.Domain.Aggregates;
 using AuctionKings.Shared.Common;
+using Mapster;
 using MediatR;
 
 namespace AuctionKings.Application.Auctions.Queries.GetActiveAuctions;
@@ -41,21 +41,11 @@ public sealed class GetActiveAuctionsQueryHandler
 
         var totalCount = await _auctionRepository.CountActiveAuctionsAsync(cancellationToken);
 
-        var items = auctions.Select(MapToDto).ToList();
+        var items = auctions.Adapt<List<AuctionSummaryDto>>();
         var result = new PagedResult<AuctionSummaryDto>(items, totalCount, request.Page, request.PageSize);
 
         await _cacheService.SetAsync(cacheKey, result, CacheExpiry, cancellationToken);
 
         return Result.Success(result);
     }
-
-    private static AuctionSummaryDto MapToDto(Auction auction) =>
-        new(
-            auction.Id,
-            auction.Title,
-            auction.CurrentPrice.Amount,
-            auction.CurrentPrice.Currency,
-            auction.EndTime,
-            auction.Status,
-            auction.Bids.Count);
 }

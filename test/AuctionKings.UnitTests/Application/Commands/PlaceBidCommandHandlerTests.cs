@@ -1,9 +1,11 @@
 using AuctionKings.Application.Abstractions;
 using AuctionKings.Application.Auctions.Commands.PlaceBid;
+using AuctionKings.Application.Exceptions;
 using AuctionKings.Domain.Aggregates;
 using AuctionKings.Domain.ValueObjects;
 using AuctionKings.Shared.Common;
 using NSubstitute;
+using NSubstitute.Core;
 
 namespace AuctionKings.UnitTests.Application.Commands;
 
@@ -98,5 +100,85 @@ public sealed class PlaceBidCommandHandlerTests
                 "USD",
                 Arg.Any<CancellationToken>()
             );
+    }
+
+    [Fact]
+    public async Task PlaceBidCommandHandler_ConcurrencyConflictOnFirstAttempt_ShouldRetryAndSucceed()
+    {
+        var auctionId = Guid.NewGuid();
+        var bidderId = Guid.NewGuid();
+        var commitAttempt = 0;
+
+        _auctionRepository
+            .GetByIdAsync(auctionId, Arg.Any<CancellationToken>())
+            .Returns(_ => CreateActiveAuction());
+
+        _unitOfWork
+            .CommitAsync(Arg.Any<CancellationToken>())
+            .Returns((Func<CallInfo, Task<int>>)(_ =>
+            {
+                if (commitAttempt++ == 0)
+                {
+                    throw new ConcurrencyException();
+                }
+
+                return Task.FromResult(1);
+            }));
+
+        var command = new PlaceBidCommand(auctionId, bidderId, 110m, "USD");
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        await _auctionRepository.Received(2).GetByIdAsync(auctionId, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(2).CommitAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PlaceBidCommandHandler_AllRetriesExhausted_ShouldReturnConcurrencyConflict()
+    {
+        var auctionId = Guid.NewGuid();
+
+        _auctionRepository
+            .GetByIdAsync(auctionId, Arg.Any<CancellationToken>())
+            .Returns(_ => CreateActiveAuction());
+
+        _unitOfWork
+            .CommitAsync(Arg.Any<CancellationToken>())
+            .Returns((Func<CallInfo, Task<int>>)(_ => throw new ConcurrencyException()));
+
+        var command = new PlaceBidCommand(auctionId, Guid.NewGuid(), 110m, "USD");
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("Auction.ConcurrencyConflict", result.Error.Code);
+        await _unitOfWork.Received(3).CommitAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PlaceBidCommandHandler_ConcurrencyConflict_ShouldClearTrackingBetweenRetries()
+    {
+        var auctionId = Guid.NewGuid();
+        var commitAttempt = 0;
+
+        _auctionRepository
+            .GetByIdAsync(auctionId, Arg.Any<CancellationToken>())
+            .Returns(_ => CreateActiveAuction());
+
+        _unitOfWork
+            .CommitAsync(Arg.Any<CancellationToken>())
+            .Returns((Func<CallInfo, Task<int>>)(_ =>
+            {
+                if (commitAttempt++ == 0)
+                {
+                    throw new ConcurrencyException();
+                }
+
+                return Task.FromResult(1);
+            }));
+
+        var command = new PlaceBidCommand(auctionId, Guid.NewGuid(), 110m, "USD");
+        await _handler.Handle(command, CancellationToken.None);
+
+        _unitOfWork.Received(1).ClearTracking();
     }
 }

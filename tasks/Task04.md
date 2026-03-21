@@ -60,4 +60,4 @@ Com o pipeline MediatR e as interfaces definidos (Task 03), é hora de implement
 | ---------------------------------------------------------------- | ------------------------------------------------------------- | --------- |
 | [#24](https://github.com/PellizzoniCode/auction-kings/issues/24) | Implementar CreateAuctionCommand + Handler                    | ✅ closed |
 | [#25](https://github.com/PellizzoniCode/auction-kings/issues/25) | Implementar PlaceBidCommand + Handler                         | ✅ closed |
-| [#32](https://github.com/PellizzoniCode/auction-kings/issues/32) | Implementar estratégia de retry para conflito de concorrência | 🔴 open   |
+| [#32](https://github.com/PellizzoniCode/auction-kings/issues/32) | Implementar estratégia de retry para conflito de concorrência | ✅ closed |
