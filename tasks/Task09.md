@@ -51,14 +51,14 @@ O sistema de tempo real é um diferencial da plataforma. Dois hubs SignalR estã
 
 ## Status
 
-⏳ **Not Started**
+✅ **Completed** — `AuctionHub` and `NotificationHub` implemented with group management and connection lifecycle. `SignalRNotificationService` placed in API layer (avoids circular dependency with Infrastructure). `ConnectionTracker` in Infrastructure with Redis sets + 24h TTL. Redis backplane configured in `Program.cs`. 118 unit tests passing. `[Authorize]` deferred to Task 10 (auth not yet implemented).
 
 ## GitHub Issues
 
-| #                                                                | Title                                                         | Status  |
-| ---------------------------------------------------------------- | ------------------------------------------------------------- | ------- |
-| [#43](https://github.com/PellizzoniCode/auction-kings/issues/43) | Adicionar SignalR e criar AuctionHub                          | 🔴 open |
-| [#44](https://github.com/PellizzoniCode/auction-kings/issues/44) | Broadcast de BidPlaced para grupo do leilão                   | 🔴 open |
-| [#45](https://github.com/PellizzoniCode/auction-kings/issues/45) | Implementar state sync na reconexão                           | 🔴 open |
-| [#46](https://github.com/PellizzoniCode/auction-kings/issues/46) | Configurar Redis backplane para SignalR (dev)                 | 🔴 open |
-| [#47](https://github.com/PellizzoniCode/auction-kings/issues/47) | Teste manual e script simples para simular múltiplos clientes | 🔴 open |
+| #                                                                | Title                                                         | Status     |
+| ---------------------------------------------------------------- | ------------------------------------------------------------- | ---------- |
+| [#43](https://github.com/PellizzoniCode/auction-kings/issues/43) | Adicionar SignalR e criar AuctionHub                          | ✅ closed  |
+| [#44](https://github.com/PellizzoniCode/auction-kings/issues/44) | Broadcast de BidPlaced para grupo do leilão                   | ✅ closed  |
+| [#45](https://github.com/PellizzoniCode/auction-kings/issues/45) | Implementar state sync na reconexão                           | 🔴 open    |
+| [#46](https://github.com/PellizzoniCode/auction-kings/issues/46) | Configurar Redis backplane para SignalR (dev)                 | ✅ closed  |
+| [#47](https://github.com/PellizzoniCode/auction-kings/issues/47) | Teste manual e script simples para simular múltiplos clientes | 🔴 open    |

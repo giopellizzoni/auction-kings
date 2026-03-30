@@ -3,6 +3,7 @@ using AuctionKings.Infrastructure.Cache;
 using AuctionKings.Infrastructure.Outbox;
 using AuctionKings.Infrastructure.Persistence;
 using AuctionKings.Infrastructure.RateLimiting;
+using AuctionKings.Infrastructure.Realtime;
 using AuctionKings.Infrastructure.Repositories;
 using AuctionKings.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -56,6 +57,7 @@ public static class DependencyInjection
         services.AddSingleton<ICacheService, RedisCacheService>();
         services.AddScoped<ICacheInvalidationService, CacheInvalidationService>();
         services.AddSingleton<IRateLimiter, RedisRateLimiter>();
+        services.AddSingleton<IConnectionTracker, ConnectionTracker>();
 
         return services;
     }
