@@ -1,0 +1,37 @@
+{
+  "eval_id": 1,
+  "eval_name": "bidding-flow-domain-audit",
+  "prompt": "Focus specifically on the auction bidding flow — can a user place a bid as someone else, manipulate bid amounts, or bypass the auction state machine? I want to know if the domain and application layer are secure.",
+  "assertions": [
+    {
+      "id": "identifies_idor_in_handlers",
+      "description": "Identifies that PlaceBidCommand handler doesn't verify caller identity against BidderId",
+      "type": "contains_text",
+      "value": "PlaceBidCommand"
+    },
+    {
+      "id": "notes_self_bid_protection",
+      "description": "Notes the seller-cannot-bid-on-own-auction protection in the Auction aggregate",
+      "type": "contains_text",
+      "value": "SellerId"
+    },
+    {
+      "id": "mentions_concurrency",
+      "description": "Mentions optimistic concurrency / version/xmin token in the context of race conditions",
+      "type": "regex",
+      "value": "concurrenc"
+    },
+    {
+      "id": "references_domain_file",
+      "description": "References the Auction.cs aggregate source file",
+      "type": "contains_text",
+      "value": "Auction.cs"
+    },
+    {
+      "id": "has_severity_rating",
+      "description": "Assigns a severity level to at least one finding",
+      "type": "regex",
+      "value": "(Critical|High|Medium|Low|CRITICAL|HIGH|MEDIUM|LOW)"
+    }
+  ]
+}

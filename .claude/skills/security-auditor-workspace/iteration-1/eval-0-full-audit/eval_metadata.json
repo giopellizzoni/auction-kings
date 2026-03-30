@@ -1,0 +1,49 @@
+{
+  "eval_id": 0,
+  "eval_name": "full-aws-deployment-audit",
+  "prompt": "We're about to deploy AuctionKings to AWS. Can you run a full security audit on the project? I need to know everything that could get us hacked or fail a compliance review before we go live.",
+  "assertions": [
+    {
+      "id": "has_critical_findings",
+      "description": "Report contains at least one Critical severity finding",
+      "type": "contains_text",
+      "value": "CRITICAL"
+    },
+    {
+      "id": "has_file_line_refs",
+      "description": "At least one finding references a specific file path under src/services/AuctionKings",
+      "type": "contains_text",
+      "value": "src/services/AuctionKings"
+    },
+    {
+      "id": "covers_auth_gap",
+      "description": "Report identifies the missing UseAuthentication middleware",
+      "type": "contains_text",
+      "value": "UseAuthentication"
+    },
+    {
+      "id": "covers_idor",
+      "description": "Report identifies IDOR / horizontal privilege escalation via BidderId in command handlers",
+      "type": "contains_text",
+      "value": "BidderId"
+    },
+    {
+      "id": "covers_redis_admin",
+      "description": "Report calls out AllowAdmin=true on Redis",
+      "type": "contains_text",
+      "value": "AllowAdmin"
+    },
+    {
+      "id": "has_remediation",
+      "description": "Report includes explicit Remediation sections",
+      "type": "contains_text",
+      "value": "Remediation"
+    },
+    {
+      "id": "has_positive_findings",
+      "description": "Report credits security controls that are correctly implemented",
+      "type": "contains_text",
+      "value": "Positive"
+    }
+  ]
+}
