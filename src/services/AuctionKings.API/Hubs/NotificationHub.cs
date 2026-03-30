@@ -26,6 +26,8 @@ public sealed class NotificationHub(IConnectionTracker connectionTracker) : Hub
             await connectionTracker.UntrackAsync(userId.Value, Context.ConnectionId).ConfigureAwait(false);
         }
 
+        // No explicit Groups.RemoveFromGroupAsync call needed: the SignalR runtime
+        // automatically removes the connection from all groups on disconnect.
         await base.OnDisconnectedAsync(exception).ConfigureAwait(false);
     }
 }

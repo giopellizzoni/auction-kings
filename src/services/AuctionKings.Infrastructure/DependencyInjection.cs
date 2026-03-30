@@ -50,7 +50,6 @@ public static class DependencyInjection
         services.AddSingleton<IConnectionMultiplexer>(_ =>
         {
             var redisConfig = ConfigurationOptions.Parse(redisConnectionString);
-            redisConfig.AllowAdmin = true;
             return ConnectionMultiplexer.Connect(redisConfig);
         });
 
