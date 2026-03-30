@@ -1,0 +1,37 @@
+{
+  "eval_id": 2,
+  "eval_name": "docker-infrastructure-audit",
+  "prompt": "Is our Docker and infrastructure setup secure? Check the compose files, Redis and PostgreSQL config, connection strings, and any secrets handling.",
+  "assertions": [
+    {
+      "id": "finds_connection_string_leak",
+      "description": "Identifies connection strings exposed in appsettings.json source control",
+      "type": "contains_text",
+      "value": "appsettings"
+    },
+    {
+      "id": "finds_redis_allow_admin",
+      "description": "Flags AllowAdmin=true on Redis ConnectionMultiplexer",
+      "type": "contains_text",
+      "value": "AllowAdmin"
+    },
+    {
+      "id": "mentions_secrets_management",
+      "description": "Recommends a secrets manager (Key Vault, Secrets Manager, HashiCorp Vault, or similar)",
+      "type": "regex",
+      "value": "(Key Vault|Secrets Manager|HashiCorp|User Secrets|secrets manager)"
+    },
+    {
+      "id": "references_docker_compose",
+      "description": "References the docker-compose infrastructure file",
+      "type": "contains_text",
+      "value": "docker-compose"
+    },
+    {
+      "id": "has_file_reference",
+      "description": "Includes at least one specific file reference in findings",
+      "type": "regex",
+      "value": "(DependencyInjection\\.cs|docker-compose|appsettings)"
+    }
+  ]
+}

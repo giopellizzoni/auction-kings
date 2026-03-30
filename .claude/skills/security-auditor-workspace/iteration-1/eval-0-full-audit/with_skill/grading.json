@@ -1,0 +1,44 @@
+{
+  "eval_id": 0,
+  "configuration": "with_skill",
+  "expectations": [
+    {
+      "text": "Report contains at least one Critical severity finding",
+      "passed": true,
+      "evidence": "Report has '### CRITICAL' section with 4 findings (C-1 through C-4). Line 12: '### CRITICAL'"
+    },
+    {
+      "text": "At least one finding references a specific file path under src/services/AuctionKings",
+      "passed": true,
+      "evidence": "Multiple findings reference exact paths with line numbers e.g. 'src/services/AuctionKings.API/Program.cs:1-43', 'src/services/AuctionKings.Application/Auctions/Commands/PlaceBid/PlaceBidCommand.cs:6-10'"
+    },
+    {
+      "text": "Report identifies the missing UseAuthentication middleware",
+      "passed": true,
+      "evidence": "C-1 finding explicitly states: 'UseAuthentication() is also absent from the middleware pipeline.' and remediation includes 'app.UseAuthentication() immediately before app.UseAuthorization()'"
+    },
+    {
+      "text": "Report identifies IDOR / horizontal privilege escalation via BidderId in command handlers",
+      "passed": true,
+      "evidence": "C-3 finding: 'PlaceBidCommand.BidderId and CreateAuctionCommand.SellerId come directly from the request body. An authenticated user can trivially supply any other user's GUID and act as that user.'"
+    },
+    {
+      "text": "Report calls out AllowAdmin=true on Redis",
+      "passed": true,
+      "evidence": "H-6 finding: 'src/services/AuctionKings.Infrastructure/DependencyInjection.cs:53 — redisConfig.AllowAdmin = true. AllowAdmin flag enables FLUSHDB, FLUSHALL, CONFIG SET...'"
+    },
+    {
+      "text": "Report includes explicit Remediation sections",
+      "passed": true,
+      "evidence": "Every finding has a '- **Remediation**:' subsection with specific, actionable guidance including code snippets"
+    },
+    {
+      "text": "Report credits security controls that are correctly implemented",
+      "passed": true,
+      "evidence": "'## Positive Findings' section lists 11 bullet points crediting self-bid protection, dual concurrency tokens, concurrency retry loop, Docker secrets pattern, no raw SQL, etc."
+    }
+  ],
+  "score": 7,
+  "max_score": 7,
+  "pass_rate": 1.0
+}

@@ -1,0 +1,34 @@
+{
+  "eval_id": 1,
+  "configuration": "with_skill",
+  "expectations": [
+    {
+      "text": "Identifies that PlaceBidCommand handler doesn't verify caller identity against BidderId",
+      "passed": true,
+      "evidence": "C-1 finding: 'PlaceBidCommand accepts BidderId from the request body. PlaceBidCommandHandler passes it directly to auction.PlaceBid() with no comparison against the JWT principal.'"
+    },
+    {
+      "text": "Notes the seller-cannot-bid-on-own-auction protection in the Auction aggregate",
+      "passed": true,
+      "evidence": "Positive findings: 'Self-bid protection is correctly implemented at the domain level: Auction.PlaceBid: check bidderId == SellerId returns DomainErrors.Auction.CannotBidOnOwnAuction'"
+    },
+    {
+      "text": "Mentions optimistic concurrency / version/xmin token in the context of race conditions",
+      "passed": true,
+      "evidence": "Positive findings: 'Dual optimistic concurrency tokens are in place: application-level Version property... plus the PostgreSQL xmin shadow property — both will throw ConcurrencyException on conflicting updates.'"
+    },
+    {
+      "text": "References the Auction.cs aggregate source file",
+      "passed": true,
+      "evidence": "Multiple references: 'src/services/AuctionKings.Domain/Aggregates/Auction.cs:127-158', 'Auction.cs:11-12', 'Auction.cs:97-100'"
+    },
+    {
+      "text": "Assigns a severity level to at least one finding",
+      "passed": true,
+      "evidence": "Report has CRITICAL, HIGH, MEDIUM, LOW sections, each with severity labels on findings"
+    }
+  ],
+  "score": 5,
+  "max_score": 5,
+  "pass_rate": 1.0
+}

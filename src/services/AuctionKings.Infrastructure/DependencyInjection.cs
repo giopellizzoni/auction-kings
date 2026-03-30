@@ -3,6 +3,7 @@ using AuctionKings.Infrastructure.Cache;
 using AuctionKings.Infrastructure.Outbox;
 using AuctionKings.Infrastructure.Persistence;
 using AuctionKings.Infrastructure.RateLimiting;
+using AuctionKings.Infrastructure.Realtime;
 using AuctionKings.Infrastructure.Repositories;
 using AuctionKings.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -49,13 +50,13 @@ public static class DependencyInjection
         services.AddSingleton<IConnectionMultiplexer>(_ =>
         {
             var redisConfig = ConfigurationOptions.Parse(redisConnectionString);
-            redisConfig.AllowAdmin = true;
             return ConnectionMultiplexer.Connect(redisConfig);
         });
 
         services.AddSingleton<ICacheService, RedisCacheService>();
         services.AddScoped<ICacheInvalidationService, CacheInvalidationService>();
         services.AddSingleton<IRateLimiter, RedisRateLimiter>();
+        services.AddSingleton<IConnectionTracker, ConnectionTracker>();
 
         return services;
     }

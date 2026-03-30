@@ -33,3 +33,23 @@ Enforce Clean Architecture dependency direction: `API → Application → Domain
 - Verify CQRS separation: commands in `Commands/`, queries in `Queries/`
 - Ensure domain events are published via Outbox Pattern, not directly
 - Check that aggregates only expose behavior through methods, not public setters
+
+## Review Checklist
+
+- [ ] Zero critical security issues
+- [ ] Code coverage > 80%
+- [ ] Cyclomatic complexity < 10
+- [ ] No suppressed warnings — fix root cause
+- [ ] No architecture boundary violations
+- [ ] Performance impact validated
+- [ ] Best practices followed
+
+## Feedback Format
+
+For each issue found, report using this structure:
+
+1. **Severity**: Critical / High / Medium / Low
+2. **Location**: File path and line number
+3. **Problem**: What is wrong and why
+4. **Fix**: Concrete code suggestion
+5. **Reference**: CWE / OWASP category for security issues
