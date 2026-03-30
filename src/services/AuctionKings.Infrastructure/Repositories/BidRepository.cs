@@ -42,6 +42,26 @@ internal sealed class BidRepository : IBidRepository
         return (items, totalCount);
     }
 
+    public async Task<(IReadOnlyList<Bid> Items, int TotalCount)> GetByBidderIdPagedAsync(
+        Guid bidderId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var query = _context.Bids.Where(b => b.BidderId == bidderId);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderByDescending(b => b.PlacedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
+
     public async Task AddAsync(Bid bid, CancellationToken cancellationToken = default)
     {
         await _context.Bids.AddAsync(bid, cancellationToken);
