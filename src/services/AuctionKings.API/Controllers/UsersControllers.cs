@@ -1,10 +1,1 @@
-using Microsoft.AspNetCore.Mvc;
-
-namespace AuctionKings.API.Controllers
-{
-    [Route("api/[controller]")]
-    [ApiController]
-    public class UsersControllers : ControllerBase
-    {
-    }
-}
+// Class moved to UsersController.cs — file retained to preserve git history.

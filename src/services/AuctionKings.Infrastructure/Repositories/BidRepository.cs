@@ -29,7 +29,27 @@ internal sealed class BidRepository : IBidRepository
         CancellationToken cancellationToken = default
     )
     {
-        var query = _context.Bids.Where(b => b.AuctionId == auctionId);
+        var query = _context.Bids.AsNoTracking().Where(b => b.AuctionId == auctionId);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderByDescending(b => b.PlacedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
+
+    public async Task<(IReadOnlyList<Bid> Items, int TotalCount)> GetByBidderIdPagedAsync(
+        Guid bidderId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var query = _context.Bids.AsNoTracking().Where(b => b.BidderId == bidderId);
 
         var totalCount = await query.CountAsync(cancellationToken);
 
