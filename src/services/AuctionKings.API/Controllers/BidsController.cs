@@ -22,7 +22,7 @@ public sealed class BidsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> PlaceBid(
-        Guid auctionId,
+        [FromRoute] Guid auctionId,
         [FromBody] PlaceBidRequest request,
         CancellationToken cancellationToken)
     {
@@ -34,29 +34,40 @@ public sealed class BidsController : ControllerBase
             return MapError(result.Error);
         }
 
-        return Created($"api/auctions/{auctionId}/bids/{result.Value}", result.Value);
+        return Created($"/api/auctions/{auctionId}/bids/{result.Value}", result.Value);
     }
 
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<BidDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetBids(
-        Guid auctionId,
+        [FromRoute] Guid auctionId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
-        pageSize = Math.Min(pageSize, 50);
+        if (page < 1)
+        {
+            page = 1;
+        }
+
+        pageSize = Math.Clamp(pageSize, 1, 50);
 
         var query = new GetAuctionBidsQuery(auctionId, page, pageSize);
         var result = await _sender.Send(query, cancellationToken);
 
+        if (result.IsFailure)
+        {
+            return MapError(result.Error);
+        }
+
         return Ok(result.Value);
     }
 
-    private ActionResult MapError(Error error) =>
-        error.Code.Contains("NotFound")
-            ? NotFound(new { error.Code, error.Message })
-            : error.Code.Contains("Conflict")
-                ? Conflict(new { error.Code, error.Message })
-                : BadRequest(new { error.Code, error.Message });
+    private ActionResult MapError(Error error) => error.Type switch
+    {
+        ErrorType.NotFound => NotFound(new { error.Code, error.Message }),
+        ErrorType.Conflict => Conflict(new { error.Code, error.Message }),
+        ErrorType.Unexpected => StatusCode(StatusCodes.Status500InternalServerError, new { error.Code, error.Message }),
+        _ => BadRequest(new { error.Code, error.Message }),
+    };
 }

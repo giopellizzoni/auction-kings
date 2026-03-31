@@ -12,4 +12,6 @@ internal static class CacheKeys
     public static string AuctionPrefix(Guid id) => $"auction:{id}";
 
     public static string ActiveListingsPrefix() => "auctions:active:";
+
+    public static string UserBidsPrefix(Guid userId) => $"user:{userId}:bids:";
 }

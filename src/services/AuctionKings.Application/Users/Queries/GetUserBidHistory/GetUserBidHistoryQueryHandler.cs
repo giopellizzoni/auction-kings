@@ -26,24 +26,19 @@ public sealed class GetUserBidHistoryQueryHandler
     {
         var cacheKey = $"user:{request.UserId}:bids:{request.Page}:{request.PageSize}";
 
-        var cached = await _cacheService.GetAsync<PagedResult<BidDto>>(cacheKey, cancellationToken);
-        if (cached is not null)
-        {
-            return Result.Success(cached);
-        }
+        var pagedResult = await _cacheService.GetOrSetAsync(
+            cacheKey,
+            async ct =>
+            {
+                var (bids, totalCount) = await _bidRepository.GetByBidderIdPagedAsync(
+                    request.UserId, request.Page, request.PageSize, ct);
 
-        var (bids, totalCount) = await _bidRepository.GetByBidderIdPagedAsync(
-            request.UserId,
-            request.Page,
-            request.PageSize,
+                var items = bids.Adapt<List<BidDto>>();
+                return new PagedResult<BidDto>(items, totalCount, request.Page, request.PageSize);
+            },
+            CacheExpiry,
             cancellationToken);
 
-        var items = bids.Adapt<List<BidDto>>();
-
-        var result = new PagedResult<BidDto>(items, totalCount, request.Page, request.PageSize);
-
-        await _cacheService.SetAsync(cacheKey, result, CacheExpiry, cancellationToken);
-
-        return Result.Success(result);
+        return Result.Success(pagedResult);
     }
 }

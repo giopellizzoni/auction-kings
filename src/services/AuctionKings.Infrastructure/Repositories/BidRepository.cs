@@ -29,7 +29,7 @@ internal sealed class BidRepository : IBidRepository
         CancellationToken cancellationToken = default
     )
     {
-        var query = _context.Bids.Where(b => b.AuctionId == auctionId);
+        var query = _context.Bids.AsNoTracking().Where(b => b.AuctionId == auctionId);
 
         var totalCount = await query.CountAsync(cancellationToken);
 
@@ -49,7 +49,7 @@ internal sealed class BidRepository : IBidRepository
         CancellationToken cancellationToken = default
     )
     {
-        var query = _context.Bids.Where(b => b.BidderId == bidderId);
+        var query = _context.Bids.AsNoTracking().Where(b => b.BidderId == bidderId);
 
         var totalCount = await query.CountAsync(cancellationToken);
 

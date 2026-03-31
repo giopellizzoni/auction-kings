@@ -79,6 +79,7 @@ public sealed class PlaceBidCommandHandler : IRequestHandler<PlaceBidCommand, Re
 
             await _cacheInvalidation.InvalidateAuctionAsync(auction.Id, CancellationToken.None);
             await _cacheInvalidation.InvalidateActiveListingsAsync(CancellationToken.None);
+            await _cacheInvalidation.InvalidateUserBidsAsync(request.BidderId, CancellationToken.None);
 
             return Result.Success(bid.Id);
         }

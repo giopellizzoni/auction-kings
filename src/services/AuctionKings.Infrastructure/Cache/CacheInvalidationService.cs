@@ -17,4 +17,9 @@ internal sealed class CacheInvalidationService : ICacheInvalidationService
     public Task InvalidateActiveListingsAsync(
         CancellationToken cancellationToken = default
     ) => _cacheService.RemoveByPrefixAsync(CacheKeys.ActiveListingsPrefix(), cancellationToken);
+
+    public Task InvalidateUserBidsAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default
+    ) => _cacheService.RemoveByPrefixAsync(CacheKeys.UserBidsPrefix(userId), cancellationToken);
 }

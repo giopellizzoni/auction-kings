@@ -57,10 +57,20 @@ public sealed class AuctionsController : ControllerBase
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
-        pageSize = Math.Min(pageSize, 50);
+        if (page < 1)
+        {
+            page = 1;
+        }
+
+        pageSize = Math.Clamp(pageSize, 1, 50);
 
         var query = new GetActiveAuctionsQuery(page, pageSize);
         var result = await _sender.Send(query, cancellationToken);
+
+        if (result.IsFailure)
+        {
+            return MapError(result.Error);
+        }
 
         return Ok(result.Value);
     }
@@ -69,7 +79,7 @@ public sealed class AuctionsController : ControllerBase
     [ProducesResponseType(typeof(AuctionDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetAuctionById(
-        Guid id,
+        [FromRoute] Guid id,
         CancellationToken cancellationToken)
     {
         var query = new GetAuctionDetailsQuery(id);
@@ -88,7 +98,7 @@ public sealed class AuctionsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CloseAuction(
-        Guid id,
+        [FromRoute] Guid id,
         CancellationToken cancellationToken)
     {
         var command = new CloseAuctionCommand(id);
@@ -102,10 +112,11 @@ public sealed class AuctionsController : ControllerBase
         return NoContent();
     }
 
-    private ActionResult MapError(Error error) =>
-        error.Code.Contains("NotFound")
-            ? NotFound(new { error.Code, error.Message })
-            : error.Code.Contains("Conflict")
-                ? Conflict(new { error.Code, error.Message })
-                : BadRequest(new { error.Code, error.Message });
+    private ActionResult MapError(Error error) => error.Type switch
+    {
+        ErrorType.NotFound => NotFound(new { error.Code, error.Message }),
+        ErrorType.Conflict => Conflict(new { error.Code, error.Message }),
+        ErrorType.Unexpected => StatusCode(StatusCodes.Status500InternalServerError, new { error.Code, error.Message }),
+        _ => BadRequest(new { error.Code, error.Message }),
+    };
 }
