@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace AuctionKings.API.Controllers;
 
-[Route("api/users")]
+[Route("api/v1/users")]
 [ApiController]
 public sealed class UsersController : ControllerBase
 {
