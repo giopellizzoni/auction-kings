@@ -9,7 +9,7 @@ namespace AuctionKings.API.Controllers;
 
 public sealed record PlaceBidRequest(Guid BidderId, decimal Amount, string Currency);
 
-[Route("api/auctions/{auctionId:guid}/bids")]
+[Route("api/v1/auctions/{auctionId:guid}/bids")]
 [ApiController]
 public sealed class BidsController : ControllerBase
 {
@@ -34,7 +34,7 @@ public sealed class BidsController : ControllerBase
             return MapError(result.Error);
         }
 
-        return Created($"/api/auctions/{auctionId}/bids/{result.Value}", result.Value);
+        return Created($"/api/v1/auctions/{auctionId}/bids/{result.Value}", result.Value);
     }
 
     [HttpGet]

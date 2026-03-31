@@ -17,7 +17,7 @@ public sealed record CreateAuctionRequest(
     double DurationInHours,
     Guid SellerId);
 
-[Route("api/auctions")]
+[Route("api/v1/auctions")]
 [ApiController]
 public sealed class AuctionsController : ControllerBase
 {

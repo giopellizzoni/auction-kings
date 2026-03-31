@@ -3,6 +3,7 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" />
     <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" />
+    <PackageReference Include="Scalar.AspNetCore" />
   </ItemGroup>
 
   <ItemGroup>
