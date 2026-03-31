@@ -204,6 +204,8 @@ Automate changelogs/releases with tools like:
 - rebase frequently
 - keep PRs small and focused
 - document behavior changes
+- after code review successful implementation, commit and push the fixes to the same PR branch.
+- after merging, delete the feature branch to keep the repo clean, move to the develop branch and pull the latest changes to keep your local repository up to date.
 
 ### Don’t
 
