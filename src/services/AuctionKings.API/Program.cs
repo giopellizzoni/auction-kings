@@ -1,4 +1,5 @@
 using AuctionKings.API.Hubs;
+using AuctionKings.API.Middleware;
 using AuctionKings.API.Realtime;
 using AuctionKings.Application;
 using AuctionKings.Application.Abstractions;
@@ -32,6 +33,8 @@ builder.Services.AddOpenApi("v1", options =>
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+
+app.UseMiddleware<CorrelationIdMiddleware>();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
