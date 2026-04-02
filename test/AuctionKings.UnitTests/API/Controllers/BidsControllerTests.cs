@@ -6,6 +6,7 @@ using AuctionKings.Domain.Enums;
 using AuctionKings.Domain.Errors;
 using AuctionKings.Shared.Common;
 using MediatR;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
 
@@ -18,7 +19,13 @@ public sealed class BidsControllerTests
 
     public BidsControllerTests()
     {
-        _controller = new BidsController(_sender);
+        var httpContext = new DefaultHttpContext();
+        httpContext.Items["IdempotencyKey"] = "test-idempotency-key";
+
+        _controller = new BidsController(_sender)
+        {
+            ControllerContext = new ControllerContext { HttpContext = httpContext }
+        };
     }
 
     [Fact]

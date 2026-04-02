@@ -57,7 +57,7 @@ public sealed class PlaceBidCommandHandlerTests
         var bidderId = Guid.NewGuid();
         _auctionRepository.GetByIdAsync(auction.Id, Arg.Any<CancellationToken>()).Returns(auction);
 
-        var command = new PlaceBidCommand(auction.Id, bidderId, 110m, "USD");
+        var command = new PlaceBidCommand(auction.Id, bidderId, 110m, "USD", "test-key");
         var result = await _handler.Handle(command, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -73,7 +73,7 @@ public sealed class PlaceBidCommandHandlerTests
             .GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((Auction?)null);
 
-        var command = new PlaceBidCommand(Guid.NewGuid(), Guid.NewGuid(), 110m, "USD");
+        var command = new PlaceBidCommand(Guid.NewGuid(), Guid.NewGuid(), 110m, "USD", "test-key");
         var result = await _handler.Handle(command, CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -87,7 +87,7 @@ public sealed class PlaceBidCommandHandlerTests
         var bidderId = Guid.NewGuid();
         _auctionRepository.GetByIdAsync(auction.Id, Arg.Any<CancellationToken>()).Returns(auction);
 
-        var command = new PlaceBidCommand(auction.Id, bidderId, 110m, "USD");
+        var command = new PlaceBidCommand(auction.Id, bidderId, 110m, "USD", "test-key");
         await _handler.Handle(command, CancellationToken.None);
 
         await _notificationService
@@ -125,7 +125,7 @@ public sealed class PlaceBidCommandHandlerTests
                 return Task.FromResult(1);
             }));
 
-        var command = new PlaceBidCommand(auctionId, bidderId, 110m, "USD");
+        var command = new PlaceBidCommand(auctionId, bidderId, 110m, "USD", "test-key");
         var result = await _handler.Handle(command, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -146,7 +146,7 @@ public sealed class PlaceBidCommandHandlerTests
             .CommitAsync(Arg.Any<CancellationToken>())
             .Returns((Func<CallInfo, Task<int>>)(_ => throw new ConcurrencyException()));
 
-        var command = new PlaceBidCommand(auctionId, Guid.NewGuid(), 110m, "USD");
+        var command = new PlaceBidCommand(auctionId, Guid.NewGuid(), 110m, "USD", "test-key");
         var result = await _handler.Handle(command, CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -176,7 +176,7 @@ public sealed class PlaceBidCommandHandlerTests
                 return Task.FromResult(1);
             }));
 
-        var command = new PlaceBidCommand(auctionId, Guid.NewGuid(), 110m, "USD");
+        var command = new PlaceBidCommand(auctionId, Guid.NewGuid(), 110m, "USD", "test-key");
         await _handler.Handle(command, CancellationToken.None);
 
         _unitOfWork.Received(1).ClearTracking();

@@ -26,7 +26,8 @@ public sealed class BidsController : ControllerBase
         [FromBody] PlaceBidRequest request,
         CancellationToken cancellationToken)
     {
-        var command = new PlaceBidCommand(auctionId, request.BidderId, request.Amount, request.Currency);
+        var idempotencyKey = HttpContext.Items["IdempotencyKey"] as string ?? string.Empty;
+        var command = new PlaceBidCommand(auctionId, request.BidderId, request.Amount, request.Currency, idempotencyKey);
         var result = await _sender.Send(command, cancellationToken);
 
         if (result.IsFailure)

@@ -1,3 +1,4 @@
+using AuctionKings.API.Filters;
 using AuctionKings.API.Hubs;
 using AuctionKings.API.Middleware;
 using AuctionKings.API.Realtime;
@@ -19,7 +20,10 @@ var redisConnectionString =
 builder.Services.AddSignalR().AddStackExchangeRedis(redisConnectionString);
 builder.Services.AddSingleton<IRealtimeNotificationService, SignalRNotificationService>();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<IdempotencyFilter>();
+});
 builder.Services.AddOpenApi("v1", options =>
 {
     options.AddDocumentTransformer((document, _, _) =>
