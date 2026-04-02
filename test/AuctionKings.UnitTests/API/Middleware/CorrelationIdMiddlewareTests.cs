@@ -7,7 +7,7 @@ namespace AuctionKings.UnitTests.API.Middleware;
 
 public sealed class CorrelationIdMiddlewareTests
 {
-    private const string HeaderName = "X-Correlation-Id";
+    private const string HeaderName = CorrelationIdMiddleware.HeaderName;
 
     private static ILogger<CorrelationIdMiddleware> BuildLogger()
     {
@@ -42,5 +42,22 @@ public sealed class CorrelationIdMiddlewareTests
         await middleware.InvokeAsync(httpContext);
 
         Assert.Equal(existingId, httpContext.Response.Headers[HeaderName].ToString());
+    }
+
+    [Fact]
+    public async Task CorrelationIdMiddleware_ShouldBeginLogScopeWithCorrelationId()
+    {
+        var existingId = Guid.NewGuid().ToString();
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.Headers[HeaderName] = existingId;
+        RequestDelegate next = _ => Task.CompletedTask;
+        var logger = BuildLogger();
+        var middleware = new CorrelationIdMiddleware(next, logger);
+
+        await middleware.InvokeAsync(httpContext);
+
+        logger.Received(1).BeginScope(
+            Arg.Is<Dictionary<string, object>>(d =>
+                d.ContainsKey("CorrelationId") && d["CorrelationId"].ToString() == existingId));
     }
 }

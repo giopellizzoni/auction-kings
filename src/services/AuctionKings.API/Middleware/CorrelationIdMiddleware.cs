@@ -1,14 +1,12 @@
-using Microsoft.Extensions.Primitives;
-
 namespace AuctionKings.API.Middleware;
 
 public sealed class CorrelationIdMiddleware(RequestDelegate next, ILogger<CorrelationIdMiddleware> logger)
 {
-    private const string HeaderName = "X-Correlation-Id";
+    public const string HeaderName = "X-Correlation-Id";
 
     public async Task InvokeAsync(HttpContext context)
     {
-        var correlationId = context.Request.Headers.TryGetValue(HeaderName, out StringValues value)
+        var correlationId = context.Request.Headers.TryGetValue(HeaderName, out var value)
             ? value.ToString()
             : Guid.NewGuid().ToString();
 
