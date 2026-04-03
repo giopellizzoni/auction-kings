@@ -8,7 +8,10 @@ public sealed class IdempotencyFilter : IAsyncActionFilter
     private const string HeaderName = "X-Request-Id";
     private const string ItemsKey = "IdempotencyKey";
 
-    public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
+    public async Task OnActionExecutionAsync(
+        ActionExecutingContext context,
+        ActionExecutionDelegate next
+    )
     {
         var method = context.HttpContext.Request.Method;
 
@@ -18,14 +21,14 @@ public sealed class IdempotencyFilter : IAsyncActionFilter
             return;
         }
 
-        if (!context.HttpContext.Request.Headers.TryGetValue(HeaderName, out var values)
-            || string.IsNullOrWhiteSpace(values.ToString()))
+        if (
+            !context.HttpContext.Request.Headers.TryGetValue(HeaderName, out var values)
+            || string.IsNullOrWhiteSpace(values.ToString())
+        )
         {
-            context.Result = new BadRequestObjectResult(new
-            {
-                code = "Idempotency.MissingKey",
-                message = "X-Request-Id header is required"
-            });
+            context.Result = new BadRequestObjectResult(
+                new { code = "Idempotency.MissingKey", message = "X-Request-Id header is required" }
+            );
             return;
         }
 

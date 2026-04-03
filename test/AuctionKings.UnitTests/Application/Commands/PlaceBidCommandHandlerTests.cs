@@ -115,15 +115,19 @@ public sealed class PlaceBidCommandHandlerTests
 
         _unitOfWork
             .CommitAsync(Arg.Any<CancellationToken>())
-            .Returns((Func<CallInfo, Task<int>>)(_ =>
-            {
-                if (commitAttempt++ == 0)
-                {
-                    throw new ConcurrencyException();
-                }
+            .Returns(
+                (Func<CallInfo, Task<int>>)(
+                    _ =>
+                    {
+                        if (commitAttempt++ == 0)
+                        {
+                            throw new ConcurrencyException();
+                        }
 
-                return Task.FromResult(1);
-            }));
+                        return Task.FromResult(1);
+                    }
+                )
+            );
 
         var command = new PlaceBidCommand(auctionId, bidderId, 110m, "USD", "test-key");
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -166,15 +170,19 @@ public sealed class PlaceBidCommandHandlerTests
 
         _unitOfWork
             .CommitAsync(Arg.Any<CancellationToken>())
-            .Returns((Func<CallInfo, Task<int>>)(_ =>
-            {
-                if (commitAttempt++ == 0)
-                {
-                    throw new ConcurrencyException();
-                }
+            .Returns(
+                (Func<CallInfo, Task<int>>)(
+                    _ =>
+                    {
+                        if (commitAttempt++ == 0)
+                        {
+                            throw new ConcurrencyException();
+                        }
 
-                return Task.FromResult(1);
-            }));
+                        return Task.FromResult(1);
+                    }
+                )
+            );
 
         var command = new PlaceBidCommand(auctionId, Guid.NewGuid(), 110m, "USD", "test-key");
         await _handler.Handle(command, CancellationToken.None);

@@ -12,7 +12,12 @@ public sealed class IdempotencyFilterTests
     private static ActionExecutingContext BuildContext(HttpContext httpContext)
     {
         var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
-        return new ActionExecutingContext(actionContext, [], new Dictionary<string, object?>(), new object());
+        return new ActionExecutingContext(
+            actionContext,
+            [],
+            new Dictionary<string, object?>(),
+            new object()
+        );
     }
 
     [Fact]

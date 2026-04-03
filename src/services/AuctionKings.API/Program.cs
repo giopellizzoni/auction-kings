@@ -24,16 +24,21 @@ builder.Services.AddControllers(options =>
 {
     options.Filters.Add<IdempotencyFilter>();
 });
-builder.Services.AddOpenApi("v1", options =>
-{
-    options.AddDocumentTransformer((document, _, _) =>
+builder.Services.AddOpenApi(
+    "v1",
+    options =>
     {
-        document.Info.Title = "AuctionKings API";
-        document.Info.Version = "v1";
-        document.Info.Description = "Real-time auction platform API";
-        return Task.CompletedTask;
-    });
-});
+        options.AddDocumentTransformer(
+            (document, _, _) =>
+            {
+                document.Info.Title = "AuctionKings API";
+                document.Info.Version = "v1";
+                document.Info.Description = "Real-time auction platform API";
+                return Task.CompletedTask;
+            }
+        );
+    }
+);
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
@@ -44,10 +49,13 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-    app.MapScalarApiReference("/scalar/{documentName}", options =>
-    {
-        options.Title = "AuctionKings API";
-    });
+    app.MapScalarApiReference(
+        "/scalar/{documentName}",
+        options =>
+        {
+            options.Title = "AuctionKings API";
+        }
+    );
 }
 
 app.UseHttpsRedirection();

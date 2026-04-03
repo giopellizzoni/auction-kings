@@ -12,8 +12,9 @@ public sealed class CorrelationIdMiddlewareTests
     private static ILogger<CorrelationIdMiddleware> BuildLogger()
     {
         var logger = Substitute.For<ILogger<CorrelationIdMiddleware>>();
-        logger.BeginScope(Arg.Any<Dictionary<string, object>>())
-              .Returns(Substitute.For<IDisposable>());
+        logger
+            .BeginScope(Arg.Any<Dictionary<string, object>>())
+            .Returns(Substitute.For<IDisposable>());
         return logger;
     }
 
@@ -56,8 +57,12 @@ public sealed class CorrelationIdMiddlewareTests
 
         await middleware.InvokeAsync(httpContext);
 
-        logger.Received(1).BeginScope(
-            Arg.Is<Dictionary<string, object>>(d =>
-                d.ContainsKey("CorrelationId") && d["CorrelationId"].ToString() == existingId));
+        logger
+            .Received(1)
+            .BeginScope(
+                Arg.Is<Dictionary<string, object>>(d =>
+                    d.ContainsKey("CorrelationId") && d["CorrelationId"].ToString() == existingId
+                )
+            );
     }
 }

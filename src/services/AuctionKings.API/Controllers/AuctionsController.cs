@@ -15,7 +15,8 @@ public sealed record CreateAuctionRequest(
     decimal StartingPrice,
     string Currency,
     double DurationInHours,
-    Guid SellerId);
+    Guid SellerId
+);
 
 [Route("api/v1/auctions")]
 [ApiController]
@@ -30,7 +31,8 @@ public sealed class AuctionsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateAuction(
         [FromBody] CreateAuctionRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var command = new CreateAuctionCommand(
             request.Title,
@@ -38,7 +40,8 @@ public sealed class AuctionsController : ControllerBase
             request.StartingPrice,
             request.Currency,
             TimeSpan.FromHours(request.DurationInHours),
-            request.SellerId);
+            request.SellerId
+        );
 
         var result = await _sender.Send(command, cancellationToken);
 
@@ -55,7 +58,8 @@ public sealed class AuctionsController : ControllerBase
     public async Task<IActionResult> GetAuctions(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         if (page < 1)
         {
@@ -80,7 +84,8 @@ public sealed class AuctionsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetAuctionById(
         [FromRoute] Guid id,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var query = new GetAuctionDetailsQuery(id);
         var result = await _sender.Send(query, cancellationToken);
@@ -99,7 +104,8 @@ public sealed class AuctionsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CloseAuction(
         [FromRoute] Guid id,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var command = new CloseAuctionCommand(id);
         var result = await _sender.Send(command, cancellationToken);
@@ -112,11 +118,15 @@ public sealed class AuctionsController : ControllerBase
         return NoContent();
     }
 
-    private ActionResult MapError(Error error) => error.Type switch
-    {
-        ErrorType.NotFound => NotFound(new { error.Code, error.Message }),
-        ErrorType.Conflict => Conflict(new { error.Code, error.Message }),
-        ErrorType.Unexpected => StatusCode(StatusCodes.Status500InternalServerError, new { error.Code, error.Message }),
-        _ => BadRequest(new { error.Code, error.Message }),
-    };
+    private ActionResult MapError(Error error) =>
+        error.Type switch
+        {
+            ErrorType.NotFound => NotFound(new { error.Code, error.Message }),
+            ErrorType.Conflict => Conflict(new { error.Code, error.Message }),
+            ErrorType.Unexpected => StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new { error.Code, error.Message }
+            ),
+            _ => BadRequest(new { error.Code, error.Message }),
+        };
 }

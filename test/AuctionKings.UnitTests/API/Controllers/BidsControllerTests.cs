@@ -24,7 +24,7 @@ public sealed class BidsControllerTests
 
         _controller = new BidsController(_sender)
         {
-            ControllerContext = new ControllerContext { HttpContext = httpContext }
+            ControllerContext = new ControllerContext { HttpContext = httpContext },
         };
     }
 
@@ -34,7 +34,8 @@ public sealed class BidsControllerTests
         var bidId = Guid.NewGuid();
         var auctionId = Guid.NewGuid();
 
-        _sender.Send(Arg.Any<PlaceBidCommand>(), Arg.Any<CancellationToken>())
+        _sender
+            .Send(Arg.Any<PlaceBidCommand>(), Arg.Any<CancellationToken>())
             .Returns(Result.Success(bidId));
 
         var request = new PlaceBidRequest(Guid.NewGuid(), 150m, "USD");
@@ -49,12 +50,17 @@ public sealed class BidsControllerTests
     [Fact]
     public async Task BidsController_PlaceBid_InvalidData_ShouldReturn400()
     {
-        _sender.Send(Arg.Any<PlaceBidCommand>(), Arg.Any<CancellationToken>())
+        _sender
+            .Send(Arg.Any<PlaceBidCommand>(), Arg.Any<CancellationToken>())
             .Returns(Result.Failure<Guid>(DomainErrors.Auction.BidTooLow));
 
         var request = new PlaceBidRequest(Guid.NewGuid(), 1m, "USD");
 
-        var actionResult = await _controller.PlaceBid(Guid.NewGuid(), request, CancellationToken.None);
+        var actionResult = await _controller.PlaceBid(
+            Guid.NewGuid(),
+            request,
+            CancellationToken.None
+        );
 
         Assert.IsType<BadRequestObjectResult>(actionResult);
     }
@@ -71,9 +77,11 @@ public sealed class BidsControllerTests
             },
             totalCount: 1,
             page: 1,
-            pageSize: 20);
+            pageSize: 20
+        );
 
-        _sender.Send(Arg.Any<GetAuctionBidsQuery>(), Arg.Any<CancellationToken>())
+        _sender
+            .Send(Arg.Any<GetAuctionBidsQuery>(), Arg.Any<CancellationToken>())
             .Returns(Result.Success(pagedResult));
 
         var actionResult = await _controller.GetBids(auctionId, 1, 20, CancellationToken.None);

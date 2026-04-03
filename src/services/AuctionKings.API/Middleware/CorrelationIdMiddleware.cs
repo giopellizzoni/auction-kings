@@ -1,6 +1,9 @@
 namespace AuctionKings.API.Middleware;
 
-public sealed class CorrelationIdMiddleware(RequestDelegate next, ILogger<CorrelationIdMiddleware> logger)
+public sealed class CorrelationIdMiddleware(
+    RequestDelegate next,
+    ILogger<CorrelationIdMiddleware> logger
+)
 {
     public const string HeaderName = "X-Correlation-Id";
 
@@ -12,7 +15,9 @@ public sealed class CorrelationIdMiddleware(RequestDelegate next, ILogger<Correl
 
         context.Response.Headers[HeaderName] = correlationId;
 
-        using (logger.BeginScope(new Dictionary<string, object> { ["CorrelationId"] = correlationId }))
+        using (
+            logger.BeginScope(new Dictionary<string, object> { ["CorrelationId"] = correlationId })
+        )
         {
             await next(context);
         }

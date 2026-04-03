@@ -9,4 +9,5 @@ public sealed record PlaceBidCommand(
     Guid BidderId,
     decimal Amount,
     string Currency,
-    string IdempotencyKey) : IRequest<Result<Guid>>, IIdempotentCommand;
+    string IdempotencyKey
+) : IRequest<Result<Guid>>, IIdempotentCommand;
