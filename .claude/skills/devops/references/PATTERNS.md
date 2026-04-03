@@ -20,7 +20,8 @@ WORKDIR /src
 #    If only source code changes, this layer is cached.
 COPY Directory.Build.props Directory.Packages.props ./
 COPY src/services/AuctionKings.API/AuctionKings.API.csproj src/services/AuctionKings.API/
-COPY src/services/AuctionKings.Application/AuctionKings.Application.csproj src/services/AuctionKings.Application/
+# NOTE: Application .csproj is misspelled on disk as Applciation (missing 'i')
+COPY src/services/AuctionKings.Application/AuctionKings.Applciation.csproj src/services/AuctionKings.Application/
 COPY src/services/AuctionKings.Domain/AuctionKings.Domain.csproj src/services/AuctionKings.Domain/
 COPY src/services/AuctionKings.Infrastructure/AuctionKings.Infrastructure.csproj src/services/AuctionKings.Infrastructure/
 COPY src/common/AuctionKings.Shared/AuctionKings.Shared.csproj src/common/AuctionKings.Shared/
@@ -59,7 +60,7 @@ ENTRYPOINT ["dotnet", "AuctionKings.API.dll"]
 - Copy `.csproj` files individually: preserves the project reference graph so `dotnet restore` resolves correctly
 - `--no-restore` on publish: restore already happened in a cached layer; avoids redundant work
 - `aspnet:10.0-alpine` as runtime: ~100MB vs ~210MB for Debian. Only includes ASP.NET Core runtime, not SDK
-- `adduser` before `COPY`: the user exists before app files land, so ownership is correct
+- `adduser` before `USER`: the user must exist before the `USER appuser` instruction. Files copied with `COPY` are owned by `root` (read-only access for `appuser` is sufficient). If the app needs to write to its working directory, use `COPY --from=build --chown=appuser:appgroup /app/publish .`
 - `EXPOSE 8080`: documents the port; actual binding is in compose or ECS task definition
 
 ---
@@ -74,7 +75,8 @@ WORKDIR /src
 
 COPY Directory.Build.props Directory.Packages.props ./
 COPY src/workers/AuctionKings.BackgroundWorkers/AuctionKings.BackgroundWorkers.csproj src/workers/AuctionKings.BackgroundWorkers/
-COPY src/services/AuctionKings.Application/AuctionKings.Application.csproj src/services/AuctionKings.Application/
+# NOTE: Application .csproj is misspelled on disk as Applciation (missing 'i')
+COPY src/services/AuctionKings.Application/AuctionKings.Applciation.csproj src/services/AuctionKings.Application/
 COPY src/services/AuctionKings.Domain/AuctionKings.Domain.csproj src/services/AuctionKings.Domain/
 COPY src/services/AuctionKings.Infrastructure/AuctionKings.Infrastructure.csproj src/services/AuctionKings.Infrastructure/
 COPY src/common/AuctionKings.Shared/AuctionKings.Shared.csproj src/common/AuctionKings.Shared/
@@ -142,6 +144,8 @@ Place at the repo root. The Docker build context is the repo root (because Docke
 Builds app services from local Dockerfiles. Includes the infra compose for PostgreSQL and Redis. Designed for `docker compose up` from the `docker/` directory.
 
 ```yaml
+# Requires Docker Compose v2.20+ (Compose Spec). Not compatible with docker-compose v1.
+# docker-compose.infra.yml defines the top-level `secrets:` block and the `backend` network.
 name: auctionkings
 
 include:
@@ -157,7 +161,9 @@ services:
       - "5081:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=REPLACED_AT_RUNTIME
+      # Non-sensitive connection parts only. Password read from /run/secrets/postgres_password
+      # via AddKeyPerFile (see P7). App composes the full connection string at runtime.
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER}
     secrets:
       - postgres_password
       - redis_password
