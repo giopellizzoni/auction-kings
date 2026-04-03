@@ -61,6 +61,50 @@ public sealed class IdempotencyFilterTests
     }
 
     [Fact]
+    public async Task IdempotencyFilter_PutWithHeader_ShouldStoreKeyAndProceed()
+    {
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.Method = HttpMethods.Put;
+        httpContext.Request.Headers["X-Request-Id"] = "key-put";
+        var context = BuildContext(httpContext);
+        var filter = new IdempotencyFilter();
+
+        var nextCalled = false;
+        ActionExecutionDelegate next = () =>
+        {
+            nextCalled = true;
+            return Task.FromResult(new ActionExecutedContext(context, [], new object()));
+        };
+
+        await filter.OnActionExecutionAsync(context, next);
+
+        Assert.True(nextCalled);
+        Assert.Equal("key-put", httpContext.Items["IdempotencyKey"]);
+    }
+
+    [Fact]
+    public async Task IdempotencyFilter_PostWithWhitespaceHeader_ShouldReturn400()
+    {
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.Method = HttpMethods.Post;
+        httpContext.Request.Headers["X-Request-Id"] = "   ";
+        var context = BuildContext(httpContext);
+        var filter = new IdempotencyFilter();
+
+        var nextCalled = false;
+        ActionExecutionDelegate next = () =>
+        {
+            nextCalled = true;
+            return Task.FromResult(new ActionExecutedContext(context, [], new object()));
+        };
+
+        await filter.OnActionExecutionAsync(context, next);
+
+        Assert.False(nextCalled);
+        Assert.IsType<BadRequestObjectResult>(context.Result);
+    }
+
+    [Fact]
     public async Task IdempotencyFilter_GetRequest_ShouldPassThrough()
     {
         var httpContext = new DefaultHttpContext();
