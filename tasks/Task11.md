@@ -51,11 +51,11 @@ A API precisa de middleware e filters cross-cutting: tratamento global de exceç
 
 ## Status
 
-⏳ **Not Started**
+✅ **Done** (partial — #33 and #55 implemented; remaining items in Task 11 scope pending)
 
 ## GitHub Issues
 
-| #                                                                | Title                                       | Status  |
-| ---------------------------------------------------------------- | ------------------------------------------- | ------- |
-| [#33](https://github.com/PellizzoniCode/auction-kings/issues/33) | Adicionar Idempotency (header X-Request-Id) | 🔴 open |
-| [#55](https://github.com/PellizzoniCode/auction-kings/issues/55) | Adicionar Correlation ID middleware         | 🔴 open |
+| #                                                                | Title                                       | Status     |
+| ---------------------------------------------------------------- | ------------------------------------------- | ---------- |
+| [#33](https://github.com/PellizzoniCode/auction-kings/issues/33) | Adicionar Idempotency (header X-Request-Id) | ✅ closed  |
+| [#55](https://github.com/PellizzoniCode/auction-kings/issues/55) | Adicionar Correlation ID middleware         | ✅ closed  |
