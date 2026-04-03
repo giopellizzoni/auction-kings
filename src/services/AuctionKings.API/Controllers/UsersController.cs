@@ -20,7 +20,8 @@ public sealed class UsersController : ControllerBase
         [FromRoute] Guid id,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         if (page < 1)
         {
@@ -34,7 +35,10 @@ public sealed class UsersController : ControllerBase
 
         if (result.IsFailure)
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, new { result.Error.Code, result.Error.Message });
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new { result.Error.Code, result.Error.Message }
+            );
         }
 
         return Ok(result.Value);

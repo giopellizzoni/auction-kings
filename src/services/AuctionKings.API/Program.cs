@@ -1,4 +1,6 @@
+using AuctionKings.API.Filters;
 using AuctionKings.API.Hubs;
+using AuctionKings.API.Middleware;
 using AuctionKings.API.Realtime;
 using AuctionKings.Application;
 using AuctionKings.Application.Abstractions;
@@ -18,29 +20,42 @@ var redisConnectionString =
 builder.Services.AddSignalR().AddStackExchangeRedis(redisConnectionString);
 builder.Services.AddSingleton<IRealtimeNotificationService, SignalRNotificationService>();
 
-builder.Services.AddControllers();
-builder.Services.AddOpenApi("v1", options =>
+builder.Services.AddControllers(options =>
 {
-    options.AddDocumentTransformer((document, _, _) =>
-    {
-        document.Info.Title = "AuctionKings API";
-        document.Info.Version = "v1";
-        document.Info.Description = "Real-time auction platform API";
-        return Task.CompletedTask;
-    });
+    options.Filters.Add<IdempotencyFilter>();
 });
+builder.Services.AddOpenApi(
+    "v1",
+    options =>
+    {
+        options.AddDocumentTransformer(
+            (document, _, _) =>
+            {
+                document.Info.Title = "AuctionKings API";
+                document.Info.Version = "v1";
+                document.Info.Description = "Real-time auction platform API";
+                return Task.CompletedTask;
+            }
+        );
+    }
+);
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+
+app.UseMiddleware<CorrelationIdMiddleware>();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-    app.MapScalarApiReference("/scalar/{documentName}", options =>
-    {
-        options.Title = "AuctionKings API";
-    });
+    app.MapScalarApiReference(
+        "/scalar/{documentName}",
+        options =>
+        {
+            options.Title = "AuctionKings API";
+        }
+    );
 }
 
 app.UseHttpsRedirection();

@@ -24,9 +24,21 @@ public sealed class BidsController : ControllerBase
     public async Task<IActionResult> PlaceBid(
         [FromRoute] Guid auctionId,
         [FromBody] PlaceBidRequest request,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
-        var command = new PlaceBidCommand(auctionId, request.BidderId, request.Amount, request.Currency);
+        var idempotencyKey =
+            HttpContext.Items["IdempotencyKey"] as string
+            ?? throw new InvalidOperationException(
+                "IdempotencyKey was not set by IdempotencyFilter."
+            );
+        var command = new PlaceBidCommand(
+            auctionId,
+            request.BidderId,
+            request.Amount,
+            request.Currency,
+            idempotencyKey
+        );
         var result = await _sender.Send(command, cancellationToken);
 
         if (result.IsFailure)
@@ -43,7 +55,8 @@ public sealed class BidsController : ControllerBase
         [FromRoute] Guid auctionId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         if (page < 1)
         {
@@ -63,11 +76,15 @@ public sealed class BidsController : ControllerBase
         return Ok(result.Value);
     }
 
-    private ActionResult MapError(Error error) => error.Type switch
-    {
-        ErrorType.NotFound => NotFound(new { error.Code, error.Message }),
-        ErrorType.Conflict => Conflict(new { error.Code, error.Message }),
-        ErrorType.Unexpected => StatusCode(StatusCodes.Status500InternalServerError, new { error.Code, error.Message }),
-        _ => BadRequest(new { error.Code, error.Message }),
-    };
+    private ActionResult MapError(Error error) =>
+        error.Type switch
+        {
+            ErrorType.NotFound => NotFound(new { error.Code, error.Message }),
+            ErrorType.Conflict => Conflict(new { error.Code, error.Message }),
+            ErrorType.Unexpected => StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new { error.Code, error.Message }
+            ),
+            _ => BadRequest(new { error.Code, error.Message }),
+        };
 }

@@ -1,3 +1,4 @@
+using AuctionKings.Application.Abstractions;
 using AuctionKings.Shared.Common;
 using MediatR;
 
@@ -7,4 +8,6 @@ public sealed record PlaceBidCommand(
     Guid AuctionId,
     Guid BidderId,
     decimal Amount,
-    string Currency) : IRequest<Result<Guid>>;
+    string Currency,
+    string IdempotencyKey
+) : IRequest<Result<Guid>>, IIdempotentCommand;
