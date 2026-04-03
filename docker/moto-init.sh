@@ -10,15 +10,36 @@ export AWS_ACCESS_KEY_ID="testing"
 export AWS_SECRET_ACCESS_KEY="testing"
 export AWS_DEFAULT_REGION="$REGION"
 
+# C2: Validate SECRETS_DIR before doing anything else
+if [ ! -d "$SECRETS_DIR" ] || [ ! -w "$SECRETS_DIR" ]; then
+  echo "ERROR: SECRETS_DIR '$SECRETS_DIR' is not a writable directory." >&2
+  exit 1
+fi
+
+# C1: Wait for Moto with timeout
 echo "=== Waiting for Moto to be ready ==="
+MAX_RETRIES=30
+RETRY_COUNT=0
 until curl -sf "$MOTO_ENDPOINT/moto-api/" > /dev/null 2>&1; do
-  echo "Moto not ready, retrying in 2s..."
+  RETRY_COUNT=$((RETRY_COUNT + 1))
+  if [ "$RETRY_COUNT" -ge "$MAX_RETRIES" ]; then
+    echo "ERROR: Moto did not become ready after $MAX_RETRIES attempts. Aborting." >&2
+    exit 1
+  fi
+  echo "Moto not ready, retrying in 2s... ($RETRY_COUNT/$MAX_RETRIES)"
   sleep 2
 done
 
+# C1: Wait for LocalStack with timeout (reset counter)
 echo "=== Waiting for LocalStack to be ready ==="
+RETRY_COUNT=0
 until curl -sf "$LOCALSTACK_ENDPOINT/_localstack/health" > /dev/null 2>&1; do
-  echo "LocalStack not ready, retrying in 2s..."
+  RETRY_COUNT=$((RETRY_COUNT + 1))
+  if [ "$RETRY_COUNT" -ge "$MAX_RETRIES" ]; then
+    echo "ERROR: LocalStack did not become ready after $MAX_RETRIES attempts. Aborting." >&2
+    exit 1
+  fi
+  echo "LocalStack not ready, retrying in 2s... ($RETRY_COUNT/$MAX_RETRIES)"
   sleep 2
 done
 
@@ -28,7 +49,8 @@ echo "=== Provisioning Moto resources ==="
 # Cognito
 # -----------------------------------------------
 echo "Creating Cognito User Pool..."
-CREATE_POOL_OUTPUT=$(aws cognito-idp create-user-pool \
+# I1: Use --query/--output text instead of python3
+USER_POOL_ID=$(aws cognito-idp create-user-pool \
   --pool-name AuctionKingsDevPool \
   --auto-verified-attributes email \
   --schema \
@@ -36,40 +58,49 @@ CREATE_POOL_OUTPUT=$(aws cognito-idp create-user-pool \
     Name=custom:reputation,AttributeDataType=Number,Mutable=true \
     Name=custom:is_verified,AttributeDataType=String,Mutable=true \
     Name=custom:total_bids,AttributeDataType=Number,Mutable=true \
+  --query 'UserPool.Id' \
+  --output text \
   --endpoint-url "$MOTO_ENDPOINT" \
   --region "$REGION")
-
-USER_POOL_ID=$(echo "$CREATE_POOL_OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['UserPool']['Id'])")
 echo "User Pool ID: $USER_POOL_ID"
 
 echo "Creating App Client..."
-CREATE_CLIENT_OUTPUT=$(aws cognito-idp create-user-pool-client \
+# I1: Use --query/--output text instead of python3
+APP_CLIENT_ID=$(aws cognito-idp create-user-pool-client \
   --user-pool-id "$USER_POOL_ID" \
   --client-name AuctionKingsDevClient \
   --no-generate-secret \
   --explicit-auth-flows ALLOW_USER_PASSWORD_AUTH ALLOW_REFRESH_TOKEN_AUTH \
+  --query 'UserPoolClient.ClientId' \
+  --output text \
   --endpoint-url "$MOTO_ENDPOINT" \
   --region "$REGION")
-
-APP_CLIENT_ID=$(echo "$CREATE_CLIENT_OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['UserPoolClient']['ClientId'])")
 echo "App Client ID: $APP_CLIENT_ID"
 
 # Write Cognito IDs to secret files
 echo -n "$USER_POOL_ID" > "$SECRETS_DIR/cognito_user_pool_id.txt"
 echo -n "$APP_CLIENT_ID" > "$SECRETS_DIR/cognito_app_client_id.txt"
 
-# Push Cognito IDs to LocalStack Secrets Manager
-aws secretsmanager create-secret \
-  --name "AuctionKings/Cognito/UserPoolId" \
-  --secret-string "$USER_POOL_ID" \
+# I2: Push Cognito IDs to LocalStack Secrets Manager — idempotent
+aws secretsmanager describe-secret \
+  --secret-id "AuctionKings/Cognito/UserPoolId" \
   --endpoint-url "$LOCALSTACK_ENDPOINT" \
-  --region "$REGION"
+  --region "$REGION" > /dev/null 2>&1 || \
+  aws secretsmanager create-secret \
+    --name "AuctionKings/Cognito/UserPoolId" \
+    --secret-string "$USER_POOL_ID" \
+    --endpoint-url "$LOCALSTACK_ENDPOINT" \
+    --region "$REGION"
 
-aws secretsmanager create-secret \
-  --name "AuctionKings/Cognito/AppClientId" \
-  --secret-string "$APP_CLIENT_ID" \
+aws secretsmanager describe-secret \
+  --secret-id "AuctionKings/Cognito/AppClientId" \
   --endpoint-url "$LOCALSTACK_ENDPOINT" \
-  --region "$REGION"
+  --region "$REGION" > /dev/null 2>&1 || \
+  aws secretsmanager create-secret \
+    --name "AuctionKings/Cognito/AppClientId" \
+    --secret-string "$APP_CLIENT_ID" \
+    --endpoint-url "$LOCALSTACK_ENDPOINT" \
+    --region "$REGION"
 
 # Create groups
 echo "Creating Cognito groups..."
@@ -122,30 +153,31 @@ done
 # AppConfig
 # -----------------------------------------------
 echo "Creating AppConfig resources..."
-APP_OUTPUT=$(aws appconfig create-application \
+# I1: Use --query/--output text instead of python3
+APP_ID=$(aws appconfig create-application \
   --name AuctionKings \
+  --query 'Id' \
+  --output text \
   --endpoint-url "$MOTO_ENDPOINT" \
   --region "$REGION")
 
-APP_ID=$(echo "$APP_OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['Id'])")
-
-ENV_OUTPUT=$(aws appconfig create-environment \
+ENV_ID=$(aws appconfig create-environment \
   --application-id "$APP_ID" \
   --name Development \
+  --query 'Id' \
+  --output text \
   --endpoint-url "$MOTO_ENDPOINT" \
   --region "$REGION")
 
-ENV_ID=$(echo "$ENV_OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['Id'])")
-
-PROFILE_OUTPUT=$(aws appconfig create-configuration-profile \
+PROFILE_ID=$(aws appconfig create-configuration-profile \
   --application-id "$APP_ID" \
   --name FeatureFlags \
   --location-uri hosted \
   --type AWS.AppConfig.FeatureFlags \
+  --query 'Id' \
+  --output text \
   --endpoint-url "$MOTO_ENDPOINT" \
   --region "$REGION")
-
-PROFILE_ID=$(echo "$PROFILE_OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['Id'])")
 
 FEATURE_FLAGS=$(cat <<'FLAGJSON'
 {
@@ -197,7 +229,14 @@ aws events create-event-bus \
   --endpoint-url "$MOTO_ENDPOINT" \
   --region "$REGION"
 
-QUEUE_ARN="arn:aws:sqs:${REGION}:000000000000:auction-bids-queue"
+# I3: Resolve SQS ARN dynamically from LocalStack instead of hardcoding it
+QUEUE_ARN=$(aws sqs get-queue-attributes \
+  --queue-url "http://localstack:4566/000000000000/auction-bids-queue" \
+  --attribute-names QueueArn \
+  --query 'Attributes.QueueArn' \
+  --output text \
+  --endpoint-url "$LOCALSTACK_ENDPOINT" \
+  --region "$REGION")
 
 aws events put-rule \
   --name auction-domain-events \
