@@ -100,13 +100,13 @@ echo "Creating Secrets Manager entries..."
 awslocal secretsmanager describe-secret --secret-id "AuctionKings/Database/ConnectionString" --region "$REGION" > /dev/null 2>&1 || \
   awslocal secretsmanager create-secret \
     --name "AuctionKings/Database/ConnectionString" \
-    --secret-string "Host=postgres;Port=5432;Database=AuctionKingsDB;Username=dev;Password=$(cat /run/secrets/postgres_password 2>/dev/null || echo 'changeme')" \
+    --secret-string "Host=postgres;Port=5432;Database=AuctionKingsDB;Username=dev;Password=localdev" \
     --region "$REGION"
 
 awslocal secretsmanager describe-secret --secret-id "AuctionKings/Redis/ConnectionString" --region "$REGION" > /dev/null 2>&1 || \
   awslocal secretsmanager create-secret \
     --name "AuctionKings/Redis/ConnectionString" \
-    --secret-string "redis:6379,password=$(cat /run/secrets/redis_password 2>/dev/null || echo 'changeme')" \
+    --secret-string "redis:6379,password=localdev" \
     --region "$REGION"
 
 # -----------------------------------------------
