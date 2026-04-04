@@ -48,6 +48,64 @@ services:
     ports:
       - "${REDIS_HOST_PORT}:${REDIS_CONTAINER_PORT}"
 
+  localstack:
+    image: localstack/localstack:latest
+    container_name: infra-localstack
+    restart: unless-stopped
+    environment:
+      SERVICES: dynamodb,sqs,sns,s3,secretsmanager,logs
+      DEFAULT_REGION: us-east-1
+      DEBUG: 0
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - ./localstack-init/ready.d:/etc/localstack/init/ready.d:ro
+    secrets:
+      - postgres_password
+      - redis_password
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:4566/_localstack/health | grep -q '\"dynamodb\": \"available\"'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    ports:
+      - "127.0.0.1:4566:4566"
+
+  moto:
+    image: motoserver/moto:latest
+    container_name: infra-moto
+    restart: unless-stopped
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5555/moto-api/"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "127.0.0.1:5555:5555"
+
+  moto-init:
+    image: amazon/aws-cli:latest
+    container_name: infra-moto-init
+    restart: "no"
+    depends_on:
+      moto:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: testing
+      AWS_SECRET_ACCESS_KEY: testing
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint: ["/bin/bash", "/scripts/moto-init.sh"]
+    volumes:
+      - ./moto-init.sh:/scripts/moto-init.sh:ro
+      - ./secrets:/secrets
+    networks:
+      - backend
+
 networks:
   backend:
     driver: bridge
@@ -55,6 +113,7 @@ networks:
 volumes:
   pg_data:
   redis_data:
+  localstack_data:
 
 secrets:
   postgres_password:
