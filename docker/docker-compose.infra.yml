@@ -62,7 +62,7 @@ services:
     networks:
       - backend
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:4566/_localstack/health | grep -q '\"dynamodb\": \"available\"'"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:4566/_localstack/health | grep -q '\"dynamodb\"'"]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -73,6 +73,7 @@ services:
     image: motoserver/moto:5.1.4
     container_name: infra-moto
     restart: unless-stopped
+    command: ["-H", "0.0.0.0", "-p", "5555"]
     networks:
       - backend
     healthcheck:

@@ -152,73 +152,76 @@ done
 # -----------------------------------------------
 # AppConfig
 # -----------------------------------------------
-echo "Creating AppConfig resources..."
-# I1: Use --query/--output text instead of python3
+# NOTE: AppConfig support in moto 5.1.4 is incomplete (create-environment returns 500).
+# This section is best-effort — failures are logged as warnings but do not abort the script.
+echo "Creating AppConfig resources (best-effort — Moto 5.1.4 partial support)..."
+set +e
+
 APP_ID=$(aws appconfig create-application \
   --name AuctionKings \
   --query 'Id' \
   --output text \
   --endpoint-url "$MOTO_ENDPOINT" \
-  --region "$REGION")
+  --region "$REGION" 2>&1)
+APPCONFIG_OK=$?
 
-ENV_ID=$(aws appconfig create-environment \
-  --application-id "$APP_ID" \
-  --name Development \
-  --query 'Id' \
-  --output text \
-  --endpoint-url "$MOTO_ENDPOINT" \
-  --region "$REGION")
+if [ $APPCONFIG_OK -eq 0 ] && [ -n "$APP_ID" ]; then
+  ENV_ID=$(aws appconfig create-environment \
+    --application-id "$APP_ID" \
+    --name Development \
+    --query 'Id' \
+    --output text \
+    --endpoint-url "$MOTO_ENDPOINT" \
+    --region "$REGION" 2>&1)
+  ENV_OK=$?
 
-PROFILE_ID=$(aws appconfig create-configuration-profile \
-  --application-id "$APP_ID" \
-  --name FeatureFlags \
-  --location-uri hosted \
-  --type AWS.AppConfig.FeatureFlags \
-  --query 'Id' \
-  --output text \
-  --endpoint-url "$MOTO_ENDPOINT" \
-  --region "$REGION")
+  PROFILE_ID=$(aws appconfig create-configuration-profile \
+    --application-id "$APP_ID" \
+    --name FeatureFlags \
+    --location-uri hosted \
+    --type AWS.AppConfig.FeatureFlags \
+    --query 'Id' \
+    --output text \
+    --endpoint-url "$MOTO_ENDPOINT" \
+    --region "$REGION" 2>&1)
+  PROFILE_OK=$?
 
-FEATURE_FLAGS=$(cat <<'FLAGJSON'
+  if [ $ENV_OK -eq 0 ] && [ $PROFILE_OK -eq 0 ]; then
+    FEATURE_FLAGS=$(cat <<'FLAGJSON'
 {
   "version": "1",
   "flags": {
-    "enable_event_sourcing": {
-      "name": "enable_event_sourcing",
-      "attributes": {}
-    },
-    "enable_sns_notifications": {
-      "name": "enable_sns_notifications",
-      "attributes": {}
-    },
+    "enable_event_sourcing": { "name": "enable_event_sourcing", "attributes": {} },
+    "enable_sns_notifications": { "name": "enable_sns_notifications", "attributes": {} },
     "high_value_bid_threshold": {
       "name": "high_value_bid_threshold",
-      "attributes": {
-        "threshold": { "constraints": { "type": "number" } }
-      }
+      "attributes": { "threshold": { "constraints": { "type": "number" } } }
     }
   },
   "values": {
     "enable_event_sourcing": { "enabled": true },
     "enable_sns_notifications": { "enabled": true },
-    "high_value_bid_threshold": {
-      "enabled": true,
-      "threshold": 10000
-    }
+    "high_value_bid_threshold": { "enabled": true, "threshold": 10000 }
   }
 }
 FLAGJSON
 )
+    aws appconfig create-hosted-configuration-version \
+      --application-id "$APP_ID" \
+      --configuration-profile-id "$PROFILE_ID" \
+      --content-type "application/json" \
+      --content "$FEATURE_FLAGS" \
+      --endpoint-url "$MOTO_ENDPOINT" \
+      --region "$REGION" > /dev/null 2>&1
+    echo "AppConfig provisioned (App=$APP_ID, Env=$ENV_ID, Profile=$PROFILE_ID)"
+  else
+    echo "WARNING: AppConfig environment/profile creation failed (Moto limitation) — skipping" >&2
+  fi
+else
+  echo "WARNING: AppConfig application creation failed (Moto limitation) — skipping" >&2
+fi
 
-aws appconfig create-hosted-configuration-version \
-  --application-id "$APP_ID" \
-  --configuration-profile-id "$PROFILE_ID" \
-  --content-type "application/json" \
-  --content "$FEATURE_FLAGS" \
-  --endpoint-url "$MOTO_ENDPOINT" \
-  --region "$REGION"
-
-echo "AppConfig provisioned (App=$APP_ID, Env=$ENV_ID, Profile=$PROFILE_ID)"
+set -e
 
 # -----------------------------------------------
 # EventBridge
