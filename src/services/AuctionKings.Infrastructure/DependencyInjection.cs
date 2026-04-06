@@ -63,6 +63,8 @@ public static class DependencyInjection
         services.AddSingleton<IDatabasePingService, DatabasePingService>();
         services.AddSingleton<IOutboxHealthService, OutboxHealthService>();
 
+        services.AddScoped<IDataCleanupService, DataCleanupService>();
+
         return services;
     }
 }
