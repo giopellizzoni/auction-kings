@@ -22,6 +22,7 @@ builder.Services.AddSingleton<IRealtimeNotificationService, SignalRNotificationS
 
 builder.Services.AddControllers(options =>
 {
+    options.Filters.Add<GlobalExceptionFilter>();
     options.Filters.Add<IdempotencyFilter>();
 });
 builder.Services.AddOpenApi(
@@ -44,6 +45,8 @@ builder.Services.AddHealthChecks();
 var app = builder.Build();
 
 app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<SecurityHeadersMiddleware>();
+app.UseMiddleware<RequestLoggingMiddleware>();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
