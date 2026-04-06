@@ -1,4 +1,5 @@
 using AuctionKings.BackgroundWorkers;
+using AuctionKings.BackgroundWorkers.Workers;
 using AuctionKings.Infrastructure;
 using AuctionKings.Infrastructure.Outbox;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,7 +13,14 @@ builder.Services.Configure<OutboxOptions>(
     builder.Configuration.GetSection(OutboxOptions.SectionName)
 );
 
+builder.Services.Configure<AuctionCloseWorkerOptions>(
+    builder.Configuration.GetSection(AuctionCloseWorkerOptions.SectionName));
+builder.Services.Configure<CleanupWorkerOptions>(
+    builder.Configuration.GetSection(CleanupWorkerOptions.SectionName));
+
 builder.Services.AddHostedService<OutboxProcessor>();
+builder.Services.AddHostedService<AuctionCloseWorker>();
+builder.Services.AddHostedService<CleanupExpiredDataWorker>();
 
 var host = builder.Build();
 await host.RunAsync();
