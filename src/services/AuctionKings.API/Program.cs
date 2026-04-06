@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AuctionKings.API.Filters;
 using AuctionKings.API.Hubs;
 using AuctionKings.API.Middleware;
@@ -5,6 +6,9 @@ using AuctionKings.API.Realtime;
 using AuctionKings.Application;
 using AuctionKings.Application.Abstractions;
 using AuctionKings.Infrastructure;
+using AuctionKings.Infrastructure.HealthChecks;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -40,7 +44,8 @@ builder.Services.AddOpenApi(
         );
     }
 );
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks()
+    .AddInfrastructureHealthChecks();
 
 var app = builder.Build();
 
@@ -71,5 +76,35 @@ app.MapHub<AuctionHub>("/hubs/auction");
 app.MapHub<NotificationHub>("/hubs/notifications");
 
 app.MapHealthChecks("/health/live");
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = WriteHealthResponse,
+});
+
+app.MapHealthChecks("/health/db", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("db"),
+    ResponseWriter = WriteHealthResponse,
+});
+
+static Task WriteHealthResponse(HttpContext httpContext, HealthReport report)
+{
+    httpContext.Response.ContentType = "application/json";
+    var result = JsonSerializer.Serialize(new
+    {
+        status = report.Status.ToString(),
+        totalDurationMs = report.TotalDuration.TotalMilliseconds,
+        checks = report.Entries.Select(e => new
+        {
+            name = e.Key,
+            status = e.Value.Status.ToString(),
+            description = e.Value.Description,
+            durationMs = e.Value.Duration.TotalMilliseconds,
+        }),
+    });
+    return httpContext.Response.WriteAsync(result);
+}
 
 app.Run();

@@ -1,5 +1,6 @@
 using AuctionKings.Application.Abstractions;
 using AuctionKings.Infrastructure.Cache;
+using AuctionKings.Infrastructure.HealthChecks;
 using AuctionKings.Infrastructure.Outbox;
 using AuctionKings.Infrastructure.Persistence;
 using AuctionKings.Infrastructure.RateLimiting;
@@ -57,6 +58,10 @@ public static class DependencyInjection
         services.AddScoped<ICacheInvalidationService, CacheInvalidationService>();
         services.AddSingleton<IRateLimiter, RedisRateLimiter>();
         services.AddSingleton<IConnectionTracker, ConnectionTracker>();
+
+        // Health check backing services (singleton — use IServiceScopeFactory internally for scoped DB/context access)
+        services.AddSingleton<IDatabasePingService, DatabasePingService>();
+        services.AddSingleton<IOutboxHealthService, OutboxHealthService>();
 
         return services;
     }
