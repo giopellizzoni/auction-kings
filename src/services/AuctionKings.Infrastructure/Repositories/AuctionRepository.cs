@@ -49,4 +49,16 @@ internal sealed class AuctionRepository : IAuctionRepository
         _context.Auctions.Update(auction);
         return Task.CompletedTask;
     }
+
+    public async Task<IReadOnlyList<Auction>> GetExpiredAuctionsAsync(
+        DateTime now,
+        int batchSize,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Auctions
+            .Where(a => a.Status == AuctionStatus.Active && a.EndTime <= now)
+            .OrderBy(a => a.EndTime)
+            .Take(batchSize)
+            .ToListAsync(cancellationToken);
+    }
 }

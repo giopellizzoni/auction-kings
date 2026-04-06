@@ -17,4 +17,9 @@ public interface IAuctionRepository
     Task AddAsync(Auction auction, CancellationToken cancellationToken = default);
 
     Task UpdateAsync(Auction auction, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<Auction>> GetExpiredAuctionsAsync(
+        DateTime now,
+        int batchSize,
+        CancellationToken cancellationToken = default);
 }
