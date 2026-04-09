@@ -13,6 +13,8 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
         .WithPassword("test")
         .Build();
 
+    public string ConnectionString => _container.GetConnectionString();
+
     public AuctionDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<AuctionDbContext>()

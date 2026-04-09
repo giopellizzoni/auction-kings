@@ -38,6 +38,10 @@ public sealed class BidRepositoryTests
 
         tracked.PlaceBid(Guid.NewGuid(), new Money(120m, "USD"), DateTime.UtcNow.AddMinutes(-5));
         tracked.PlaceBid(Guid.NewGuid(), new Money(150m, "USD"), DateTime.UtcNow.AddMinutes(-2));
+
+        // UpdateAsync registers new Bid entities with the context (EF Core doesn't auto-detect
+        // Added state for entities with client-generated Guid keys in navigation collections).
+        await auctionRepository.UpdateAsync(tracked);
         await context.SaveChangesAsync();
 
         // Act

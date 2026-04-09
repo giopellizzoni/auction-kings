@@ -49,10 +49,18 @@ public sealed class AuctionRepositoryTests
     [Fact]
     public async Task AuctionRepository_Update_WithStaleVersion_ShouldThrowConcurrencyException()
     {
-        // Arrange: persist an auction
+        // Arrange: persist an active auction (Close() increments Version, which is the concurrency token)
         await using var setupContext = _fixture.CreateDbContext();
         var setupRepository = new AuctionRepository(setupContext);
-        var auction = CreateSampleAuction();
+        var auction = Auction.Create(
+            "Stale Version Test Auction",
+            "Tests optimistic concurrency via Version token",
+            new Money(500m, "USD"),
+            DateTime.UtcNow.AddHours(-2),
+            AuctionDuration.FromDays(1),
+            Guid.NewGuid()
+        );
+        auction.Activate(DateTime.UtcNow.AddHours(-2));
         await setupRepository.AddAsync(auction);
         await setupContext.SaveChangesAsync();
 
@@ -61,20 +69,20 @@ public sealed class AuctionRepositoryTests
         var repoA = new AuctionRepository(contextA);
         var auctionA = await repoA.GetByIdAsync(auction.Id);
         Assert.NotNull(auctionA);
-        auctionA.Activate(DateTime.UtcNow);
+        auctionA.Close(DateTime.UtcNow); // increments Version
 
         // Load and update from context B (simulates concurrent transaction)
         await using var contextB = _fixture.CreateDbContext();
         var repoB = new AuctionRepository(contextB);
         var auctionB = await repoB.GetByIdAsync(auction.Id);
         Assert.NotNull(auctionB);
-        auctionB.Activate(DateTime.UtcNow);
+        auctionB.Close(DateTime.UtcNow); // increments Version
 
-        // Commit B first
+        // Commit B first — B's version goes from 0→1 in DB
         await repoB.UpdateAsync(auctionB);
         await contextB.SaveChangesAsync();
 
-        // Commit A — should fail because xmin changed
+        // Commit A — A still has original Version=0, but DB now has Version=1 → concurrency conflict
         await repoA.UpdateAsync(auctionA);
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(
             () => contextA.SaveChangesAsync()

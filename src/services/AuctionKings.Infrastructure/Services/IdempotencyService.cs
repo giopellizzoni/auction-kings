@@ -8,16 +8,17 @@ internal sealed class IdempotencyService : IIdempotencyService
 {
     private static readonly TimeSpan Ttl = TimeSpan.FromHours(24);
 
-    private readonly AuctionDbContext _context;
+    private readonly IDbContextFactory<AuctionDbContext> _contextFactory;
 
-    public IdempotencyService(AuctionDbContext context)
+    public IdempotencyService(IDbContextFactory<AuctionDbContext> contextFactory)
     {
-        _context = context;
+        _contextFactory = contextFactory;
     }
 
     public async Task<bool> ExistsAsync(string key, CancellationToken cancellationToken = default)
     {
-        return await _context.IdempotencyKeys.AnyAsync(
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
+        return await context.IdempotencyKeys.AnyAsync(
             x => x.Key == key && x.ExpiresAt > DateTime.UtcNow,
             cancellationToken
         );
@@ -25,8 +26,9 @@ internal sealed class IdempotencyService : IIdempotencyService
 
     public async Task StoreAsync(string key, CancellationToken cancellationToken = default)
     {
+        await using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
         var idempotencyKey = IdempotencyKey.Create(key, DateTime.UtcNow, Ttl);
-        _context.IdempotencyKeys.Add(idempotencyKey);
-        await _context.SaveChangesAsync(cancellationToken);
+        context.IdempotencyKeys.Add(idempotencyKey);
+        await context.SaveChangesAsync(cancellationToken);
     }
 }

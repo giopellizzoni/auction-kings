@@ -65,17 +65,11 @@ internal sealed class AuctionConfiguration : IEntityTypeConfiguration<Auction>
         builder.Property(x => x.WinnerId);
 
         // Version is the application-level optimistic concurrency token.
-        // PostgreSQL xmin shadow property below provides the DB-level check.
+        // xmin (PostgreSQL system column) is not used as a concurrency token because
+        // EF Core/Npgsql 10 does not reliably read back xid system columns via RETURNING,
+        // causing the tracked value to remain 0 (never assigned by PostgreSQL) and every
+        // UPDATE to fail with DbUpdateConcurrencyException.
         builder.Property(x => x.Version).IsRequired().IsConcurrencyToken();
-
-        // UseXminAsConcurrencyToken() was removed in Npgsql 10.
-        // Map xmin as a shadow property using standard EF Core APIs.
-        builder
-            .Property<uint>("xmin")
-            .HasColumnType("xid")
-            .HasColumnName("xmin")
-            .ValueGeneratedOnAddOrUpdate()
-            .IsConcurrencyToken();
 
         builder
             .HasMany(x => x.Bids)

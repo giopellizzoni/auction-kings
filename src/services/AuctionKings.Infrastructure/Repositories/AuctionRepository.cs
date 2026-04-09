@@ -46,7 +46,20 @@ internal sealed class AuctionRepository : IAuctionRepository
 
     public Task UpdateAsync(Auction auction, CancellationToken cancellationToken = default)
     {
-        _context.Auctions.Update(auction);
+        // The auction was loaded from this context and is already tracked as Unchanged.
+        // Calling DbSet.Update() on a tracked entity resets the original-values snapshot, which
+        // corrupts the Version concurrency token (WHERE version = @original would use the new value).
+        // Instead, rely on snapshot change tracking for scalar property changes (Version, CurrentPrice, etc.)
+        // and explicitly register any new Bid entities — EF Core cannot distinguish new (Added)
+        // from existing (Modified) for entities with client-generated Guid keys discovered via navigation.
+        foreach (var bid in auction.Bids)
+        {
+            if (_context.Entry(bid).State == EntityState.Detached)
+            {
+                _context.Bids.Add(bid);
+            }
+        }
+
         return Task.CompletedTask;
     }
 

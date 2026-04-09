@@ -7,6 +7,7 @@ using AuctionKings.Infrastructure.RateLimiting;
 using AuctionKings.Infrastructure.Realtime;
 using AuctionKings.Infrastructure.Repositories;
 using AuctionKings.Infrastructure.Services;
+using AuctionKings.Shared.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,6 +33,15 @@ public static class DependencyInjection
                 .UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure(3))
                 .UseSnakeCaseNamingConvention()
         );
+
+        services.AddDbContextFactory<AuctionDbContext>(options =>
+            options
+                .UseNpgsql(connectionString, npgsql => npgsql.EnableRetryOnFailure(3))
+                .UseSnakeCaseNamingConvention(),
+            ServiceLifetime.Scoped
+        );
+
+        services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
 
         services.AddScoped<IAuctionRepository, AuctionRepository>();
         services.AddScoped<IBidRepository, BidRepository>();
