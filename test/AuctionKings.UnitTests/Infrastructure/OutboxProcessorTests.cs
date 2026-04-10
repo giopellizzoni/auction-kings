@@ -1,3 +1,4 @@
+using AuctionKings.Application.Abstractions;
 using AuctionKings.BackgroundWorkers;
 using AuctionKings.Domain.Events;
 using AuctionKings.Domain.ValueObjects;
@@ -16,6 +17,7 @@ public sealed class OutboxProcessorTests : IDisposable
 {
     private readonly IOutboxRepository _repository = Substitute.For<IOutboxRepository>();
     private readonly IPublisher _publisher = Substitute.For<IPublisher>();
+    private readonly IEventBus _eventBus = Substitute.For<IEventBus>();
     private readonly OutboxOptions _options = new() { BatchSize = 10, MaxRetries = 3 };
     private readonly OutboxProcessor _processor;
 
@@ -27,6 +29,7 @@ public sealed class OutboxProcessorTests : IDisposable
         var serviceProvider = Substitute.For<IServiceProvider>();
         serviceProvider.GetService(typeof(IOutboxRepository)).Returns(_repository);
         serviceProvider.GetService(typeof(IPublisher)).Returns(_publisher);
+        serviceProvider.GetService(typeof(IEventBus)).Returns(_eventBus);
 
         scope.ServiceProvider.Returns(serviceProvider);
 

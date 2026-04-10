@@ -1,7 +1,9 @@
 using System.Text.Json;
+using AuctionKings.Application.Abstractions;
 using AuctionKings.Domain.Events;
 using AuctionKings.Infrastructure.Outbox;
 using AuctionKings.Infrastructure.Persistence;
+using AuctionKings.Shared.Common;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -42,6 +44,8 @@ public sealed class OutboxProcessor : BackgroundService
         var repository = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
         var publisher = scope.ServiceProvider.GetRequiredService<IPublisher>();
 
+        var eventBus = scope.ServiceProvider.GetRequiredService<IEventBus>();
+
         var messages = await repository.FetchPendingAsync(_options.BatchSize, cancellationToken);
 
         if (messages.Count == 0)
@@ -51,7 +55,7 @@ public sealed class OutboxProcessor : BackgroundService
 
         foreach (var message in messages)
         {
-            await ProcessMessageAsync(message, publisher, cancellationToken);
+            await ProcessMessageAsync(message, publisher, eventBus, cancellationToken);
         }
 
         await repository.SaveAsync(cancellationToken);
@@ -60,6 +64,7 @@ public sealed class OutboxProcessor : BackgroundService
     private async Task ProcessMessageAsync(
         OutboxMessage message,
         IPublisher publisher,
+        IEventBus eventBus,
         CancellationToken cancellationToken
     )
     {
@@ -92,6 +97,20 @@ public sealed class OutboxProcessor : BackgroundService
             }
 
             await publisher.Publish(domainEvent, cancellationToken);
+
+            try
+            {
+                await eventBus.PublishAsync((IDomainEvent)domainEvent, cancellationToken);
+            }
+            catch (Exception sqsEx)
+            {
+                _logger.LogWarning(
+                    sqsEx,
+                    "SQS publish failed for outbox message {Id} of type '{Type}'. Message will still be marked as processed.",
+                    message.Id,
+                    message.Type
+                );
+            }
 
             message.MarkAsProcessed(DateTime.UtcNow);
 
