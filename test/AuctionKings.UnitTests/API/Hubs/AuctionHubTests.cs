@@ -37,9 +37,10 @@ public sealed class AuctionHubTests : IDisposable
     public async Task AuctionHub_JoinAuction_ShouldAddToGroup()
     {
         var auctionId = Guid.NewGuid();
+        var dto = BuildAuctionDetailDto(auctionId);
         _mediator
-            .Send(Arg.Any<GetAuctionDetailsQuery>(), Arg.Any<CancellationToken>())
-            .Returns(Result.Failure<AuctionDetailDto>(Error.NotFound("Auction.NotFound", "Not found")));
+            .Send(Arg.Is<GetAuctionDetailsQuery>(q => q.AuctionId == auctionId), Arg.Any<CancellationToken>())
+            .Returns(Result.Success(dto));
 
         await _hub.JoinAuctionAsync(auctionId);
 
@@ -135,6 +136,22 @@ public sealed class AuctionHubTests : IDisposable
         await _caller.Received(1).SendCoreAsync(
             "AuctionState",
             Arg.Is<object[]>(args => args.Length == 1 && args[0].Equals(dto)),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RequestStateSyncAsync_WhenAuctionNotFound_ShouldNotSendState()
+    {
+        var auctionId = Guid.NewGuid();
+        _mediator
+            .Send(Arg.Is<GetAuctionDetailsQuery>(q => q.AuctionId == auctionId), Arg.Any<CancellationToken>())
+            .Returns(Result.Failure<AuctionDetailDto>(Error.NotFound("Auction.NotFound", "Auction not found")));
+
+        await _hub.RequestStateSyncAsync(auctionId);
+
+        await _caller.DidNotReceive().SendCoreAsync(
+            "AuctionState",
+            Arg.Any<object[]>(),
             Arg.Any<CancellationToken>());
     }
 
