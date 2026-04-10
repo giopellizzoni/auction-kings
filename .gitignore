@@ -484,3 +484,4 @@ riderModule.iml
 # Generated Cognito secret files (written by moto-init container)
 docker/secrets/cognito_user_pool_id.txt
 docker/secrets/cognito_app_client_id.txt
+.worktrees/
