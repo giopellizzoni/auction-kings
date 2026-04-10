@@ -1,16 +1,37 @@
 using AuctionKings.Application.Abstractions;
+using AuctionKings.Application.Auctions.Queries.GetAuctionDetails;
+using MediatR;
 using Microsoft.AspNetCore.SignalR;
 
 namespace AuctionKings.API.Hubs;
 
 // TODO: Add [Authorize] once authentication (Cognito/JWT) is implemented — Task 10
-public sealed class AuctionHub(IConnectionTracker connectionTracker) : Hub
+public sealed class AuctionHub(IConnectionTracker connectionTracker, IMediator mediator) : Hub
 {
-    public Task JoinAuctionAsync(Guid auctionId) =>
-        Groups.AddToGroupAsync(Context.ConnectionId, $"auction-{auctionId}", Context.ConnectionAborted);
+    private readonly IMediator _mediator = mediator;
+
+    public async Task JoinAuctionAsync(Guid auctionId)
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"auction-{auctionId}", Context.ConnectionAborted);
+
+        var result = await _mediator.Send(new GetAuctionDetailsQuery(auctionId), Context.ConnectionAborted);
+        if (result.IsSuccess)
+        {
+            await Clients.Caller.SendAsync("AuctionState", result.Value, Context.ConnectionAborted);
+        }
+    }
 
     public Task LeaveAuctionAsync(Guid auctionId) =>
         Groups.RemoveFromGroupAsync(Context.ConnectionId, $"auction-{auctionId}", Context.ConnectionAborted);
+
+    public async Task RequestStateSyncAsync(Guid auctionId)
+    {
+        var result = await _mediator.Send(new GetAuctionDetailsQuery(auctionId), Context.ConnectionAborted);
+        if (result.IsSuccess)
+        {
+            await Clients.Caller.SendAsync("AuctionState", result.Value, Context.ConnectionAborted);
+        }
+    }
 
     public override async Task OnConnectedAsync()
     {
