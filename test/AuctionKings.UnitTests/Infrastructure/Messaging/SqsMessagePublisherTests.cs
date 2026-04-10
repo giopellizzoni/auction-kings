@@ -1,17 +1,21 @@
+using System.Text.Json;
 using Amazon.SQS;
 using Amazon.SQS.Model;
 using AuctionKings.Domain.Events;
 using AuctionKings.Domain.ValueObjects;
 using AuctionKings.Infrastructure.Messaging;
+using AuctionKings.UnitTests.Helpers;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
-using System.Text.Json;
+using NSubstitute.ExceptionExtensions;
 
 namespace AuctionKings.UnitTests.Infrastructure.Messaging;
 
 public sealed class SqsMessagePublisherTests
 {
     private readonly IAmazonSQS _sqsClient = Substitute.For<IAmazonSQS>();
+    private readonly TestLogger<SqsMessagePublisher> _logger = new();
     private readonly SqsOptions _sqsOptions = new()
     {
         BidQueueUrl = "https://test-queue-url",
@@ -19,7 +23,7 @@ public sealed class SqsMessagePublisherTests
     };
 
     private SqsMessagePublisher CreatePublisher() =>
-        new(_sqsClient, Options.Create(_sqsOptions));
+        new(_sqsClient, Options.Create(_sqsOptions), _logger);
 
     private static BidPlacedEvent CreateBidPlacedEvent() =>
         new(
@@ -56,7 +60,7 @@ public sealed class SqsMessagePublisherTests
             Arg.Is<SendMessageRequest>(r =>
                 r.MessageAttributes.ContainsKey("EventType") &&
                 r.MessageAttributes["EventType"].DataType == "String" &&
-                r.MessageAttributes["EventType"].StringValue == typeof(BidPlacedEvent).FullName &&
+                r.MessageAttributes["EventType"].StringValue == (typeof(BidPlacedEvent).FullName ?? typeof(BidPlacedEvent).Name) &&
                 r.MessageAttributes.ContainsKey("EventId") &&
                 r.MessageAttributes["EventId"].DataType == "String" &&
                 r.MessageAttributes["EventId"].StringValue == domainEvent.EventId.ToString()
@@ -86,11 +90,32 @@ public sealed class SqsMessagePublisherTests
         using var doc = JsonDocument.Parse(body);
         var root = doc.RootElement;
 
-        // Must contain auction-specific fields
-        Assert.True(root.TryGetProperty("AuctionId", out var auctionIdElement));
+        // JsonSerializerDefaults.Web produces camelCase property names
+        Assert.True(root.TryGetProperty("auctionId", out var auctionIdElement));
         Assert.Equal(domainEvent.AuctionId.ToString(), auctionIdElement.GetString());
 
-        Assert.True(root.TryGetProperty("BidId", out var bidIdElement));
+        Assert.True(root.TryGetProperty("bidId", out var bidIdElement));
         Assert.Equal(domainEvent.BidId.ToString(), bidIdElement.GetString());
+    }
+
+    [Fact]
+    public async Task PublishAsync_WhenSqsThrows_ShouldNotPropagate()
+    {
+        // Arrange
+        _sqsClient
+            .SendMessageAsync(Arg.Any<SendMessageRequest>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new AmazonSQSException("simulated failure"));
+
+        var publisher = CreatePublisher();
+        var domainEvent = CreateBidPlacedEvent();
+
+        // Act
+        var exception = await Record.ExceptionAsync(() => publisher.PublishAsync(domainEvent));
+
+        // Assert — exception must be swallowed
+        Assert.Null(exception);
+
+        // Assert — warning must be logged
+        Assert.True(_logger.HasLog(LogLevel.Warning, "SQS publish failed"));
     }
 }

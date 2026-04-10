@@ -85,7 +85,7 @@ public static class DependencyInjection
             var config = new AmazonSQSConfig { ServiceURL = opts.ServiceURL };
             return new AmazonSQSClient(config);
         });
-        services.AddScoped<IEventBus, SqsMessagePublisher>();
+        services.AddSingleton<IEventBus, SqsMessagePublisher>();
 
         return services;
     }

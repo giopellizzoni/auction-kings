@@ -98,19 +98,7 @@ public sealed class OutboxProcessor : BackgroundService
 
             await publisher.Publish(domainEvent, cancellationToken);
 
-            try
-            {
-                await eventBus.PublishAsync((IDomainEvent)domainEvent, cancellationToken);
-            }
-            catch (Exception sqsEx)
-            {
-                _logger.LogWarning(
-                    sqsEx,
-                    "SQS publish failed for outbox message {Id} of type '{Type}'. Message will still be marked as processed.",
-                    message.Id,
-                    message.Type
-                );
-            }
+            await eventBus.PublishAsync((IDomainEvent)domainEvent, cancellationToken).ConfigureAwait(false);
 
             message.MarkAsProcessed(DateTime.UtcNow);
 

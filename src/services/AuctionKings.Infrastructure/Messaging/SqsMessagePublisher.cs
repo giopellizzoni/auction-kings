@@ -1,30 +1,35 @@
+using System.Text.Json;
 using Amazon.SQS;
 using Amazon.SQS.Model;
 using AuctionKings.Application.Abstractions;
 using AuctionKings.Shared.Common;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using System.Text.Json;
 
 namespace AuctionKings.Infrastructure.Messaging;
 
-public sealed class SqsMessagePublisher(IAmazonSQS sqsClient, IOptions<SqsOptions> options) : IEventBus
+public sealed class SqsMessagePublisher(
+    IAmazonSQS sqsClient,
+    IOptions<SqsOptions> options,
+    ILogger<SqsMessagePublisher> logger) : IEventBus
 {
+    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
     private readonly SqsOptions _options = options.Value;
 
     public async Task PublishAsync(IDomainEvent domainEvent, CancellationToken cancellationToken = default)
     {
-        var messageBody = JsonSerializer.Serialize(domainEvent, domainEvent.GetType());
+        var body = JsonSerializer.Serialize(domainEvent, domainEvent.GetType(), SerializerOptions);
 
         var request = new SendMessageRequest
         {
             QueueUrl = _options.BidQueueUrl,
-            MessageBody = messageBody,
+            MessageBody = body,
             MessageAttributes = new Dictionary<string, MessageAttributeValue>
             {
                 ["EventType"] = new MessageAttributeValue
                 {
                     DataType = "String",
-                    StringValue = domainEvent.GetType().FullName
+                    StringValue = domainEvent.GetType().FullName ?? domainEvent.GetType().Name
                 },
                 ["EventId"] = new MessageAttributeValue
                 {
@@ -34,6 +39,14 @@ public sealed class SqsMessagePublisher(IAmazonSQS sqsClient, IOptions<SqsOption
             }
         };
 
-        await sqsClient.SendMessageAsync(request, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await sqsClient.SendMessageAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "SQS publish failed for event {EventType} {EventId}.",
+                domainEvent.GetType().Name, domainEvent.EventId);
+        }
     }
 }
