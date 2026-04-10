@@ -53,8 +53,8 @@ Os três controllers (`AuctionsController`, `BidsController`, `UsersControllers`
 
 ## GitHub Issues
 
-| #                                                                | Title                                          | Status  |
-| ---------------------------------------------------------------- | ---------------------------------------------- | ------- |
+| #                                                                | Title                                          | Status    |
+| ---------------------------------------------------------------- | ---------------------------------------------- | --------- |
 | [#19](https://github.com/PellizzoniCode/auction-kings/issues/19) | Criar endpoints REST básicos (Auctions)        | ✅ closed |
 | [#20](https://github.com/PellizzoniCode/auction-kings/issues/20) | Criar endpoint de lance (sem real-time ainda)  | ✅ closed |
-| [#21](https://github.com/PellizzoniCode/auction-kings/issues/21) | Adicionar OpenAPI/Swagger + versionamento (v1) | 🔴 open   |
+| [#21](https://github.com/PellizzoniCode/auction-kings/issues/21) | Adicionar OpenAPI/Swagger + versionamento (v1) | ✅ closed |

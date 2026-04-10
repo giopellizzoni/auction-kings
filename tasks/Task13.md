@@ -48,7 +48,7 @@ O `AuctionKings.BackgroundWorkers` é um projeto console separado que roda worke
 
 ## Status
 
-🔄 **In Progress** — OutboxProcessor (BackgroundService) is implemented in the BackgroundWorkers project. AuctionCloseWorker and CleanupExpiredDataWorker are not yet implemented.
+✅ **Completed** — OutboxProcessor, AuctionCloseWorker, and CleanupExpiredDataWorker all implemented and registered as hosted services in BackgroundWorkers.
 
 ## GitHub Issues
 
