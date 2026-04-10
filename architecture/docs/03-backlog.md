@@ -2,669 +2,377 @@
 
 > Organizado em Épicos → Histórias → Subtarefas
 > Prioridades: 🔴 Crítico | 🟠 Alto | 🟡 Médio | 🟢 Baixo
-> Gerado em: 2026-02-28
+> Atualizado em: 2026-04-10
 
 ---
 
-## ÉPICO 1 — Fundações: Shared + Domain (Base Classes)
+## ÉPICO 1 — Fundações: Shared + Domain (Base Classes) ✅ CONCLUÍDO
 
-> **Objetivo:** Estabelecer os blocos fundamentais que todos os outros módulos dependem.
-> **Prioridade:** 🔴 Crítico — bloqueia todo o resto
-
----
-
-### HIS-01 — Implementar base classes do Shared
-
-**Prioridade:** 🔴 Crítico
-**DoD:**
-- `Entity<TId>` com igualdade por Id, `GetHashCode`
-- `AggregateRoot` herda `Entity`, mantém lista de `IDomainEvent`, expõe `AddDomainEvent()` e `ClearDomainEvents()`
-- `IDomainEvent` interface com `OccurredAt`
-- `Result<T>` pattern com métodos estáticos `Success()` e `Failure()`
-- `PagedResult<T>` com metadata de paginação
-- `IDateTimeProvider` interface + `SystemDateTimeProvider` implementação
-- `IIdempotentCommand<T>` interface com `GetIdempotencyKey()`
-- Todos os tipos têm testes unitários cobrindo comportamento esperado
-
-**Subtarefas:**
-- [ ] `Shared/Common/Entity.cs` — implementar igualdade por Id
-- [ ] `Shared/Common/AggregateRoot.cs` — implementar gerenciamento de DomainEvents
-- [ ] `Shared/Common/IDomainEvent.cs` — criar interface
-- [ ] `Shared/Common/Result.cs` — implementar Result pattern
-- [ ] `Shared/Common/PagedResult.cs` — implementar paginação
-- [ ] `Shared/Interfaces/IDateTimeProvider.cs` — interface + implementação concreta
-- [ ] `Shared/Interfaces/IIdempotentCommand.cs` — interface
-- [ ] Remover `Class1.cs` placeholders de todos os projetos
-- [ ] Corrigir typo no .csproj: `Applciation` → `Application`
+> **Implementado em:** Task 01 + Task 02
 
 ---
 
-### HIS-02 — Implementar Domain Layer (Aggregates, Events, Value Objects)
+### HIS-01 — Implementar base classes do Shared ✅
 
-**Prioridade:** 🔴 Crítico
-**DoD:**
-- `Auction` aggregate root com todas as regras de negócio do `PlaceBid`
-- `Bid` entity criada com id, auctionId, userId, amount, requestId, createdAt
-- `AuctionSnapshot` para Event Sourcing
-- `AuctionStatus` e `BidStatus` enums
-- Value Objects: `Money`, `AuctionDuration`, `BidIncrement`
-- Todos os Domain Events definidos com propriedades imutáveis
-- `DomainErrors` com todos os erros estáticos tipados
-- `DomainEventTypeRegistry` para desserialização por nome
-- Specifications: `ActiveAuctionSpecification`, `BiddableAuctionSpecification`
-- Cobertura de testes unitários ≥ 80% para lógica de domínio
-
-**Subtarefas:**
-- [ ] `Domain/Enums/AuctionStatus.cs` — `Draft`, `Active`, `Ended`, `Cancelled`
-- [ ] `Domain/Enums/BidStatus.cs` — `Active`, `Outbid`, `Won`, `Cancelled`
-- [ ] `Domain/ValueObjects/Money.cs` — imutável, validação positivo
-- [ ] `Domain/ValueObjects/AuctionDuration.cs`
-- [ ] `Domain/ValueObjects/BidIncrement.cs`
-- [ ] `Domain/Errors/DomainErrors.cs` — erros estáticos agrupados por domínio
-- [ ] `Domain/Events/BidPlacedEvent.cs`
-- [ ] `Domain/Events/AuctionCreatedEvent.cs`
-- [ ] `Domain/Events/AuctionExtendedEvent.cs`
-- [ ] `Domain/Events/AuctionClosedEvent.cs`
-- [ ] `Domain/Events/WinnerDeterminedEvent.cs`
-- [ ] `Domain/Aggregates/Auction/Bid.cs` — entity
-- [ ] `Domain/Aggregates/Auction/Auction.cs` — aggregate root com `PlaceBid()`, `Create()`, `Close()`
-- [ ] `Domain/Aggregates/Auction/AuctionSnapshot.cs`
-- [ ] `Domain/Aggregates/User/User.cs`
-- [ ] `Domain/Common/DomainEventTypeRegistry.cs`
-- [ ] `Domain/Specifications/ActiveAuctionSpecification.cs`
-- [ ] `Domain/Specifications/BiddableAuctionSpecification.cs`
-- [ ] `UnitTests/Domain/AuctionTests.cs` — testar PlaceBid, regras de negócio, anti-sniping
-- [ ] `UnitTests/Domain/BidTests.cs`
+- [x] `Shared/Common/Entity.cs` — igualdade por Id, GetHashCode
+- [x] `Shared/Common/AggregateRoot.cs` — DomainEvents list, AddDomainEvent, ClearDomainEvents
+- [x] `Shared/Common/IDomainEvent.cs` — interface com OccurredAt
+- [x] `Shared/Common/Result.cs` — Result<T> + Error pattern
+- [x] `Shared/Common/PagedResult.cs` — paginação com metadata
+- [x] `Shared/Interfaces/IDateTimeProvider.cs` — interface + SystemDateTimeProvider
+- [x] `Shared/Interfaces/IIdempotentCommand.cs` — interface
+- [x] Remover `Class1.cs` placeholders de todos os projetos
 
 ---
 
-## ÉPICO 2 — Infraestrutura: Persistência (EF Core + PostgreSQL)
+### HIS-02 — Implementar Domain Layer ✅
 
-> **Objetivo:** Camada de persistência funcional com EF Core, Outbox Pattern e migrações.
-> **Prioridade:** 🔴 Crítico — necessário para qualquer funcionalidade
-
----
-
-### HIS-03 — Configurar packages e dependências
-
-**Prioridade:** 🔴 Crítico
-**DoD:**
-- `Directory.Packages.props` com todos os packages necessários versionados centralmente
-- Cada projeto `.csproj` referencia apenas os packages que efetivamente usa
-- `dotnet restore && dotnet build` passa sem erros
-
-**Subtarefas:**
-- [ ] Adicionar ao `Directory.Packages.props`:
-  - `Microsoft.AspNetCore.SignalR.StackExchangeRedis`
-  - `MessagePack.AspNetCoreMvcFormatter`
-  - `MediatR`
-  - `Microsoft.EntityFrameworkCore`
-  - `Npgsql.EntityFrameworkCore.PostgreSQL`
-  - `Microsoft.EntityFrameworkCore.Design`
-  - `StackExchange.Redis`
-  - `Microsoft.Extensions.Caching.StackExchangeRedis`
-  - `FluentValidation.AspNetCore`
-  - `Microsoft.AspNetCore.Authentication.JwtBearer`
-  - `AWSSDK.DynamoDBv2` (para fase 2)
-  - `Prometheus-net.AspNetCore`
-  - `NetArchTest.Rules` (ArchTests)
-  - `Testcontainers.PostgreSql` (IntegrationTests)
-  - `Testcontainers.Redis` (IntegrationTests)
-- [ ] Atualizar `.csproj` de cada projeto com `<PackageReference>` corretos
-- [ ] Adicionar project references (API → Application → Domain, Infrastructure → Domain)
+- [x] `Domain/Enums/AuctionStatus.cs` — Pending, Active, Closed, Cancelled
+- [x] `Domain/Enums/BidStatus.cs`
+- [x] `Domain/ValueObjects/Money.cs`
+- [x] `Domain/ValueObjects/AuctionDuration.cs`
+- [x] `Domain/ValueObjects/BidIncrement.cs`
+- [x] `Domain/Errors/DomainErrors.cs`
+- [x] `Domain/Events/BidPlacedEvent.cs`
+- [x] `Domain/Events/AuctionCreatedEvent.cs`
+- [x] `Domain/Events/AuctionExtendedEvent.cs`
+- [x] `Domain/Events/AuctionClosedEvent.cs`
+- [x] `Domain/Events/WinnerDeterminedEvent.cs`
+- [x] `Domain/Aggregates/Auction/Bid.cs`
+- [x] `Domain/Aggregates/Auction/Auction.cs` — PlaceBid, Create, Close, auto-extend anti-sniping
+- [ ] `Domain/Aggregates/Auction/AuctionSnapshot.cs` — ❌ Fase 2 (Event Sourcing)
+- [ ] `Domain/Aggregates/User/User.cs` — ❌ não necessário (auth via Cognito)
 
 ---
 
-### HIS-04 — Implementar DbContext e configurações EF Core
+## ÉPICO 2 — Infraestrutura: Persistência (EF Core + PostgreSQL) ✅ CONCLUÍDO
 
-**Prioridade:** 🔴 Crítico
-**DoD:**
-- `AuctionDbContext` com DbSets: `Auctions`, `Bids`, `OutboxMessages`, `SagaStates`
-- `AuctionConfiguration` com xmin como concurrency token PostgreSQL
-- `BidConfiguration` com FK para Auction
-- `OutboxMessageConfiguration`
-- `SagaStateConfiguration`
-- Primeira migration criada e aplicável
-- Conecta ao PostgreSQL do docker-compose.infra.yml
-
-**Subtarefas:**
-- [ ] `Infrastructure/Persistence/AuctionDbContext.cs`
-- [ ] `Infrastructure/Persistence/Configurations/AuctionConfiguration.cs` — incluindo `xmin` como `IsConcurrencyToken()`
-- [ ] `Infrastructure/Persistence/Configurations/BidConfiguration.cs`
-- [ ] `Infrastructure/Persistence/Configurations/OutboxMessageConfiguration.cs`
-- [ ] `Infrastructure/Persistence/Configurations/SagaStateConfiguration.cs`
-- [ ] Configurar connection string em `appsettings.json` e `appsettings.Development.json`
-- [ ] Criar migration inicial: `dotnet ef migrations add InitialCreate`
-- [ ] `Infrastructure/Persistence/Repositories/AuctionRepository.cs`
-- [ ] `Infrastructure/Persistence/Repositories/BidRepository.cs`
-- [ ] Registrar DbContext no DI do `Program.cs`
+> **Implementado em:** Task 06
 
 ---
 
-### HIS-05 — Implementar Outbox Pattern
+### HIS-03 — Configurar packages e dependências ✅
 
-**Prioridade:** 🔴 Crítico
-**DoD:**
-- `OutboxMessage` entity com campos: Id, Type, Payload, CreatedAt, ProcessedAt, Error, RetryCount
-- `UnitOfWork.SaveChangesAsync()` coleta DomainEvents dos aggregates, converte em OutboxMessages e persiste na mesma transação
-- `OutboxProcessor` background service polls a cada 1 segundo com `FOR UPDATE SKIP LOCKED`
-- Retry logic: máximo 5 tentativas, registra erro no OutboxMessage
-- Testes de integração cobrindo fluxo completo
-
-**Subtarefas:**
-- [ ] `Infrastructure/Persistence/OutboxMessage.cs`
-- [ ] `Infrastructure/Persistence/UnitOfWork.cs` — implementar lógica de coleta de eventos
-- [ ] `BackgroundWorkers/Workers/OutboxProcessor.cs`
-- [ ] `IEventPublisher` interface em Application
-- [ ] `IntegrationTests/Infrastructure/OutboxProcessorTests.cs`
+- [x] MediatR, FluentValidation, EF Core, Npgsql, StackExchange.Redis, Mapster, Testcontainers, NetArchTest, etc.
+- [x] Project references corretos entre projetos
 
 ---
 
-## ÉPICO 3 — Application Layer (CQRS + MediatR)
+### HIS-04 — Implementar DbContext e configurações EF Core ✅
 
-> **Objetivo:** Implementar comandos, queries e handlers usando MediatR com pipeline behaviors.
-> **Prioridade:** 🔴 Crítico para funcionalidade core
-
----
-
-### HIS-06 — Implementar PlaceBid (command + handler)
-
-**Prioridade:** 🔴 Crítico
-**DoD:**
-- `PlaceBidCommand` implementa `IIdempotentCommand<Result<BidDto>>`
-- `PlaceBidCommandHandler` carrega auction, chama `PlaceBid()`, trata `DbUpdateConcurrencyException`
-- `PlaceBidCommandValidator` com FluentValidation (amount > 0, auctionId válido)
-- `BidDto` como resultado
-- Testes unitários para handler cobrindo: sucesso, leilão não encontrado, valor muito baixo, concorrência
-
-**Subtarefas:**
-- [ ] `Application/Commands/Bids/PlaceBidCommand.cs`
-- [ ] `Application/Commands/Bids/PlaceBidCommandValidator.cs`
-- [ ] `Application/Commands/Bids/Handlers/PlaceBidCommandHandler.cs`
-- [ ] `Application/DTOs/BidDto.cs`
-- [ ] `Application/Interfaces/IAuctionRepository.cs`
-- [ ] `Application/Interfaces/IUnitOfWork.cs`
-- [ ] `UnitTests/Application/PlaceBidCommandHandlerTests.cs`
+- [x] `Infrastructure/Persistence/AuctionDbContext.cs`
+- [x] `Infrastructure/Persistence/Configurations/AuctionConfiguration.cs` — xmin como shadow property
+- [x] `Infrastructure/Persistence/Configurations/BidConfiguration.cs`
+- [x] `Infrastructure/Persistence/Configurations/OutboxMessageConfiguration.cs`
+- [x] `Infrastructure/Persistence/Configurations/IdempotencyKeyConfiguration.cs`
+- [x] Connection string em `appsettings.json` e `appsettings.Development.json`
+- [x] Migration inicial: `InitialCreate`
+- [x] `Infrastructure/Persistence/Repositories/AuctionRepository.cs` (inclui GetExpiredAuctionsAsync)
+- [x] `Infrastructure/Persistence/Repositories/BidRepository.cs`
 
 ---
 
-### HIS-07 — Implementar CreateAuction (command + handler)
+### HIS-05 — Implementar Outbox Pattern ✅
 
-**Prioridade:** 🟠 Alto
-**DoD:**
-- `CreateAuctionCommand` com campos: título, descrição, preço inicial, incremento, duração, vendedor
-- Handler cria aggregate, persiste, retorna `AuctionDto`
-- Validator com regras de negócio
-- Testes unitários
-
-**Subtarefas:**
-- [ ] `Application/Commands/Auctions/CreateAuctionCommand.cs`
-- [ ] `Application/Commands/Auctions/CreateAuctionCommandValidator.cs`
-- [ ] `Application/Commands/Auctions/Handlers/CreateAuctionCommandHandler.cs`
-- [ ] `Application/DTOs/AuctionDto.cs`
+- [x] `Infrastructure/Outbox/OutboxMessage.cs`
+- [x] `Infrastructure/Persistence/UnitOfWork.cs` — coleta DomainEvents → OutboxMessages na mesma transação
+- [x] `BackgroundWorkers/OutboxProcessor.cs` — SKIP LOCKED, batch, retry max 5
+- [x] `Infrastructure/Outbox/DomainEventTypeRegistry.cs`
 
 ---
 
-### HIS-08 — Implementar Queries
+## ÉPICO 3 — Application Layer (CQRS + MediatR) ✅ CONCLUÍDO
 
-**Prioridade:** 🟠 Alto
-**DoD:**
-- `GetAuctionDetailsQuery` retorna `AuctionDto` com bids recentes
-- `GetActiveAuctionsQuery` retorna `PagedResult<AuctionDto>`
-- `GetAuctionBidsQuery` retorna histórico de lances
-- `GetUserBidHistoryQuery` retorna lances do usuário
-- Queries leem diretamente do banco (read model, sem aggregate)
-
-**Subtarefas:**
-- [ ] `Application/Queries/Auctions/GetAuctionDetailsQuery.cs` + Handler
-- [ ] `Application/Queries/Auctions/GetActiveAuctionsQuery.cs` + Handler
-- [ ] `Application/Queries/Bids/GetAuctionBidsQuery.cs` + Handler
-- [ ] `Application/Queries/Bids/GetUserBidHistoryQuery.cs` + Handler
-- [ ] `Application/DTOs/AuctionStateDto.cs`
+> **Implementado em:** Task 03 + Task 04 + Task 05
 
 ---
 
-### HIS-09 — Implementar Pipeline Behaviors
+### HIS-06 — Implementar PlaceBid ✅
 
-**Prioridade:** 🟠 Alto
-**DoD:**
-- `ValidationBehavior` executa FluentValidation antes do handler, retorna erro 400 tipado
-- `LoggingBehavior` loga início/fim de cada command/query com correlationId
-- `IdempotencyBehavior` verifica cache distribuído antes de processar `IIdempotentCommand`
-- `PerformanceBehavior` loga warning se request > 500ms
-- Behaviors registrados no DI na ordem correta
-- Testes unitários para `IdempotencyBehavior`
-
-**Subtarefas:**
-- [ ] `Application/Behaviors/ValidationBehavior.cs`
-- [ ] `Application/Behaviors/LoggingBehavior.cs`
-- [ ] `Application/Behaviors/IdempotencyBehavior.cs`
-- [ ] `Application/Behaviors/PerformanceBehavior.cs`
-- [ ] `Infrastructure/Caching/RedisCacheService.cs` (usado pelo IdempotencyBehavior)
-- [ ] `UnitTests/Application/IdempotencyBehaviorTests.cs`
+- [x] `Application/Commands/Bids/PlaceBidCommand.cs`
+- [x] `Application/Commands/Bids/PlaceBidCommandValidator.cs`
+- [x] `Application/Commands/Bids/Handlers/PlaceBidCommandHandler.cs` — com retry de DbUpdateConcurrencyException
+- [x] `Application/DTOs/BidDto.cs`
+- [x] `Application/Interfaces/IAuctionRepository.cs`
+- [x] `Application/Interfaces/IUnitOfWork.cs`
 
 ---
 
-## ÉPICO 4 — API: Controllers, Middleware, Filters
+### HIS-07 — Implementar CreateAuction ✅
 
-> **Objetivo:** Expor endpoints REST versionados com autenticação, rate limiting e tratamento de erros.
-> **Prioridade:** 🟠 Alto
-
----
-
-### HIS-10 — Implementar AuctionsController
-
-**Prioridade:** 🟠 Alto
-**DoD:**
-- Rota base: `api/v1/auctions`
-- Endpoints: `GET /` (lista paginada), `POST /` (criar), `GET /{id}` (detalhes), `POST /{id}/close`, `GET /{id}/bids`
-- `[RateLimit(Limit = 10, WindowSeconds = 60)]` em `POST /{id}/bids`
-- Autenticação JWT requerida em todos exceto GET público
-- Retorna Problem Details (RFC 7807) em erros
-- Testes de integração com WebApplicationFactory
-
-**Subtarefas:**
-- [ ] `API/Controllers/V1/AuctionsController.cs` — implementar todos os endpoints
-- [ ] Configurar `[ApiVersion("1.0")]` e rotas versionadas
-- [ ] `API/Filters/GlobalExceptionFilter.cs` — implementar mapeamento Result → ProblemDetails
-- [ ] `IntegrationTests/API/AuctionsControllerTests.cs`
+- [x] `Application/Commands/Auctions/CreateAuctionCommand.cs`
+- [x] `Application/Commands/Auctions/CreateAuctionCommandValidator.cs`
+- [x] `Application/Commands/Auctions/Handlers/CreateAuctionCommandHandler.cs`
+- [x] `Application/DTOs/AuctionDto.cs` — Mapster com AuctionMappingConfig
 
 ---
 
-### HIS-11 — Implementar BidsController e UsersController
+### HIS-08 — Implementar Queries ✅
 
-**Prioridade:** 🟠 Alto
-**DoD:**
-- `BidsController`: `DELETE /api/v1/bids/{id}` (admin only)
-- `UsersController`: `GET /api/v1/users/{id}/bids` (histórico do usuário)
-- Autorização adequada por endpoint
-
-**Subtarefas:**
-- [ ] `API/Controllers/V1/BidsController.cs`
-- [ ] `API/Controllers/V1/UsersController.cs` (corrigir nome)
+- [x] `Application/Queries/Auctions/GetAuctionDetailsQuery.cs` + Handler
+- [x] `Application/Queries/Auctions/GetActiveAuctionsQuery.cs` + Handler (com Redis cache)
+- [x] `Application/Queries/Auctions/GetAuctionBidsQuery.cs` + Handler
+- [ ] `Application/Queries/Bids/GetUserBidHistoryQuery.cs` + Handler — ❌ não implementado
 
 ---
 
-### HIS-12 — Implementar Middleware e Filters
+### HIS-09 — Implementar Pipeline Behaviors ✅
 
-**Prioridade:** 🟡 Médio
-**DoD:**
-- `CorrelationIdMiddleware` — gera/propaga X-Correlation-Id em cada request
-- `RequestLoggingMiddleware` — loga método, rota, status, duração
-- `SecurityHeadersMiddleware` — adiciona HSTS, X-Content-Type-Options, X-Frame-Options
-- `GlobalExceptionFilter` — captura exceções não tratadas, retorna Problem Details
-- `IdempotencyFilter` — lê Idempotency-Key header, delega para behavior
-- Todos registrados no `Program.cs` na ordem correta
-
-**Subtarefas:**
-- [ ] `API/Middleware/CorrelationIdMiddleware.cs`
-- [ ] `API/Middleware/RequestLoggingMiddleware.cs`
-- [ ] `API/Middleware/SecurityHeadersMiddleware.cs`
-- [ ] Implementar `GlobalExceptionFilter.cs`
-- [ ] Implementar `IdempotencyFilter.cs`
+- [x] `Application/Behaviors/ValidationBehavior.cs`
+- [x] `Application/Behaviors/LoggingBehavior.cs`
+- [x] `Application/Behaviors/IdempotencyBehavior.cs`
+- [x] `Application/Behaviors/PerformanceBehavior.cs`
 
 ---
 
-### HIS-13 — Implementar Rate Limiting Distribuído
+## ÉPICO 4 — API: Controllers, Middleware, Filters ✅ CONCLUÍDO
 
-**Prioridade:** 🟠 Alto
-**DoD:**
-- `RedisRateLimiter` com Lua script de sliding window
-- `RateLimitAttribute` implementado como `IAsyncActionFilter`
-- Headers `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `Retry-After` presentes nas respostas
-- Retorna HTTP 429 quando limite excedido
-- Fail-open quando Redis indisponível
-- Testes unitários
-
-**Subtarefas:**
-- [ ] `Infrastructure/RateLimiting/RedisRateLimiter.cs` — implementar com Lua script
-- [ ] `API/Filters/RateLimitAttribute.cs` — descomentar e implementar
-- [ ] `UnitTests/Infrastructure/RedisRateLimiterTests.cs`
+> **Implementado em:** Task 10 + Task 11
 
 ---
 
-## ÉPICO 5 — Real-Time: SignalR Hubs
+### HIS-10 — Implementar AuctionsController ✅
 
-> **Objetivo:** Comunicação bidirecional em tempo real com reconexão e sincronização de estado.
-> **Prioridade:** 🟠 Alto — feature core do produto
-
----
-
-### HIS-14 — Implementar AuctionHub
-
-**Prioridade:** 🟠 Alto
-**DoD:**
-- Hub requer `[Authorize]`
-- `OnConnectedAsync` — rastreia conexão por userId no Redis
-- `OnDisconnectedAsync` — remove conexão, sai de todos os grupos
-- `JoinAuction(Guid auctionId)` — adiciona ao grupo, envia `AuctionState` atual
-- `LeaveAuction(Guid auctionId)` — remove do grupo
-- `RequestStateSync(Guid auctionId, int clientVersion)` — reenvia estado se version diverge
-- Redis backplane configurado para escala horizontal
-- MessagePack habilitado para protocolo binário
-
-**Subtarefas:**
-- [ ] `API/Hubs/AuctionHub.cs` — implementar todos os métodos
-- [ ] `Infrastructure/SignalR/ConnectionTracker.cs` — rastrear conexões no Redis
-- [ ] `Infrastructure/SignalR/SignalRNotificationService.cs` — implementar broadcasts
-- [ ] `Infrastructure/SignalR/GracefulShutdownService.cs`
-- [ ] Configurar SignalR + Redis backplane no `Program.cs`
-- [ ] Mapear rotas dos hubs (`/hubs/auction`, `/hubs/notifications`)
+- [x] `API/Controllers/AuctionsController.cs` — todos os endpoints (GET/, POST/, GET/{id}, POST/{id}/close, POST/{id}/bids, GET/{id}/bids)
+- [x] Swagger/OpenAPI com versionamento v1
+- [x] `[RateLimit]` em `POST /{id}/bids`
 
 ---
 
-### HIS-15 — Integrar broadcast de eventos com SignalR
+### HIS-11 — Implementar BidsController e UsersController ✅
 
-**Prioridade:** 🟠 Alto
-**DoD:**
-- Quando `BidPlacedEvent` processado pelo Outbox → broadcast `BidPlaced` para grupo do leilão
-- Quando `AuctionExtendedEvent` → broadcast `AuctionExtended`
-- Quando `AuctionClosedEvent` → broadcast `AuctionClosed`
-- `IRealtimeNotificationService` injetado nos handlers relevantes
-- Testes de integração cobrindo fluxo evento → hub
-
-**Subtarefas:**
-- [ ] `Application/Interfaces/IRealtimeNotificationService.cs` — interface
-- [ ] Injetar `IRealtimeNotificationService` nos event handlers do Outbox
-- [ ] `API/Hubs/NotificationHub.cs` — implementar notificações por usuário
+- [x] `API/Controllers/BidsController.cs` — `DELETE /bids/{id}`
+- [x] `API/Controllers/UsersController.cs` — `GET /users/{id}/bids` (typo corrigido)
 
 ---
 
-## ÉPICO 6 — Autenticação e Autorização
+### HIS-12 — Implementar Middleware e Filters ✅
 
-> **Objetivo:** JWT via AWS Cognito + policies customizadas.
-> **Prioridade:** 🟠 Alto
-
----
-
-### HIS-16 — Configurar autenticação JWT
-
-**Prioridade:** 🟠 Alto
-**DoD:**
-- `AddAuthentication().AddJwtBearer()` configurado com Cognito authority
-- Token lido de header `Authorization: Bearer` para REST e `X-SignalR-Token` para hubs
-- `OnTokenValidated` enriquece claims com dados de perfil do usuário
-- `ITokenBlacklistService` verifica JTI revogado antes de aceitar token
-- `OnAuthenticationFailed` adiciona header `X-Token-Expired: true`
-
-**Subtarefas:**
-- [ ] `Infrastructure/Security/TokenBlacklistService.cs` — implementar com Redis
-- [ ] Configurar JWT no `Program.cs` com eventos customizados
-- [ ] `appsettings.json` com seção `AWS:Cognito` (sem secrets, apenas configuração)
+- [x] `API/Middleware/CorrelationIdMiddleware.cs`
+- [x] `API/Middleware/RequestLoggingMiddleware.cs`
+- [x] `API/Middleware/SecurityHeadersMiddleware.cs`
+- [x] `API/Filters/GlobalExceptionFilter.cs` — RFC 7807 ProblemDetails
+- [x] `API/Filters/IdempotencyFilter.cs`
+- [x] `API/Filters/RateLimitAttribute.cs`
 
 ---
 
-### HIS-17 — Implementar Authorization Policies
+### HIS-13 — Implementar Rate Limiting Distribuído ✅
 
-**Prioridade:** 🟡 Médio
-**DoD:**
-- Policies: `VerifiedEmail`, `Seller`, `Admin`, `CanBid`, `CanCreateAuction`, `HighValueBid`
-- `CanBidAuthorizationHandler` — verifica email verificado + reputação mínima
-- `HighValueBidAuthorizationHandler` — requer MFA ou KYC para lances > R$10.000
-- Todos os handlers registrados no DI
+- [x] `Infrastructure/RateLimiting/RedisRateLimiter.cs` — Lua script sliding window
+- [x] `API/Filters/RateLimitAttribute.cs` — IAsyncActionFilter
 
-**Subtarefas:**
+---
+
+## ÉPICO 5 — Real-Time: SignalR Hubs ✅ CONCLUÍDO
+
+> **Implementado em:** Task 09
+
+---
+
+### HIS-14 — Implementar AuctionHub ✅
+
+- [x] `API/Hubs/AuctionHub.cs` — JoinAuction, LeaveAuction, RequestStateSync
+- [x] `Infrastructure/SignalR/ConnectionTracker.cs` — Redis sets + 24h TTL
+- [x] `API/Services/SignalRNotificationService.cs` — broadcasts (na API layer)
+- [x] Redis backplane configurado no `Program.cs`
+- [x] Hub routes mapeadas (`/hubs/auction`, `/hubs/notifications`)
+- [ ] `GracefulShutdownService` — ❌ não implementado
+
+---
+
+### HIS-15 — Integrar broadcast de eventos com SignalR ✅
+
+- [x] `Application/Interfaces/IRealtimeNotificationService.cs`
+- [x] `API/Hubs/NotificationHub.cs`
+- [x] Handlers de command chamam IRealtimeNotificationService após persistência
+
+---
+
+## ÉPICO 6 — Autenticação e Autorização ❌ NÃO IMPLEMENTADO
+
+> **Status:** Bloqueante para produção. Deferred — sem prazo definido.
+
+---
+
+### HIS-16 — Configurar autenticação JWT ❌
+
+- [ ] `Infrastructure/Security/TokenBlacklistService.cs`
+- [ ] Configurar JWT no `Program.cs` com Cognito authority
+- [ ] `appsettings.json` com seção `AWS:Cognito`
+
+---
+
+### HIS-17 — Implementar Authorization Policies ❌
+
 - [ ] `Infrastructure/Authorization/CanBidAuthorizationHandler.cs`
 - [ ] `Infrastructure/Authorization/CanCreateAuctionAuthorizationHandler.cs`
 - [ ] `Infrastructure/Authorization/HighValueBidAuthorizationHandler.cs`
-- [ ] Registrar policies e handlers no `Program.cs`
 
 ---
 
-## ÉPICO 7 — Background Workers
+## ÉPICO 7 — Background Workers ✅ CONCLUÍDO
 
-> **Objetivo:** Workers para encerramento automático de leilões e processamento assíncrono.
-> **Prioridade:** 🟠 Alto para AuctionCloseWorker, 🟡 Médio para outros
-
----
-
-### HIS-18 — Implementar AuctionCloseWorker
-
-**Prioridade:** 🟠 Alto
-**DoD:**
-- Worker consulta leilões com `Status = Active AND EndTime <= UtcNow` periodicamente
-- Enfileira `CloseAuctionCommand` via SQS (ou processa diretamente em dev)
-- Distributed lock com Redis para evitar processamento duplo
-- Trata `CloseAuctionCommand` com `CloseAuctionCommandHandler`
-- Dispara `AuctionClosingStartedEvent` para iniciar Saga
-
-**Subtarefas:**
-- [ ] `Application/Commands/Auctions/CloseAuctionCommand.cs` + Handler
-- [ ] `BackgroundWorkers/Workers/AuctionCloseWorker.cs`
-- [ ] Configurar worker no `BackgroundWorkers/Program.cs`
+> **Implementado em:** Task 13
 
 ---
 
-### HIS-19 — Implementar CleanupExpiredDataJob e outros Jobs
+### HIS-18 — Implementar AuctionCloseWorker ✅
 
-**Prioridade:** 🟢 Baixo
-**DoD:**
-- `CleanupExpiredDataJob` — limpa OutboxMessages processados com mais de 30 dias
-- `SnapshotCreationJob` — força snapshot de aggregates em streams com muitos eventos
-- Schedulados com Quartz.NET ou implementação simples com `PeriodicTimer`
-
-**Subtarefas:**
-- [ ] `BackgroundWorkers/Jobs/CleanupExpiredDataJob.cs`
-- [ ] `BackgroundWorkers/Jobs/SnapshotCreationJob.cs`
-- [ ] `BackgroundWorkers/Jobs/ReportGenerationJob.cs`
+- [x] `Application/Commands/Auctions/CloseAuctionCommand.cs` + Handler
+- [x] `BackgroundWorkers/Workers/AuctionCloseWorker.cs` — polling a cada 10s
+- [x] Registrado como hosted service no `BackgroundWorkers/Program.cs`
 
 ---
 
-## ÉPICO 8 — Saga: AuctionClosing
+### HIS-19 — Implementar CleanupExpiredDataWorker ✅
 
-> **Objetivo:** Coordenar encerramento distribuído com compensação.
-> **Prioridade:** 🟡 Médio
+- [x] `BackgroundWorkers/Workers/CleanupExpiredDataWorker.cs` — purge hourly
+- [x] `Infrastructure/IDataCleanupService` — purge expired idempotency keys + old outbox
+- [ ] `BackgroundWorkers/Jobs/SnapshotCreationJob.cs` — ❌ Fase 2
+- [ ] `BackgroundWorkers/Jobs/ReportGenerationJob.cs` — ❌ Fase 2
 
 ---
 
-### HIS-20 — Implementar AuctionClosingSaga
+## ÉPICO 8 — Saga: AuctionClosing ❌ FASE 2
 
-**Prioridade:** 🟡 Médio
-**DoD:**
-- `AuctionClosingSagaState` com todos os campos de estado e `SagaStatus` enum
-- `ISagaStateRepository` com `SaveAsync` e `GetByIdAsync`
-- `AuctionClosingSagaHandler` com os 4 steps: DetermineWinner, ReservePayment, ReserveItem, NotifyParticipants
-- Compensação em ordem reversa para cada step que falhou
-- Estado persistido em PostgreSQL a cada step
-- Evento publicado no sucesso/falha
+---
 
-**Subtarefas:**
+### HIS-20 — Implementar AuctionClosingSaga ❌
+
 - [ ] `Domain/Sagas/AuctionClosingSagaState.cs`
 - [ ] `Application/Sagas/ISagaStateRepository.cs`
 - [ ] `Application/Sagas/AuctionClosingSagaHandler.cs`
 - [ ] `Infrastructure/Persistence/Repositories/SagaStateRepository.cs`
-- [ ] Interfaces stub para `IPaymentService`, `IInventoryService`, `INotificationService`
 
 ---
 
-## ÉPICO 9 — Event Sourcing (DynamoDB)
-
-> **Objetivo:** Implementar store de eventos com snapshots para reconstituição de aggregates.
-> **Prioridade:** 🟡 Médio (pode usar EF Core como fallback temporariamente)
+## ÉPICO 9 — Event Sourcing (DynamoDB) ❌ FASE 2
 
 ---
 
-### HIS-21 — Implementar IEventStore com DynamoDB
+### HIS-21 — Implementar IEventStore com DynamoDB ❌
 
-**Prioridade:** 🟡 Médio
-**DoD:**
-- `IEventStore` interface com `AppendEvents`, `GetEvents`, `SaveSnapshot`, `GetLatestSnapshot`
-- `DynamoDbEventStore` com conditional writes para concorrência
-- Snapshot a cada 50 eventos
-- `DomainEventTypeRegistry` para desserialização por nome
-- `EventSourcedAuctionRepository` carrega do snapshot + eventos incrementais
-- Tabelas DynamoDB criadas via Terraform ou script
-
-**Subtarefas:**
 - [ ] `Application/Interfaces/IEventStore.cs`
 - [ ] `Infrastructure/EventStore/DynamoDbEventStore.cs`
 - [ ] `Infrastructure/EventStore/EventSourcedAuctionRepository.cs`
-- [ ] `Infrastructure/EventStore/ConcurrencyException.cs`
-- [ ] `Domain/Common/DomainEventTypeRegistry.cs`
+- [ ] `Domain/Aggregates/Auction/AuctionSnapshot.cs`
 
 ---
 
 ## ÉPICO 10 — Health Checks e Observabilidade
 
-> **Objetivo:** Monitoramento da saúde do sistema e métricas de negócio.
-> **Prioridade:** 🟡 Médio
+---
+
+### HIS-22 — Implementar Health Checks customizados ✅
+
+- [x] `Infrastructure/Monitoring/HealthChecks/DatabaseHealthCheck.cs`
+- [x] `Infrastructure/Monitoring/HealthChecks/RedisHealthCheck.cs`
+- [x] `Infrastructure/Monitoring/HealthChecks/OutboxHealthCheck.cs`
+- [x] Endpoints `/health/live`, `/health/ready`, `/health/db`
 
 ---
 
-### HIS-22 — Implementar Health Checks customizados
+### HIS-23 — Implementar métricas Prometheus ❌ FASE 2
 
-**Prioridade:** 🟡 Médio
-**DoD:**
-- `DatabaseHealthCheck` verifica conectividade PostgreSQL com query simples
-- `RedisHealthCheck` verifica ping ao Redis
-- `SignalRHealthCheck` verifica estado do hub
-- Endpoint `/health/ready` (todos checks) e `/health/live` (apenas alive)
-- Resposta JSON com status por componente
-
-**Subtarefas:**
-- [ ] `Infrastructure/Monitoring/HealthChecks/DatabaseHealthCheck.cs`
-- [ ] `Infrastructure/Monitoring/HealthChecks/RedisHealthCheck.cs`
-- [ ] `Infrastructure/Monitoring/HealthChecks/SignalRHealthCheck.cs`
-- [ ] Configurar `/health/ready` e `/health/live` no `Program.cs`
-
----
-
-### HIS-23 — Implementar métricas Prometheus
-
-**Prioridade:** 🟢 Baixo
-**DoD:**
-- Métricas de negócio: lances/segundo, leilões ativos, usuários conectados
-- Métricas técnicas: latência de endpoints, erros de concorrência, tamanho da fila outbox
-- Endpoint `/metrics` disponível para scraping
-
-**Subtarefas:**
 - [ ] `Infrastructure/Monitoring/PrometheusMetrics.cs`
-- [ ] Configurar prometheus-net no `Program.cs`
-- [ ] Instrumentar `PlaceBidCommandHandler` com counters/histogramas
+- [ ] Endpoint `/metrics`
+- [ ] Instrumentar PlaceBidCommandHandler
 
 ---
 
 ## ÉPICO 11 — Tests
 
-> **Objetivo:** Cobertura adequada em todos os níveis.
-> **Prioridade:** 🟠 Alto (deve ser feito junto com cada feature)
+---
+
+### HIS-24 — Testes Unitários do Domínio ✅
+
+- [x] `UnitTests/Domain/AuctionTests.cs`
+- [x] `UnitTests/Domain/BidTests.cs`
+- [x] `UnitTests/Domain/ValueObjectTests.cs`
+- [x] Unit tests Application (handlers, queries, behaviors)
+- [x] Unit tests Shared (AggregateRoot, Entity, Result)
+- [x] Unit tests Infrastructure (OutboxProcessor)
 
 ---
 
-### HIS-24 — Testes Unitários do Domínio
+### HIS-25 — Testes de Arquitetura ⬜ PENDENTE
 
-**Prioridade:** 🟠 Alto
-**DoD:**
-- Cobertura ≥ 80% dos métodos de `Auction` aggregate
-- Cenários: lance válido, leilão encerrado, valor abaixo do atual, usuário já vencendo, anti-sniping, concorrência
-- Testes para todos os Value Objects
-- Testes para Result pattern
-
-**Subtarefas:**
-- [ ] `UnitTests/Domain/AuctionTests.cs`
-- [ ] `UnitTests/Domain/BidTests.cs`
-- [ ] `UnitTests/Domain/ValueObjectTests.cs`
+- [ ] `ArchitectureTests/DependencyTests.cs` — Domain não referencia Infrastructure/Application
+- [ ] `ArchitectureTests/NamingConventionTests.cs` — naming conventions dos handlers
 
 ---
 
-### HIS-25 — Testes de Arquitetura
+### HIS-26 — Testes de Integração com Testcontainers ✅
 
-**Prioridade:** 🟡 Médio
-**DoD:**
-- `DependencyTests` verifica que Domain não referencia Infrastructure/Application
-- `DependencyTests` verifica que Application não referencia Infrastructure (apenas interfaces)
-- `NamingConventionTests` verifica que todos os handlers terminam em "Handler", commands em "Command", etc.
-- Usa NetArchTest.Rules
-
-**Subtarefas:**
-- [ ] Adicionar `NetArchTest.Rules` ao `Directory.Packages.props`
-- [ ] `ArchitectureTests/DependencyTests.cs`
-- [ ] `ArchitectureTests/NamingConventionTests.cs`
-
----
-
-### HIS-26 — Testes de Integração com Testcontainers
-
-**Prioridade:** 🟡 Médio
-**DoD:**
-- `PostgresContainerFixture` sobe PostgreSQL via Testcontainers, aplica migrations
-- `RedisFixture` sobe Redis via Testcontainers
-- `AuctionsControllerTests` testa endpoints completos via WebApplicationFactory
-- `OutboxProcessorTests` testa fluxo completo de publicação de eventos
-- `RepositoryTests` testa CRUD contra banco real
-
-**Subtarefas:**
-- [ ] Adicionar `Testcontainers.PostgreSql` e `Testcontainers.Redis`
-- [ ] `IntegrationTests/TestContainers/PostgresContainerFixture.cs`
-- [ ] `IntegrationTests/Fixtures/RedisFixture.cs`
-- [ ] `IntegrationTests/API/AuctionsControllerTests.cs`
-- [ ] `IntegrationTests/Infrastructure/OutboxProcessorTests.cs`
-- [ ] `IntegrationTests/Infrastructure/RepositoryTests.cs`
+- [x] `IntegrationTests/Fixtures/PostgreSqlFixture.cs`
+- [x] `IntegrationTests/Fixtures/RedisFixture.cs`
+- [x] `IntegrationTests/Infrastructure/AuctionRepositoryTests.cs`
+- [x] `IntegrationTests/Infrastructure/BidRepositoryTests.cs`
+- [x] `IntegrationTests/Infrastructure/RedisCacheServiceTests.cs`
+- [x] `IntegrationTests/Infrastructure/RedisRateLimiterTests.cs`
+- [x] `IntegrationTests/PlaceBidConcurrencyTests.cs`
+- [x] `IntegrationTests/PlaceBidIdempotencyTests.cs`
+- [ ] `IntegrationTests/API/AuctionsControllerTests.cs` — ❌ WebApplicationFactory end-to-end pendente
 
 ---
 
 ## ÉPICO 12 — Docker e Deploy
 
-> **Objetivo:** Containerização completa e pipeline CI/CD.
-> **Prioridade:** 🟢 Baixo (pode ser feito após MVP funcional)
-
 ---
 
-### HIS-27 — Dockerfiles e docker-compose completo
+### HIS-27 — Dockerfiles e docker-compose completo ❌
 
-**Prioridade:** 🟢 Baixo
-**DoD:**
-- `Dockerfile.api` com multi-stage build
-- `Dockerfile.worker` com multi-stage build
-- `docker-compose.yml` com API + Worker + dependência na infra
-- `docker-compose.dev.yml` com hot-reload e volumes
-- `docker compose up` inicia todo o sistema localmente
-
-**Subtarefas:**
 - [ ] `docker/Dockerfile.api`
 - [ ] `docker/Dockerfile.worker`
 - [ ] `docker/docker-compose.yml` — API + Worker services
-- [ ] `docker/docker-compose.dev.yml`
 
 ---
 
-### HIS-28 — Terraform e IaC
+### HIS-28 — Terraform e IaC ❌ FASE 2
 
-**Prioridade:** 🟢 Baixo
-**DoD:**
-- Módulos Terraform para: VPC, ECS Fargate, RDS PostgreSQL, ElastiCache Redis, DynamoDB, Cognito
-- Ambientes: dev, staging, prod
-- Secrets no AWS Secrets Manager
-
-**Subtarefas:**
 - [ ] `iac/terraform/modules/vpc/`
 - [ ] `iac/terraform/modules/ecs/`
 - [ ] `iac/terraform/modules/rds/`
 - [ ] `iac/terraform/modules/elasticache/`
 - [ ] `iac/terraform/modules/dynamodb/`
 - [ ] `iac/terraform/modules/cognito/`
-- [ ] `iac/terraform/environments/dev/`
 
 ---
 
-## ÉPICO 13 — Correções e Dívida Técnica
-
-> **Prioridade:** 🟠 Alto — deve ser feito antes de qualquer PR
+## ÉPICO 13 — CI/CD 🔄 EM PROGRESSO
 
 ---
 
-### HIS-29 — Corrigir problemas existentes
+### HIS-29 — GitHub Actions CI 🔄
 
-**Prioridade:** 🟠 Alto
-**DoD:**
-- Typo no .csproj corrigido: `Applciation` → `Application`
-- `UsersControllers.cs` renomeado para `UsersController.cs`
-- Todos os `Class1.cs` placeholder removidos
-- Rotas dos controllers atualizadas para padrão versionado `api/v{version:apiVersion}/`
-- `RateLimitAttribute` descomentado
+- [x] Checkout, .NET 10 setup, NuGet cache
+- [x] Release build
+- [x] Unit tests com coverage upload
+- [ ] Architecture tests (NetArchTest)
+- [ ] Integration tests com Docker service containers
+- [ ] Lint / format check
 
-**Subtarefas:**
-- [ ] Renomear `AuctionKings.Applciation.csproj`
-- [ ] Renomear `UsersControllers.cs` → `UsersController.cs` e atualizar classe
-- [ ] Remover `Class1.cs` de todos os projetos
-- [ ] Atualizar rotas nos controllers para versioning
+---
+
+## Resumo de Status por Épico
+
+| Épico                            | Status                             |
+| -------------------------------- | ---------------------------------- |
+| 1 — Shared + Domain              | ✅ Concluído                       |
+| 2 — EF Core + PostgreSQL         | ✅ Concluído                       |
+| 3 — Application CQRS             | ✅ Concluído                       |
+| 4 — API Controllers + Middleware | ✅ Concluído                       |
+| 5 — SignalR Hubs                 | ✅ Concluído                       |
+| 6 — Autenticação/Autorização     | ❌ Pendente (bloqueante para prod) |
+| 7 — Background Workers           | ✅ Concluído                       |
+| 8 — Sagas                        | ❌ Fase 2                          |
+| 9 — Event Sourcing DynamoDB      | ❌ Fase 2                          |
+| 10 — Health Checks               | ✅ Concluído                       |
+| 10 — Prometheus                  | ❌ Fase 2                          |
+| 11 — Unit + Integration Tests    | ✅ Concluído                       |
+| 11 — Architecture Tests          | ⬜ Pendente                        |
+| 11 — Load Tests                  | ⬜ Pendente                        |
+| 12 — Dockerfiles                 | ❌ Pendente                        |
+| 12 — Terraform                   | ❌ Fase 2                          |
+| 13 — CI Pipeline                 | 🔄 Em progresso                    |

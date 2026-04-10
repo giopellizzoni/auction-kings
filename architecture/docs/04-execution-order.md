@@ -1,243 +1,166 @@
-# Ordem de Execução Recomendada — AuctionKings
+# Ordem de Execução — AuctionKings
 
 > Sequência de implementação baseada em dependências técnicas e valor entregue por sprint.
-> Gerado em: 2026-02-28
+> Atualizado em: 2026-04-10
 
 ---
 
 ## Princípios da Ordem
 
 1. **Dependências primeiro:** Domain antes de Application, Application antes de Infrastructure, Infrastructure antes de API
-2. **Vertical slicing:** prefira implementar um fluxo de ponta a ponta (ex: PlaceBid completo) antes de adicionar mais features
-3. **Testes junto:** cada história inclui seus testes — não deixar para o fim
-4. **Infra local primeiro:** usar PostgreSQL + Redis locais (docker) antes de integrar AWS
+2. **Vertical slicing:** implementar um fluxo de ponta a ponta antes de adicionar mais features
+3. **Testes junto:** cada história inclui seus testes
+4. **Infra local primeiro:** PostgreSQL + Redis locais (docker) antes de integrar AWS
 
 ---
 
-## Diagrama de Dependências
+## Estado Atual dos Sprints
 
 ```
-HIS-03 (packages)
-    ↓
-HIS-01 (Shared base)
-    ↓
-HIS-02 (Domain)
-    ↓
-HIS-04 (EF Core + DbContext)     ←── HIS-29 (correções)
-    ↓
-HIS-05 (Outbox Pattern)
-    ↓
-HIS-06 (PlaceBid command)
-    ↓
-HIS-09 (Pipeline Behaviors)      ←── HIS-08 (Queries)
-    ↓
-HIS-10 (AuctionsController)      ←── HIS-13 (Rate Limiting)
-    ↓
-HIS-14 (AuctionHub SignalR)      ←── HIS-15 (Broadcast eventos)
-    ↓
-HIS-16 (Auth JWT)                ←── HIS-17 (Auth Policies)
-    ↓
-HIS-18 (AuctionCloseWorker)
-    ↓
-HIS-22 (Health Checks)
-    ↓
-[MVP Funcional — Fase 1 concluída]
-    ↓
-HIS-07 (CreateAuction)
-HIS-11 (Bids/Users Controllers)
-HIS-12 (Middleware)
-HIS-20 (Saga)
-HIS-21 (Event Sourcing DynamoDB)
-HIS-23 (Prometheus)
-HIS-24 (Unit Tests)
-HIS-25 (Arch Tests)
-HIS-26 (Integration Tests)
-HIS-27 (Docker compose completo)
-HIS-28 (Terraform)
-HIS-19 (Cleanup Jobs)
+Sprint 0  │ HIS-29  HIS-03            ✅ CONCLUÍDO
+          │ (packages + setup)
+──────────┤
+Sprint 1  │ HIS-01  HIS-02  HIS-24    ✅ CONCLUÍDO
+          │ (Shared + Domain + Unit Tests)
+──────────┤
+Sprint 2  │ HIS-04  HIS-05  HIS-06  HIS-09   ✅ CONCLUÍDO
+          │ (EF Core + Outbox + PlaceBid + Behaviors)
+──────────┤
+Sprint 3  │ HIS-07  HIS-08  HIS-13  HIS-10  HIS-11   ✅ CONCLUÍDO
+          │ (Commands/Queries + Rate Limit + Controllers)
+──────────┤
+Sprint 4  │ HIS-14  HIS-15  HIS-12    ✅ CONCLUÍDO
+          │ (SignalR Hubs + Broadcast + Middleware)
+──────────┤
+Sprint 5  │ HIS-16  HIS-17            ❌ PENDENTE
+          │ (JWT Auth + Cognito Policies)
+──────────┤
+Sprint 6  │ HIS-18  HIS-19  HIS-22   ✅ CONCLUÍDO
+          │ (Workers + Health Checks)
+──────────┤
+Sprint 7  │ HIS-25  HIS-26  HIS-27   🔄 EM PROGRESSO
+          │ (Arch Tests + Integration Tests + Docker)
+──────────┤
+[MVP ✅ funcional — falta auth para prod]
+──────────┤
+Fase 2    │ HIS-20  HIS-21  HIS-23  HIS-19(parcial)  HIS-28
+          │ (Saga + DynamoDB + Prometheus + IaC)
 ```
 
 ---
 
-## Sprint 0 — Pré-requisitos e Correções
+## Sprint 0 — Pré-requisitos e Configuração ✅ CONCLUÍDO
 
-**Duração:** 1 dia
-**Objetivo:** Ambiente limpo, sem dívida técnica inicial
-
-| Ordem | História | Descrição |
-|-------|----------|-----------|
-| 1 | **HIS-29** | Corrigir typo no .csproj, renomear UsersControllers, remover Class1.cs |
-| 2 | **HIS-03** | Adicionar todos os NuGet packages no `Directory.Packages.props` e atualizar .csproj |
-
-**Critério de conclusão:** `dotnet restore && dotnet build` passa sem erros ou warnings.
+| Ordem | História | Descrição | Status |
+|-------|----------|-----------|--------|
+| 1 | **HIS-29** | Packages NuGet, project references, typos | ✅ |
+| 2 | **HIS-03** | Directory.Packages.props completo | ✅ |
 
 ---
 
-## Sprint 1 — Fundações do Domínio
+## Sprint 1 — Fundações do Domínio ✅ CONCLUÍDO
 
-**Duração:** 2–3 dias
-**Objetivo:** Domínio implementado e testado. Nenhum acoplamento externo.
-
-| Ordem | História | Descrição | Dependência |
-|-------|----------|-----------|-------------|
-| 1 | **HIS-01** | Shared base classes: Entity, AggregateRoot, Result, IDomainEvent | Sprint 0 |
-| 2 | **HIS-02** | Domain: Aggregates, Events, Value Objects, Errors, Enums, Specs | HIS-01 |
-| 3 | **HIS-24** | Testes unitários de domínio | HIS-02 |
-
-**Critério de conclusão:** `dotnet test test/AuctionKings.UnitTests/` passa com cobertura ≥ 80% no domínio.
+| Ordem | História | Descrição | Status |
+|-------|----------|-----------|--------|
+| 1 | **HIS-01** | Entity, AggregateRoot, Result, IDomainEvent, PagedResult | ✅ |
+| 2 | **HIS-02** | Domain: Auction, Bid, VOs, Events, Errors, Enums | ✅ |
+| 3 | **HIS-24** | Unit tests do domínio (> 80% cobertura) | ✅ |
 
 ---
 
-## Sprint 2 — Persistência e CQRS Core
+## Sprint 2 — Persistência e CQRS Core ✅ CONCLUÍDO
 
-**Duração:** 3–4 dias
-**Objetivo:** PlaceBid de ponta a ponta com persistência real.
-
-| Ordem | História | Descrição | Dependência |
-|-------|----------|-----------|-------------|
-| 1 | **HIS-04** | EF Core DbContext, configurações, migration inicial | Sprint 1 |
-| 2 | **HIS-05** | Outbox Pattern: OutboxMessage, UnitOfWork, OutboxProcessor | HIS-04 |
-| 3 | **HIS-06** | PlaceBidCommand + Handler + Validator + BidDto | HIS-04, HIS-02 |
-| 4 | **HIS-09** | Pipeline Behaviors: Validation, Logging, Idempotency, Performance | HIS-06 |
-
-**Critério de conclusão:** `PlaceBidCommandHandler` processa lance, persiste no banco, gera OutboxMessage na mesma transação. Testes unitários e integração básica passando.
+| Ordem | História | Descrição | Status |
+|-------|----------|-----------|--------|
+| 1 | **HIS-04** | EF Core DbContext, configurações, migration InitialCreate | ✅ |
+| 2 | **HIS-05** | Outbox Pattern: UnitOfWork, OutboxProcessor (SKIP LOCKED) | ✅ |
+| 3 | **HIS-06** | PlaceBidCommand + Handler + Validator | ✅ |
+| 4 | **HIS-09** | Pipeline Behaviors: Validation, Logging, Idempotency, Performance | ✅ |
 
 ---
 
-## Sprint 3 — API REST e Rate Limiting
+## Sprint 3 — API REST e Rate Limiting ✅ CONCLUÍDO
 
-**Duração:** 2–3 dias
-**Objetivo:** Endpoint POST /api/v1/auctions/{id}/bids funcional via HTTP.
-
-| Ordem | História | Descrição | Dependência |
-|-------|----------|-----------|-------------|
-| 1 | **HIS-08** | Queries: GetAuctionDetails, GetActiveAuctions, GetAuctionBids | Sprint 2 |
-| 2 | **HIS-07** | CreateAuctionCommand + Handler | Sprint 2 |
-| 3 | **HIS-13** | RedisRateLimiter com Lua script + RateLimitAttribute | Sprint 2 |
-| 4 | **HIS-10** | AuctionsController com todos os endpoints | HIS-07, HIS-08, HIS-13 |
-| 5 | **HIS-11** | BidsController e UsersController | HIS-10 |
-
-**Critério de conclusão:** Curl `POST /api/v1/auctions/{id}/bids` retorna 200 com lance ou erro tipado. Swagger UI funcional. Rate limit retorna 429 após N requests.
+| Ordem | História | Descrição | Status |
+|-------|----------|-----------|--------|
+| 1 | **HIS-08** | Queries: GetAuctionDetails, GetActiveAuctions (cache), GetAuctionBids | ✅ |
+| 2 | **HIS-07** | CreateAuctionCommand + Handler | ✅ |
+| 3 | **HIS-13** | RedisRateLimiter (Lua) + RateLimitAttribute | ✅ |
+| 4 | **HIS-10** | AuctionsController com todos os endpoints + Swagger | ✅ |
+| 5 | **HIS-11** | BidsController e UsersController | ✅ |
 
 ---
 
-## Sprint 4 — Real-Time com SignalR
+## Sprint 4 — Real-Time com SignalR ✅ CONCLUÍDO
 
-**Duração:** 2–3 dias
-**Objetivo:** Clientes recebem atualização em tempo real ao ocorrer um lance.
-
-| Ordem | História | Descrição | Dependência |
-|-------|----------|-----------|-------------|
-| 1 | **HIS-14** | AuctionHub: JoinAuction, LeaveAuction, RequestStateSync, Redis backplane | Sprint 3 |
-| 2 | **HIS-15** | Integrar Outbox → broadcast SignalR (BidPlaced, AuctionExtended, AuctionClosed) | HIS-14, HIS-05 |
-| 3 | **HIS-12** | Middleware: CorrelationId, RequestLogging, SecurityHeaders | Sprint 3 |
-
-**Critério de conclusão:** Cliente conectado ao hub recebe evento `BidPlaced` em tempo real quando outro usuário faz um lance via REST. Reconexão funcional com resync de estado.
+| Ordem | História | Descrição | Status |
+|-------|----------|-----------|--------|
+| 1 | **HIS-14** | AuctionHub + ConnectionTracker + Redis backplane | ✅ |
+| 2 | **HIS-15** | Broadcast BidPlaced / AuctionExtended / AuctionClosed | ✅ |
+| 3 | **HIS-12** | Middleware: CorrelationId, RequestLogging, SecurityHeaders | ✅ |
 
 ---
 
-## Sprint 5 — Autenticação e Autorização
+## Sprint 5 — Autenticação e Autorização ❌ PENDENTE
 
-**Duração:** 2 dias
-**Objetivo:** Endpoints protegidos com JWT. Apenas usuários autenticados e verificados podem dar lances.
+> **Bloqueante para produção.** Todos os endpoints atualmente públicos.
 
-| Ordem | História | Descrição | Dependência |
-|-------|----------|-----------|-------------|
-| 1 | **HIS-16** | JWT authentication com Cognito (ou Keycloak/local para dev) | Sprint 4 |
-| 2 | **HIS-17** | Authorization policies: CanBid, HighValueBid, Seller, Admin | HIS-16 |
+| Ordem | História | Descrição | Status |
+|-------|----------|-----------|--------|
+| 1 | **HIS-16** | JWT authentication com Cognito (ou mock local) | ❌ |
+| 2 | **HIS-17** | Authorization policies: CanBid, HighValueBid, Seller, Admin | ❌ |
 
-**Nota:** Para desenvolvimento local, use um JWT provider local (ex: dummy auth middleware que gera tokens fixos) antes de integrar Cognito real.
-
-**Critério de conclusão:** `POST /api/v1/auctions/{id}/bids` sem token retorna 401. Token com email não verificado retorna 403. Token válido processa o lance.
-
----
-
-## Sprint 6 — Workers e Encerramento de Leilões
-
-**Duração:** 2 dias
-**Objetivo:** Leilões encerram automaticamente no tempo configurado.
-
-| Ordem | História | Descrição | Dependência |
-|-------|----------|-----------|-------------|
-| 1 | **HIS-18** | AuctionCloseWorker com distributed lock Redis | Sprint 5 |
-| 2 | **HIS-22** | Health Checks customizados (DB, Redis, SignalR) | Sprint 5 |
-
-**Critério de conclusão:** Ao criar um leilão com duração de 1 minuto, após 1 minuto o status muda para `Ended`, winner é determinado, e clientes recebem `AuctionClosed` via SignalR.
+**Notas:**
+- Para desenvolvimento local, implementar dummy auth middleware que gera tokens fixos antes de integrar Cognito real.
+- `LocalStack` + `Moto` já configurados — Cognito emulado via Moto disponível na porta 5555.
+- `appsettings.LocalStack.json` com endpoint overrides já existe.
 
 ---
 
-## Sprint 7 — [MVP Completo] Qualidade e Testes
+## Sprint 6 — Workers e Saúde do Sistema ✅ CONCLUÍDO
 
-**Duração:** 2–3 dias
-**Objetivo:** Sistema testável, confiável, pronto para demonstração.
+| Ordem | História | Descrição | Status |
+|-------|----------|-----------|--------|
+| 1 | **HIS-18** | AuctionCloseWorker (polling 10s, fecha leilões expirados) | ✅ |
+| 2 | **HIS-19** | CleanupExpiredDataWorker (purge hourly) | ✅ |
+| 3 | **HIS-22** | Health Checks: DatabaseHealthCheck, RedisHealthCheck, OutboxHealthCheck | ✅ |
 
-| Ordem | História | Descrição | Dependência |
-|-------|----------|-----------|-------------|
-| 1 | **HIS-25** | Architecture Tests com NetArchTest | Sprint 6 |
-| 2 | **HIS-26** | Integration Tests com Testcontainers | Sprint 6 |
-| 3 | **HIS-27** | Dockerfiles e docker-compose.yml completo | Sprint 6 |
+---
 
-**Critério de conclusão:** `dotnet test` passa em todos os projetos. `docker compose up` inicia API + Worker + PostgreSQL + Redis.
+## Sprint 7 — Qualidade e Empacotamento 🔄 EM PROGRESSO
+
+| Ordem | História | Descrição | Status |
+|-------|----------|-----------|--------|
+| 1 | **HIS-25** | Architecture Tests com NetArchTest | ⬜ Pendente |
+| 2 | **HIS-26** | Integration Tests — AuctionsControllerTests end-to-end | 🔄 Parcial (repos/cache/rate limiter prontos; controller tests pendentes) |
+| 3 | **HIS-27** | Dockerfiles + docker-compose.yml para API + Worker | ❌ |
+| 4 | **HIS-29-CI** | GitHub Actions CI completo (+ integration tests + arch tests) | 🔄 Parcial |
+
+**Critério de conclusão do Sprint 7:** `dotnet test` passa em todos os projetos incluindo Architecture Tests. `docker compose up` inicia API + Worker + PostgreSQL + Redis.
 
 ---
 
 ## Fase 2 — Funcionalidades Avançadas (pós-MVP)
 
-Após o MVP funcional, estas features podem ser implementadas em qualquer ordem relativa:
-
 | Prioridade | História | Descrição |
 |-----------|----------|-----------|
 | 🟡 Médio | **HIS-20** | Saga AuctionClosing com compensação |
-| 🟡 Médio | **HIS-21** | Event Store com DynamoDB |
+| 🟡 Médio | **HIS-21** | Event Store com DynamoDB (LocalStack disponível) |
 | 🟡 Médio | **HIS-23** | Métricas Prometheus + Grafana |
-| 🟢 Baixo | **HIS-19** | Cleanup Jobs e Snapshot Jobs |
+| 🟢 Baixo | **HIS-19b** | SnapshotCreationJob, ReportGenerationJob |
 | 🟢 Baixo | **HIS-28** | Terraform / IaC AWS |
-
----
-
-## Resumo Visual por Sprint
-
-```
-Sprint 0  │ HIS-29  HIS-03
-          │ (correções + packages)
-──────────┤
-Sprint 1  │ HIS-01  HIS-02  HIS-24
-          │ (Shared + Domain + Unit Tests)
-──────────┤
-Sprint 2  │ HIS-04  HIS-05  HIS-06  HIS-09
-          │ (EF Core + Outbox + PlaceBid + Behaviors)
-──────────┤
-Sprint 3  │ HIS-07  HIS-08  HIS-13  HIS-10  HIS-11
-          │ (Commands/Queries + Rate Limit + Controllers)
-──────────┤
-Sprint 4  │ HIS-14  HIS-15  HIS-12
-          │ (SignalR Hubs + Broadcast + Middleware)
-──────────┤
-Sprint 5  │ HIS-16  HIS-17
-          │ (JWT Auth + Policies)
-──────────┤
-Sprint 6  │ HIS-18  HIS-22
-          │ (Workers + Health Checks)
-──────────┤
-Sprint 7  │ HIS-25  HIS-26  HIS-27
-          │ (Arch Tests + Integration Tests + Docker)
-──────────┤
-[MVP ✅]
-──────────┤
-Fase 2    │ HIS-20  HIS-21  HIS-23  HIS-19  HIS-28
-          │ (Saga + DynamoDB + Prometheus + Jobs + IaC)
-```
+| 🟢 Baixo | **T18** | Load Tests com NBomber |
 
 ---
 
 ## Pontos de Atenção
 
-1. **Cognito em dev:** Configure um mock de autenticação JWT local para não bloquear desenvolvimento nos Sprints 1-5. Integrar Cognito real apenas no Sprint 5.
+1. **Auth em dev:** `Moto` já está configurado e emula Cognito localmente (porta 5555). Ao implementar HIS-16, usar `appsettings.LocalStack.json` para apontar para Moto antes de integrar Cognito real.
 
-2. **DynamoDB Event Store:** É opcional para o MVP. Use apenas EF Core/PostgreSQL para persistência até que Event Sourcing seja necessário (Fase 2).
+2. **SQS/SNS:** OutboxProcessor usa MediatR in-memory. Issue #38 rastreia a migração para SQS. LocalStack já tem SQS/SNS inicializados pelos scripts de init.
 
-3. **Teste de carga:** O projeto `AuctionKings.LoadTests` com k6 deve ser executado apenas após o MVP completo, em ambiente isolado.
+3. **DynamoDB Event Store:** É opcional para o MVP. EF Core/PostgreSQL é suficiente até que Event Sourcing seja necessário. LocalStack já tem tabelas DynamoDB configuradas.
 
-4. **AWS Services:** SQS, SNS, Secrets Manager são opcionais para desenvolvimento local. Use Redis + fila em memória como fallback.
+4. **Architecture Tests:** Prioridade alta para Sprint 7 — garante que as regras de Clean Architecture não são violadas conforme o projeto cresce.
 
-5. **Anti-sniping:** Está dentro da lógica de domínio do `Auction.PlaceBid()` — já coberto pela HIS-02.
+5. **Load Tests:** Executar apenas após MVP completo + auth implementado, em ambiente isolado.

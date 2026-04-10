@@ -54,8 +54,8 @@ O projeto `AuctionKings.LoadTests` existe com teste placeholder. Load tests vali
 
 ## GitHub Issues
 
-| # | Title | Status |
-|---|-------|--------|
-| [#62](https://github.com/PellizzoniCode/auction-kings/issues/62) | Criar k6 load test para PlaceBid | 🔴 open |
+| #                                                                | Title                                                   | Status  |
+| ---------------------------------------------------------------- | ------------------------------------------------------- | ------- |
+| [#62](https://github.com/PellizzoniCode/auction-kings/issues/62) | Criar k6 load test para PlaceBid                        | 🔴 open |
 | [#63](https://github.com/PellizzoniCode/auction-kings/issues/63) | Executar tuning básico (índices, queries) baseado no k6 | 🔴 open |
-| [#64](https://github.com/PellizzoniCode/auction-kings/issues/64) | Documentar resultados do load test (p95, throughput) | 🔴 open |
+| [#64](https://github.com/PellizzoniCode/auction-kings/issues/64) | Documentar resultados do load test (p95, throughput)    | 🔴 open |
