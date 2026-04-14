@@ -7,12 +7,21 @@
   <ItemGroup>
     <PackageReference Include="coverlet.collector" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NetArchTest.Rules" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
 
   <ItemGroup>
     <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\common\AuctionKings.Shared\AuctionKings.Shared.csproj" />
+    <ProjectReference Include="..\..\src\services\AuctionKings.Domain\AuctionKings.Domain.csproj" />
+    <ProjectReference Include="..\..\src\services\AuctionKings.Application\AuctionKings.Application.csproj" />
+    <ProjectReference Include="..\..\src\services\AuctionKings.Infrastructure\AuctionKings.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\services\AuctionKings.API\AuctionKings.API.csproj" />
   </ItemGroup>
 
 </Project>
