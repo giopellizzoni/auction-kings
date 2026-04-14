@@ -1,0 +1,520 @@
+<!--
+Prerequisites:
+- API running: dotnet run --project src/services/AuctionKings.API/AuctionKings.API.csproj
+- Infrastructure up: cd docker && docker-compose -f docker-compose.infra.yml up -d
+- Open this file directly in browser (file://) or serve locally
+- Create an auction first via POST /api/auctions, then paste the ID below
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AuctionKings — SignalR Multi-Client Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@latest/dist/browser/signalr.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f1117;
+      color: #c9d1d9;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      padding: 24px;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #e6edf3;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #21262d;
+      padding-bottom: 12px;
+    }
+
+    .controls {
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px 20px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #8b949e;
+      font-weight: 600;
+    }
+
+    input[type="text"],
+    input[type="number"] {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #e6edf3;
+      padding: 6px 10px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input[type="text"]:focus,
+    input[type="number"]:focus {
+      border-color: #58a6ff;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 8px 18px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, background 0.15s;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    #btnStart {
+      background: #238636;
+      border-color: #2ea043;
+      color: #fff;
+    }
+    #btnStart:hover:not(:disabled) { background: #2ea043; }
+
+    #btnBid {
+      background: #1f6feb;
+      border-color: #388bfd;
+      color: #fff;
+    }
+    #btnBid:hover:not(:disabled) { background: #388bfd; }
+
+    #btnStop {
+      background: #da3633;
+      border-color: #f85149;
+      color: #fff;
+    }
+    #btnStop:hover:not(:disabled) { background: #f85149; }
+
+    .clients-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 12px;
+    }
+
+    .client-panel {
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .client-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: #0d1117;
+      border-bottom: 1px solid #21262d;
+    }
+
+    .client-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e6edf3;
+      flex: 1;
+    }
+
+    .status-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .status-idle        { background: #21262d; color: #8b949e; }
+    .status-connecting  { background: #3d2b00; color: #d29922; }
+    .status-connected   { background: #1b3a1b; color: #3fb950; }
+    .status-disconnected{ background: #3a1818; color: #f85149; }
+
+    .client-log {
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 11.5px;
+      line-height: 1.6;
+      color: #8b949e;
+      padding: 10px 14px;
+      height: 200px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .log-entry { margin-bottom: 1px; }
+    .log-time  { color: #30363d; margin-right: 4px; }
+    .log-event { color: #58a6ff; }
+    .log-bid   { color: #3fb950; }
+    .log-warn  { color: #d29922; }
+    .log-error { color: #f85149; }
+    .log-info  { color: #8b949e; }
+
+    #globalLog {
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 8px;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 11.5px;
+      line-height: 1.6;
+      color: #8b949e;
+      padding: 12px 16px;
+      height: 140px;
+      overflow-y: auto;
+      margin-bottom: 20px;
+    }
+
+    .section-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #8b949e;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+  </style>
+</head>
+<body>
+
+<h1>AuctionKings — SignalR Multi-Client Test</h1>
+
+<div class="controls">
+  <div class="field">
+    <label for="baseUrl">API Base URL</label>
+    <input type="text" id="baseUrl" value="http://localhost:5081" />
+  </div>
+  <div class="field">
+    <label for="auctionId">Auction ID (GUID)</label>
+    <input type="text" id="auctionId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+  </div>
+  <div class="field">
+    <label for="numClients">Number of Clients (1–10)</label>
+    <input type="number" id="numClients" min="1" max="10" value="3" />
+  </div>
+  <div class="field">
+    <label for="bidInterval">Bid Interval (ms)</label>
+    <input type="number" id="bidInterval" min="100" value="2000" />
+  </div>
+  <div class="field">
+    <label for="bidAmount">Bid Amount</label>
+    <input type="number" id="bidAmount" min="1" value="10" />
+  </div>
+</div>
+
+<div class="actions">
+  <button id="btnStart">Start Clients</button>
+  <button id="btnBid" disabled>Send Bid (client 1)</button>
+  <button id="btnStop" disabled>Stop All</button>
+</div>
+
+<div class="section-label">Global Log</div>
+<div id="globalLog"></div>
+
+<div class="section-label">Client Panels</div>
+<div id="clientsGrid" class="clients-grid"></div>
+
+<script>
+  // ── State ────────────────────────────────────────────────────────────────────
+  const clients = []; // { connection, logEl, statusEl, index }
+  let autoIntervalId = null;
+
+  // ── DOM refs ─────────────────────────────────────────────────────────────────
+  const btnStart    = document.getElementById('btnStart');
+  const btnBid      = document.getElementById('btnBid');
+  const btnStop     = document.getElementById('btnStop');
+  const clientsGrid = document.getElementById('clientsGrid');
+  const globalLogEl = document.getElementById('globalLog');
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  function randomUUID() {
+    if (crypto && crypto.randomUUID) return crypto.randomUUID();
+    // Fallback for older browsers / file:// with no secure context
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = (Math.random() * 16) | 0;
+      return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+    });
+  }
+
+  function timestamp() {
+    return new Date().toISOString().slice(11, 23); // HH:MM:SS.mmm
+  }
+
+  function appendLog(el, html) {
+    el.insertAdjacentHTML('beforeend', `<div class="log-entry">${html}</div>`);
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function logGlobal(msg, cls = 'log-info') {
+    appendLog(globalLogEl, `<span class="log-time">${timestamp()}</span><span class="${cls}">${msg}</span>`);
+  }
+
+  function logClient(client, msg, cls = 'log-info') {
+    appendLog(client.logEl, `<span class="log-time">${timestamp()}</span><span class="${cls}">${msg}</span>`);
+  }
+
+  function setStatus(client, state) {
+    const badge = client.statusEl;
+    badge.className = 'status-badge';
+    switch (state) {
+      case 'connecting':    badge.classList.add('status-connecting');   badge.textContent = 'Connecting';   break;
+      case 'connected':     badge.classList.add('status-connected');    badge.textContent = 'Connected';    break;
+      case 'disconnected':  badge.classList.add('status-disconnected'); badge.textContent = 'Disconnected'; break;
+      default:              badge.classList.add('status-idle');         badge.textContent = 'Idle';
+    }
+  }
+
+  // ── Build client panel DOM ───────────────────────────────────────────────────
+  function createClientPanel(index) {
+    const panel = document.createElement('div');
+    panel.className = 'client-panel';
+    panel.id = `panel-${index}`;
+
+    const header = document.createElement('div');
+    header.className = 'client-header';
+
+    const title = document.createElement('div');
+    title.className = 'client-title';
+    title.textContent = `Client ${index + 1}`;
+
+    const badge = document.createElement('span');
+    badge.className = 'status-badge status-idle';
+    badge.textContent = 'Idle';
+
+    header.appendChild(title);
+    header.appendChild(badge);
+
+    const log = document.createElement('div');
+    log.className = 'client-log';
+
+    panel.appendChild(header);
+    panel.appendChild(log);
+    clientsGrid.appendChild(panel);
+
+    return { logEl: log, statusEl: badge, index };
+  }
+
+  // ── Build SignalR connection ──────────────────────────────────────────────────
+  function buildConnection(baseUrl) {
+    return new signalR.HubConnectionBuilder()
+      .withUrl(`${baseUrl}/hubs/auction`)
+      .withAutomaticReconnect([0, 1000, 2000, 5000, 10000, 30000])
+      .configureLogging(signalR.LogLevel.Warning)
+      .build();
+  }
+
+  // ── Register hub event listeners ─────────────────────────────────────────────
+  function registerEvents(client) {
+    const { connection } = client;
+
+    connection.on('BidPlaced', (data) => {
+      const json = JSON.stringify(data);
+      logClient(client, `[BidPlaced] ${json}`, 'log-bid');
+      logGlobal(`Client ${client.index + 1} ← BidPlaced: ${json}`, 'log-bid');
+    });
+
+    connection.on('AuctionClosed', (data) => {
+      const json = JSON.stringify(data);
+      logClient(client, `[AuctionClosed] ${json}`, 'log-warn');
+      logGlobal(`Client ${client.index + 1} ← AuctionClosed: ${json}`, 'log-warn');
+    });
+
+    connection.on('AuctionExtended', (data) => {
+      const json = JSON.stringify(data);
+      logClient(client, `[AuctionExtended] ${json}`, 'log-event');
+      logGlobal(`Client ${client.index + 1} ← AuctionExtended: ${json}`, 'log-event');
+    });
+
+    connection.on('AuctionState', (data) => {
+      const json = JSON.stringify(data);
+      logClient(client, `[AuctionState] ${json}`, 'log-event');
+      logGlobal(`Client ${client.index + 1} ← AuctionState: ${json}`, 'log-event');
+    });
+
+    connection.onreconnecting((err) => {
+      setStatus(client, 'connecting');
+      logClient(client, `Reconnecting… ${err ? err.message : ''}`, 'log-warn');
+    });
+
+    connection.onreconnected((connId) => {
+      setStatus(client, 'connected');
+      logClient(client, `Reconnected (connId: ${connId})`, 'log-bid');
+      joinAuction(client);
+    });
+
+    connection.onclose((err) => {
+      setStatus(client, 'disconnected');
+      logClient(client, `Connection closed. ${err ? err.message : ''}`, 'log-error');
+    });
+  }
+
+  // ── Join auction group on hub ─────────────────────────────────────────────────
+  async function joinAuction(client) {
+    const auctionId = document.getElementById('auctionId').value.trim();
+    if (!auctionId) {
+      logClient(client, 'No auction ID — skipping JoinAuction call.', 'log-warn');
+      return;
+    }
+    try {
+      await client.connection.invoke('JoinAuction', auctionId);
+      logClient(client, `Joined auction ${auctionId}`, 'log-bid');
+    } catch (err) {
+      logClient(client, `JoinAuction failed: ${err.message}`, 'log-error');
+    }
+  }
+
+  // ── Start all clients ─────────────────────────────────────────────────────────
+  btnStart.addEventListener('click', async () => {
+    // Tear down any existing clients first
+    await stopAll();
+
+    const baseUrl    = document.getElementById('baseUrl').value.trim().replace(/\/$/, '');
+    const numClients = Math.min(10, Math.max(1, parseInt(document.getElementById('numClients').value, 10) || 1));
+
+    clientsGrid.innerHTML = '';
+
+    logGlobal(`Starting ${numClients} client(s) → ${baseUrl}/hubs/auction`);
+
+    for (let i = 0; i < numClients; i++) {
+      const panel = createClientPanel(i);
+      const connection = buildConnection(baseUrl);
+      const client = { connection, ...panel };
+      clients.push(client);
+
+      registerEvents(client);
+      setStatus(client, 'connecting');
+      logClient(client, `Connecting to ${baseUrl}/hubs/auction …`);
+
+      try {
+        await connection.start();
+        setStatus(client, 'connected');
+        logClient(client, 'Connected.', 'log-bid');
+        await joinAuction(client);
+      } catch (err) {
+        setStatus(client, 'disconnected');
+        logClient(client, `Connection failed: ${err.message}`, 'log-error');
+      }
+    }
+
+    btnBid.disabled  = false;
+    btnStop.disabled = false;
+    btnStart.disabled = true;
+    logGlobal(`${clients.length} client(s) started.`, 'log-bid');
+  });
+
+  // ── Send Bid from client 1 ────────────────────────────────────────────────────
+  async function sendBid() {
+    const baseUrl   = document.getElementById('baseUrl').value.trim().replace(/\/$/, '');
+    const auctionId = document.getElementById('auctionId').value.trim();
+    const amount    = parseFloat(document.getElementById('bidAmount').value) || 10;
+    const requestId = randomUUID();
+
+    if (!auctionId) {
+      logGlobal('Cannot send bid — Auction ID is empty.', 'log-warn');
+      return;
+    }
+
+    const client = clients[0];
+    if (!client) {
+      logGlobal('No active clients.', 'log-warn');
+      return;
+    }
+
+    const body = JSON.stringify({ auctionId, amount, currency: 'USD' });
+    logClient(client, `POST /api/bids  X-Request-Id: ${requestId}  body: ${body}`);
+
+    try {
+      const res = await fetch(`${baseUrl}/api/bids`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Request-Id': requestId,
+        },
+        body,
+      });
+
+      const text = await res.text();
+      if (res.ok) {
+        logClient(client, `Bid accepted (${res.status}): ${text}`, 'log-bid');
+        logGlobal(`Bid sent by client 1 — ${res.status}`, 'log-bid');
+      } else {
+        logClient(client, `Bid rejected (${res.status}): ${text}`, 'log-error');
+        logGlobal(`Bid rejected — ${res.status}: ${text}`, 'log-error');
+      }
+    } catch (err) {
+      logClient(client, `Fetch error: ${err.message}`, 'log-error');
+      logGlobal(`Bid fetch error: ${err.message}`, 'log-error');
+    }
+  }
+
+  btnBid.addEventListener('click', sendBid);
+
+  // ── Stop all clients ──────────────────────────────────────────────────────────
+  async function stopAll() {
+    if (autoIntervalId) {
+      clearInterval(autoIntervalId);
+      autoIntervalId = null;
+    }
+
+    const stopPromises = clients.map(async (client) => {
+      try {
+        await client.connection.stop();
+        logClient(client, 'Disconnected.', 'log-warn');
+      } catch (err) {
+        logClient(client, `Error stopping: ${err.message}`, 'log-error');
+      }
+      setStatus(client, 'disconnected');
+    });
+
+    await Promise.all(stopPromises);
+    clients.length = 0;
+
+    btnBid.disabled   = true;
+    btnStop.disabled  = true;
+    btnStart.disabled = false;
+
+    if (stopPromises.length > 0) {
+      logGlobal('All clients stopped.', 'log-warn');
+    }
+  }
+
+  btnStop.addEventListener('click', stopAll);
+</script>
+</body>
+</html>
