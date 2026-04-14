@@ -40,14 +40,30 @@ jobs:
             --no-build \
             --configuration Release \
             --collect:"XPlat Code Coverage" \
-            --results-directory ./coverage \
+            --results-directory ./coverage/unit \
             --logger "trx;LogFileName=unit-tests.trx"
 
-      - name: Upload test results
+      - name: Run Architecture Tests
+        run: |
+          dotnet test test/AuctionKings.ArchitectureTests/ \
+            --no-build \
+            --configuration Release \
+            --results-directory ./coverage/arch \
+            --logger "trx;LogFileName=arch-tests.trx"
+
+      - name: Run Integration Tests
+        run: |
+          dotnet test test/AuctionKings.IntegrationTests/ \
+            --no-build \
+            --configuration Release \
+            --results-directory ./coverage/integration \
+            --logger "trx;LogFileName=integration-tests.trx"
+
+      - name: Upload coverage results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results
+          name: coverage-results
           path: ./coverage/**/*.xml
 
       - name: Upload TRX results
