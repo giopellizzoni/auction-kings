@@ -1,6 +1,8 @@
+using Amazon.SQS;
 using AuctionKings.Application.Abstractions;
 using AuctionKings.Infrastructure.Cache;
 using AuctionKings.Infrastructure.HealthChecks;
+using AuctionKings.Infrastructure.Messaging;
 using AuctionKings.Infrastructure.Outbox;
 using AuctionKings.Infrastructure.Persistence;
 using AuctionKings.Infrastructure.RateLimiting;
@@ -11,6 +13,7 @@ using AuctionKings.Shared.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
 namespace AuctionKings.Infrastructure;
@@ -74,6 +77,15 @@ public static class DependencyInjection
         services.AddSingleton<IOutboxHealthService, OutboxHealthService>();
 
         services.AddScoped<IDataCleanupService, DataCleanupService>();
+
+        services.Configure<SqsOptions>(configuration.GetSection("AWS:SQS"));
+        services.AddSingleton<IAmazonSQS>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<SqsOptions>>().Value;
+            var config = new AmazonSQSConfig { ServiceURL = opts.ServiceURL };
+            return new AmazonSQSClient(config);
+        });
+        services.AddSingleton<IEventBus, SqsMessagePublisher>();
 
         return services;
     }
