@@ -1,6 +1,10 @@
 name: CI
 
 on:
+  push:
+    branches:
+      - develop
+      - main
   pull_request:
     branches:
       - develop
@@ -10,6 +14,7 @@ jobs:
   build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -52,6 +57,7 @@ jobs:
             --logger "trx;LogFileName=arch-tests.trx"
 
       - name: Run Integration Tests
+        timeout-minutes: 15
         run: |
           dotnet test test/AuctionKings.IntegrationTests/ \
             --no-build \
