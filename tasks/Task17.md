@@ -55,4 +55,4 @@ O workflow de CI em `.github/workflows/ci.yml` existe mas contém apenas `echo` 
 
 | #                                                                | Title                                         | Status  |
 | ---------------------------------------------------------------- | --------------------------------------------- | ------- |
-| [#66](https://github.com/PellizzoniCode/auction-kings/issues/66) | Adicionar GitHub Actions: build + test + lint | 🔴 open |
+| [#66](https://github.com/PellizzoniCode/auction-kings/issues/66) | Adicionar GitHub Actions: build + test + lint | 🟢 closed |
