@@ -59,6 +59,6 @@ O sistema de tempo real é um diferencial da plataforma. Dois hubs SignalR estã
 | ---------------------------------------------------------------- | ------------------------------------------------------------- | ---------- |
 | [#43](https://github.com/PellizzoniCode/auction-kings/issues/43) | Adicionar SignalR e criar AuctionHub                          | ✅ closed  |
 | [#44](https://github.com/PellizzoniCode/auction-kings/issues/44) | Broadcast de BidPlaced para grupo do leilão                   | ✅ closed  |
-| [#45](https://github.com/PellizzoniCode/auction-kings/issues/45) | Implementar state sync na reconexão                           | 🔴 open    |
+| [#45](https://github.com/PellizzoniCode/auction-kings/issues/45) | Implementar state sync na reconexão                           | ✅ closed  |
 | [#46](https://github.com/PellizzoniCode/auction-kings/issues/46) | Configurar Redis backplane para SignalR (dev)                 | ✅ closed  |
-| [#47](https://github.com/PellizzoniCode/auction-kings/issues/47) | Teste manual e script simples para simular múltiplos clientes | 🔴 open    |
+| [#47](https://github.com/PellizzoniCode/auction-kings/issues/47) | Teste manual e script simples para simular múltiplos clientes | ✅ closed  |
