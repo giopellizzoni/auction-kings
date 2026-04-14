@@ -5,51 +5,28 @@ description: Comprehensive code review following AuctionKings standards for .NET
 
 # AuctionKings .NET Code Review
 
-This skill guides comprehensive code reviews covering security, performance, and style standards for ASP.NET Core 10 / Clean Architecture projects.
+Use this skill as the review rulebook for AuctionKings.
+If a review needs an owner that inspects code and writes findings, the `code-reviewer` agent should own the task and this skill should supply the checklist.
 
-## When to Use This Skill
+## Review Order
 
-- Reviewing pull requests before merge
-- Auditing existing code for quality issues
-- Preparing features for production deployment
-- Onboarding reviews for new team members' code
+1. Correctness and regressions
+2. Security
+3. Architecture boundaries
+4. Performance
+5. Style only after higher-signal issues
 
-## Review Workflow
+## Review Rules
 
-1. **Architecture Review** — Validate Clean Architecture dependency rules
-2. **Domain Review** — Check DDD patterns and aggregate correctness
-3. **Security Review** — Check for vulnerabilities use [references/SECURITY.md](references/SECURITY.md) for guidelines
-4. **Performance Review** — Identify bottlenecks and inefficiencies use [references/PERFORMANCE.md](references/PERFORMANCE.md) for guidelines
-5. **Style Review** — Ensure consistency with `.editorconfig` and team standards use [references/STYLE.md](references/STYLE.md) for guidelines
-6. **Build Validation** — Run build and tests for final check
-
-## Architecture Review
-
-Enforce Clean Architecture dependency direction: `API → Application → Domain ← Infrastructure`
-
-- **Domain** must not reference Application, Infrastructure, or API layers
-- **Application** must not reference Infrastructure or API layers
-- **Infrastructure** must not reference API layer
-- Verify CQRS separation: commands in `Commands/`, queries in `Queries/`
-- Ensure domain events are published via Outbox Pattern, not directly
-- Check that aggregates only expose behavior through methods, not public setters
-
-## Review Checklist
-
-- [ ] Zero critical security issues
-- [ ] Code coverage > 80%
-- [ ] Cyclomatic complexity < 10
-- [ ] No suppressed warnings — fix root cause
-- [ ] No architecture boundary violations
-- [ ] Performance impact validated
-- [ ] Best practices followed
+- Enforce `API -> Application -> Domain <- Infrastructure`
+- Prefer findings with file and line references
+- Use `references/SECURITY.md`, `references/PERFORMANCE.md`, and `references/STYLE.md` only when deeper guidance is needed
+- Do not pad reviews with generic advice; focus on actionable issues
 
 ## Feedback Format
 
-For each issue found, report using this structure:
-
-1. **Severity**: Critical / High / Medium / Low
-2. **Location**: File path and line number
-3. **Problem**: What is wrong and why
-4. **Fix**: Concrete code suggestion
-5. **Reference**: CWE / OWASP category for security issues
+1. Severity: Critical / High / Medium / Low
+2. Location: file path and line
+3. Problem: what is wrong and why it matters
+4. Fix: concrete remediation
+5. Reference: CWE / OWASP when relevant
