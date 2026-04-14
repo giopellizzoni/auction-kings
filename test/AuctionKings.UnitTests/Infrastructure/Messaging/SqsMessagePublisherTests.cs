@@ -19,7 +19,7 @@ public sealed class SqsMessagePublisherTests
     private readonly SqsOptions _sqsOptions = new()
     {
         BidQueueUrl = "https://test-queue-url",
-        ServiceURL = "http://localhost:4566"
+        ServiceURL = "http://localhost:4566",
     };
 
     private SqsMessagePublisher CreatePublisher() =>
@@ -42,10 +42,12 @@ public sealed class SqsMessagePublisherTests
 
         await publisher.PublishAsync(domainEvent);
 
-        await _sqsClient.Received(1).SendMessageAsync(
-            Arg.Is<SendMessageRequest>(r => r.QueueUrl == "https://test-queue-url"),
-            Arg.Any<CancellationToken>()
-        );
+        await _sqsClient
+            .Received(1)
+            .SendMessageAsync(
+                Arg.Is<SendMessageRequest>(r => r.QueueUrl == "https://test-queue-url"),
+                Arg.Any<CancellationToken>()
+            );
     }
 
     [Fact]
@@ -56,17 +58,20 @@ public sealed class SqsMessagePublisherTests
 
         await publisher.PublishAsync(domainEvent);
 
-        await _sqsClient.Received(1).SendMessageAsync(
-            Arg.Is<SendMessageRequest>(r =>
-                r.MessageAttributes.ContainsKey("EventType") &&
-                r.MessageAttributes["EventType"].DataType == "String" &&
-                r.MessageAttributes["EventType"].StringValue == (typeof(BidPlacedEvent).FullName ?? typeof(BidPlacedEvent).Name) &&
-                r.MessageAttributes.ContainsKey("EventId") &&
-                r.MessageAttributes["EventId"].DataType == "String" &&
-                r.MessageAttributes["EventId"].StringValue == domainEvent.EventId.ToString()
-            ),
-            Arg.Any<CancellationToken>()
-        );
+        await _sqsClient
+            .Received(1)
+            .SendMessageAsync(
+                Arg.Is<SendMessageRequest>(r =>
+                    r.MessageAttributes.ContainsKey("EventType")
+                    && r.MessageAttributes["EventType"].DataType == "String"
+                    && r.MessageAttributes["EventType"].StringValue
+                        == (typeof(BidPlacedEvent).FullName ?? typeof(BidPlacedEvent).Name)
+                    && r.MessageAttributes.ContainsKey("EventId")
+                    && r.MessageAttributes["EventId"].DataType == "String"
+                    && r.MessageAttributes["EventId"].StringValue == domainEvent.EventId.ToString()
+                ),
+                Arg.Any<CancellationToken>()
+            );
     }
 
     [Fact]
