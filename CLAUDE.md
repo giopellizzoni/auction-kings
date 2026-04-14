@@ -71,8 +71,8 @@ Clean Architecture: `API → Application → Domain ← Infrastructure`
 | T13  | Background workers (AuctionCloseWorker, CleanupExpiredDataWorker)                            | ✅ Done        |
 | T14  | Unit tests                                                                                   | ✅ Done        |
 | T15  | Integration tests (Testcontainers — concurrency, idempotency)                                | ✅ Done        |
-| T16  | Architecture tests (NetArchTest)                                                             | ⬜ Pending     |
-| T17  | CI pipeline (GitHub Actions)                                                                 | 🔄 In Progress |
+| T16  | Architecture tests (NetArchTest)                                                             | ✅ Done        |
+| T17  | CI pipeline (GitHub Actions)                                                                 | ✅ Done        |
 | T18  | Load tests (NBomber)                                                                         | ⬜ Pending     |
 
 ## Custom Instructions

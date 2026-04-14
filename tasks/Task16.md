@@ -58,7 +58,7 @@ Architecture tests garantem que as regras de dependência da Clean Architecture 
 
 ## Status
 
-⏳ **Not Started**
+✅ **Done**
 
 ## GitHub Issues
 

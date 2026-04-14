@@ -49,7 +49,7 @@ O workflow de CI em `.github/workflows/ci.yml` existe mas contém apenas `echo` 
 
 ## Status
 
-🔄 **In Progress** — `.github/workflows/ci.yml` exists with checkout, .NET 10 setup, NuGet cache, Release build, and unit tests with coverage upload. Missing: integration tests with Docker service containers, architecture tests run, lint step.
+✅ **Done**
 
 ## GitHub Issues
 
