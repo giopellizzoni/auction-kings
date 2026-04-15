@@ -10,8 +10,15 @@ using AuctionKings.Infrastructure.HealthChecks;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Scalar.AspNetCore;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, services, configuration) =>
+    configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext());
 
 // Add services to the container.
 builder.Services.AddApplication();
@@ -52,6 +59,18 @@ var app = builder.Build();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
+
+app.UseSerilogRequestLogging(options =>
+{
+    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
+        if (httpContext.Response.Headers.TryGetValue(CorrelationIdMiddleware.HeaderName, out var cid))
+        {
+            diagnosticContext.Set("CorrelationId", cid.ToString());
+        }
+    };
+});
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
