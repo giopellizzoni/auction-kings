@@ -253,17 +253,17 @@ P2 (stretch goals):
 
 ## Status
 
-⏳ **Not Started**
+🔄 **In Progress** (P0 complete)
 
 ## GitHub Issues
 
 | #                                                                | Title                                                           | Priority | Status  |
 | ---------------------------------------------------------------- | --------------------------------------------------------------- | -------- | ------- |
-| [#49](https://github.com/PellizzoniCode/auction-kings/issues/49) | Implementar autenticação JWT (local)                            | P0       | 🔴 open |
-| [#54](https://github.com/PellizzoniCode/auction-kings/issues/54) | Adicionar logging estruturado (Serilog)                         | P0       | 🔴 open |
-| [#67](https://github.com/PellizzoniCode/auction-kings/issues/67) | Adicionar Dockerfile da API + docker compose final (app + deps) | P0       | 🔴 open |
-| [#70](https://github.com/PellizzoniCode/auction-kings/issues/70) | Escrever docs/architecture.md final + ADRs                      | P0       | 🔴 open |
-| [#72](https://github.com/PellizzoniCode/auction-kings/issues/72) | Checklist final: Demo script de 5 minutos                       | P0       | 🔴 open |
+| [#49](https://github.com/PellizzoniCode/auction-kings/issues/49) | Implementar autenticação JWT (local)                            | P0       | ✅ closed |
+| [#54](https://github.com/PellizzoniCode/auction-kings/issues/54) | Adicionar logging estruturado (Serilog)                         | P0       | ✅ closed |
+| [#67](https://github.com/PellizzoniCode/auction-kings/issues/67) | Adicionar Dockerfile da API + docker compose final (app + deps) | P0       | ✅ closed |
+| [#70](https://github.com/PellizzoniCode/auction-kings/issues/70) | Escrever docs/architecture.md final + ADRs                      | P0       | ✅ closed |
+| [#72](https://github.com/PellizzoniCode/auction-kings/issues/72) | Checklist final: Demo script de 5 minutos                       | P0       | ✅ closed |
 | [#41](https://github.com/PellizzoniCode/auction-kings/issues/41) | Documentar trade-offs (Concorrência/Idempotência/Outbox)        | P1       | 🔴 open |
 | [#50](https://github.com/PellizzoniCode/auction-kings/issues/50) | Criar Authorization Policies (Bidder/Admin)                     | P1       | 🔴 open |
 | [#57](https://github.com/PellizzoniCode/auction-kings/issues/57) | Adicionar métricas Prometheus básicas                           | P1       | 🔴 open |
