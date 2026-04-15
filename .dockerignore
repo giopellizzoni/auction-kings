@@ -1,0 +1,11 @@
+**/.vs
+**/.git
+**/.gitignore
+**/bin
+**/obj
+**/*.user
+**/.env*
+**/docker/secrets
+**/test
+**/docs
+**/architecture

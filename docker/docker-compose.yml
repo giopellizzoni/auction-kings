@@ -1,0 +1,36 @@
+name: auction-kings
+
+include:
+  - docker-compose.infra.yml
+
+services:
+  api:
+    image: auction-kings-api:local
+    container_name: auction-kings-api
+    build:
+      context: ..
+      dockerfile: src/services/AuctionKings.API/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-AuctionKingsDB};Username=${POSTGRES_USER:-dev};Password=${POSTGRES_PASSWORD:-}"
+      ConnectionStrings__Redis: "redis:6379,password=${REDIS_PASSWORD:-}"
+      Jwt__Secret: "${JWT_SECRET:-dev-only-secret-key-at-least-32-chars!!}"
+      Jwt__Issuer: "auction-kings-dev"
+      Jwt__Audience: "auction-kings-dev"
+      Jwt__ExpiresInMinutes: "60"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    ports:
+      - "5081:8080"
