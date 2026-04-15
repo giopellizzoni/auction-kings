@@ -14,20 +14,21 @@
 
 ## File Map
 
-| Action | File | Responsibility |
-|---|---|---|
-| Modify | `docker/docker-compose.infra.yml` | Add localstack, moto, moto-init services |
-| Create | `docker/localstack-init/ready.d/init-aws.sh` | Provision DynamoDB, SQS, SNS, S3, Secrets Manager, CloudWatch on LocalStack |
-| Create | `docker/moto-init.sh` | Provision Cognito, AppConfig, EventBridge on Moto; write secret files; push Cognito IDs to LocalStack Secrets Manager |
-| Create | `src/services/AuctionKings.API/appsettings.LocalStack.json` | AWS endpoint overrides for local dev |
-| Modify | `Directory.Packages.props` | Add AWS SDK NuGet package versions |
-| Modify | `.gitignore` | Ensure cognito secret files are ignored |
+| Action | File                                                        | Responsibility                                                                                                        |
+| ------ | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Modify | `docker/docker-compose.infra.yml`                           | Add localstack, moto, moto-init services                                                                              |
+| Create | `docker/localstack-init/ready.d/init-aws.sh`                | Provision DynamoDB, SQS, SNS, S3, Secrets Manager, CloudWatch on LocalStack                                           |
+| Create | `docker/moto-init.sh`                                       | Provision Cognito, AppConfig, EventBridge on Moto; write secret files; push Cognito IDs to LocalStack Secrets Manager |
+| Create | `src/services/AuctionKings.API/appsettings.LocalStack.json` | AWS endpoint overrides for local dev                                                                                  |
+| Modify | `Directory.Packages.props`                                  | Add AWS SDK NuGet package versions                                                                                    |
+| Modify | `.gitignore`                                                | Ensure cognito secret files are ignored                                                                               |
 
 ---
 
 ### Task 1: Create the LocalStack init script
 
 **Files:**
+
 - Create: `docker/localstack-init/ready.d/init-aws.sh`
 
 - [ ] **Step 1: Create the init directory**
@@ -170,6 +171,7 @@ git commit -m "feat(devops): add LocalStack init script for DynamoDB, SQS, SNS, 
 ### Task 2: Create the Moto init script
 
 **Files:**
+
 - Create: `docker/moto-init.sh`
 
 - [ ] **Step 1: Write the Moto init script**
@@ -415,6 +417,7 @@ git commit -m "feat(devops): add Moto init script for Cognito, AppConfig, EventB
 ### Task 3: Update docker-compose.infra.yml
 
 **Files:**
+
 - Modify: `docker/docker-compose.infra.yml`
 
 - [ ] **Step 1: Add localstack, moto, and moto-init services**
@@ -422,63 +425,67 @@ git commit -m "feat(devops): add Moto init script for Cognito, AppConfig, EventB
 Append the following three services to the `services:` block in `docker/docker-compose.infra.yml`, before the `networks:` block:
 
 ```yaml
-  localstack:
-    image: localstack/localstack:latest
-    container_name: infra-localstack
-    restart: unless-stopped
-    environment:
-      SERVICES: dynamodb,sqs,sns,s3,secretsmanager,logs
-      DEFAULT_REGION: us-east-1
-      DEBUG: 0
-    volumes:
-      - localstack_data:/var/lib/localstack
-      - ./localstack-init/ready.d:/etc/localstack/init/ready.d:ro
-    secrets:
-      - postgres_password
-      - redis_password
-    networks:
-      - backend
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:4566/_localstack/health | grep -q '\"dynamodb\": \"available\"'"]
-      interval: 5s
-      timeout: 5s
-      retries: 30
-    ports:
-      - "127.0.0.1:4566:4566"
+localstack:
+  image: localstack/localstack:latest
+  container_name: infra-localstack
+  restart: unless-stopped
+  environment:
+    SERVICES: dynamodb,sqs,sns,s3,secretsmanager,logs
+    DEFAULT_REGION: us-east-1
+    DEBUG: 0
+  volumes:
+    - localstack_data:/var/lib/localstack
+    - ./localstack-init/ready.d:/etc/localstack/init/ready.d:ro
+  secrets:
+    - postgres_password
+    - redis_password
+  networks:
+    - backend
+  healthcheck:
+    test:
+      [
+        "CMD-SHELL",
+        'curl -sf http://localhost:4566/_localstack/health | grep -q ''"dynamodb": "available"''',
+      ]
+    interval: 5s
+    timeout: 5s
+    retries: 30
+  ports:
+    - "127.0.0.1:4566:4566"
 
-  moto:
-    image: motoserver/moto:latest
-    container_name: infra-moto
-    restart: unless-stopped
-    networks:
-      - backend
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:5555/moto-api/"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-    ports:
-      - "127.0.0.1:5555:5555"
+moto:
+  image: motoserver/moto:latest
+  container_name: infra-moto
+  restart: unless-stopped
+  networks:
+    - backend
+  healthcheck:
+    test: ["CMD-SHELL", "curl -sf http://localhost:5555/moto-api/"]
+    interval: 5s
+    timeout: 3s
+    retries: 20
+  ports:
+    - "127.0.0.1:5555:5555"
 
-  moto-init:
-    image: amazon/aws-cli:latest
-    container_name: infra-moto-init
-    restart: "no"
-    depends_on:
-      moto:
-        condition: service_healthy
-      localstack:
-        condition: service_healthy
-    environment:
-      AWS_ACCESS_KEY_ID: testing
-      AWS_SECRET_ACCESS_KEY: testing
-      AWS_DEFAULT_REGION: us-east-1
-    entrypoint: ["/bin/bash", "/scripts/moto-init.sh"]
-    volumes:
-      - ./moto-init.sh:/scripts/moto-init.sh:ro
-      - ./secrets:/secrets
-    networks:
-      - backend
+moto-init:
+  image: amazon/aws-cli:latest
+  container_name: infra-moto-init
+  restart: "no"
+  depends_on:
+    moto:
+      condition: service_healthy
+    localstack:
+      condition: service_healthy
+  environment:
+    AWS_ACCESS_KEY_ID: testing
+    AWS_SECRET_ACCESS_KEY: testing
+    AWS_DEFAULT_REGION: us-east-1
+  entrypoint: ["/bin/bash", "/scripts/moto-init.sh"]
+  volumes:
+    - ./moto-init.sh:/scripts/moto-init.sh:ro
+    - ./secrets:/secrets
+  networks:
+    - backend
 ```
 
 - [ ] **Step 2: Add the `localstack_data` volume**
@@ -486,7 +493,7 @@ Append the following three services to the `services:` block in `docker/docker-c
 Add to the `volumes:` block:
 
 ```yaml
-  localstack_data:
+localstack_data:
 ```
 
 - [ ] **Step 3: Verify the complete file is valid YAML**
@@ -509,6 +516,7 @@ git commit -m "feat(devops): add LocalStack, Moto, and Moto-init services to doc
 ### Task 4: Add .gitignore entries for generated secret files
 
 **Files:**
+
 - Modify: `.gitignore`
 
 - [ ] **Step 1: Add cognito secret files to .gitignore**
@@ -533,6 +541,7 @@ git commit -m "chore: ignore generated Cognito secret files"
 ### Task 5: Create appsettings.LocalStack.json
 
 **Files:**
+
 - Create: `src/services/AuctionKings.API/appsettings.LocalStack.json`
 
 - [ ] **Step 1: Write the configuration file**
@@ -612,6 +621,7 @@ git commit -m "feat(devops): add appsettings.LocalStack.json with AWS endpoint o
 ### Task 6: Add AWS SDK NuGet packages to Directory.Packages.props
 
 **Files:**
+
 - Modify: `Directory.Packages.props`
 
 - [ ] **Step 1: Add a new ItemGroup for AWS packages**
@@ -737,3 +747,4 @@ Expected: Values match the contents of the secret files from Step 5.
 ```bash
 cd docker && docker compose -f docker-compose.infra.yml down -v
 ```
+

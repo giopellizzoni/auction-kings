@@ -14,9 +14,9 @@
 
 ## File Map
 
-| Action | File | Responsibility |
-|--------|------|----------------|
-| Create | `.claude/skills/devops/SKILL.md` | Workflow, principles, checklists |
+| Action | File                                           | Responsibility                                                        |
+| ------ | ---------------------------------------------- | --------------------------------------------------------------------- |
+| Create | `.claude/skills/devops/SKILL.md`               | Workflow, principles, checklists                                      |
 | Create | `.claude/skills/devops/references/PATTERNS.md` | Annotated canonical examples for Dockerfiles, compose, CI/CD, secrets |
 
 ---
@@ -24,6 +24,7 @@
 ### Task 1: Create SKILL.md
 
 **Files:**
+
 - Create: `.claude/skills/devops/SKILL.md`
 
 - [ ] **Step 1: Create the skill directory**
@@ -118,11 +119,11 @@ When invoked, follow these five phases:
 
 ## Secrets Strategy
 
-| Environment | Mechanism | Details |
-|---|---|---|
-| Local dev (compose) | Docker secrets | Files in `docker/secrets/`, mounted at `/run/secrets/` |
-| Production-like (compose.prod) | Docker secrets | Same mechanism, different secret values |
-| ECS Fargate | AWS Secrets Manager | Injected via task definition `secrets` block |
+| Environment                    | Mechanism           | Details                                                |
+| ------------------------------ | ------------------- | ------------------------------------------------------ |
+| Local dev (compose)            | Docker secrets      | Files in `docker/secrets/`, mounted at `/run/secrets/` |
+| Production-like (compose.prod) | Docker secrets      | Same mechanism, different secret values                |
+| ECS Fargate                    | AWS Secrets Manager | Injected via task definition `secrets` block           |
 
 App reads secrets via `builder.Configuration.AddKeyPerFile("/run/secrets", optional: true)` in `Program.cs`, with fallback to environment variables for ECS.
 ```
@@ -147,6 +148,7 @@ git commit -m "feat(devops): add DevOps skill SKILL.md with workflow, principles
 ### Task 2: Create references/PATTERNS.md
 
 **Files:**
+
 - Create: `.claude/skills/devops/references/PATTERNS.md`
 
 - [ ] **Step 1: Write PATTERNS.md**
@@ -211,6 +213,7 @@ ENTRYPOINT ["dotnet", "AuctionKings.API.dll"]
 ```
 
 **Why each decision matters:**
+
 - `sdk:10.0-alpine` as builder: Alpine keeps the build layer smaller; SDK is only in this stage, never shipped
 - Copy `.csproj` files individually: preserves the project reference graph so `dotnet restore` resolves correctly
 - `--no-restore` on publish: restore already happened in a cached layer; avoids redundant work
@@ -258,6 +261,7 @@ ENTRYPOINT ["dotnet", "AuctionKings.BackgroundWorkers.dll"]
 ```
 
 **Key difference from API pattern:**
+
 - `runtime:10.0-alpine` instead of `aspnet:10.0-alpine` — saves ~30MB by excluding ASP.NET Core HTTP libraries
 - No `EXPOSE` directive — workers connect outbound to databases/queues, they don't listen for inbound connections
 
@@ -286,6 +290,7 @@ Place at the repo root. The Docker build context is the repo root (because Docke
 ```
 
 **Why:**
+
 - `test/` and `docs/` excluded — not needed in any Docker image, saves context transfer time
 - `docker/secrets/` excluded — NEVER include secret files in the build context
 - `*.md` excluded but `Directory.Build.props` and `Directory.Packages.props` explicitly included with `!` — these are needed for restore
@@ -347,6 +352,7 @@ services:
 ```
 
 **Why:**
+
 - `include` pulls in infra services (postgres, redis) with their healthchecks, secrets, and network
 - `context: ..` — build context is repo root so Dockerfiles can access all projects
 - `appsettings.Development.json` mounted read-only — allows config changes without rebuilding
@@ -386,7 +392,15 @@ services:
     networks:
       - backend
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/health",
+        ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -421,6 +435,7 @@ services:
 ```
 
 **Why:**
+
 - `image:` instead of `build:` — uses pre-built images; `ECR_REGISTRY` defaults to `local` for local testing with `docker tag`
 - `restart: unless-stopped` — auto-recovery on crashes
 - `healthcheck` with `wget` — Alpine doesn't have `curl`; checks the `/health` endpoint
@@ -434,121 +449,122 @@ services:
 Add these jobs to `.github/workflows/ci.yml` after the existing `build-and-test` job. They only run on pushes to `main` (not on PRs).
 
 ```yaml
-  docker-build-and-push:
-    name: Docker Build, Scan & Push
-    runs-on: ubuntu-latest
-    needs: build-and-test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    permissions:
-      id-token: write
-      contents: read
+docker-build-and-push:
+  name: Docker Build, Scan & Push
+  runs-on: ubuntu-latest
+  needs: build-and-test
+  if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  permissions:
+    id-token: write
+    contents: read
 
-    strategy:
-      matrix:
-        include:
-          - service: api
-            dockerfile: docker/Dockerfile.api
-            image-name: auctionkings-api
-          - service: worker
-            dockerfile: docker/Dockerfile.worker
-            image-name: auctionkings-worker
+  strategy:
+    matrix:
+      include:
+        - service: api
+          dockerfile: docker/Dockerfile.api
+          image-name: auctionkings-api
+        - service: worker
+          dockerfile: docker/Dockerfile.worker
+          image-name: auctionkings-worker
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        id: ecr-login
-        uses: aws-actions/amazon-ecr-login@v2
+    - name: Login to Amazon ECR
+      id: ecr-login
+      uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: false
-          load: true
-          tags: ${{ matrix.image-name }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+    - name: Build Docker image
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: ${{ matrix.dockerfile }}
+        push: false
+        load: true
+        tags: ${{ matrix.image-name }}:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
-      - name: Scan for vulnerabilities
-        uses: aquasecurity/trivy-action@v0.28.0
-        with:
-          image-ref: ${{ matrix.image-name }}:${{ github.sha }}
-          format: table
-          exit-code: 1
-          severity: CRITICAL,HIGH
+    - name: Scan for vulnerabilities
+      uses: aquasecurity/trivy-action@v0.28.0
+      with:
+        image-ref: ${{ matrix.image-name }}:${{ github.sha }}
+        format: table
+        exit-code: 1
+        severity: CRITICAL,HIGH
 
-      - name: Tag and push to ECR
-        env:
-          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
-          IMAGE_NAME: ${{ matrix.image-name }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker tag $IMAGE_NAME:$IMAGE_TAG $ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
-          docker tag $IMAGE_NAME:$IMAGE_TAG $ECR_REGISTRY/$IMAGE_NAME:latest
-          docker push $ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$IMAGE_NAME:latest
+    - name: Tag and push to ECR
+      env:
+        ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+        IMAGE_NAME: ${{ matrix.image-name }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker tag $IMAGE_NAME:$IMAGE_TAG $ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+        docker tag $IMAGE_NAME:$IMAGE_TAG $ECR_REGISTRY/$IMAGE_NAME:latest
+        docker push $ECR_REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$IMAGE_NAME:latest
 
-  deploy-to-ecs:
-    name: Deploy to ECS
-    runs-on: ubuntu-latest
-    needs: docker-build-and-push
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    permissions:
-      id-token: write
-      contents: read
+deploy-to-ecs:
+  name: Deploy to ECS
+  runs-on: ubuntu-latest
+  needs: docker-build-and-push
+  if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  permissions:
+    id-token: write
+    contents: read
 
-    strategy:
-      matrix:
-        include:
-          - service: auctionkings-api
-            task-def: ecs/api-task-def.json
-          - service: auctionkings-worker
-            task-def: ecs/worker-task-def.json
+  strategy:
+    matrix:
+      include:
+        - service: auctionkings-api
+          task-def: ecs/api-task-def.json
+        - service: auctionkings-worker
+          task-def: ecs/worker-task-def.json
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        id: ecr-login
-        uses: aws-actions/amazon-ecr-login@v2
+    - name: Login to Amazon ECR
+      id: ecr-login
+      uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Update ECS task definition image
-        id: task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: ${{ matrix.task-def }}
-          container-name: ${{ matrix.service }}
-          image: ${{ steps.ecr-login.outputs.registry }}/${{ matrix.service }}:${{ github.sha }}
+    - name: Update ECS task definition image
+      id: task-def
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: ${{ matrix.task-def }}
+        container-name: ${{ matrix.service }}
+        image: ${{ steps.ecr-login.outputs.registry }}/${{ matrix.service }}:${{ github.sha }}
 
-      - name: Deploy to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ matrix.service }}
-          cluster: auctionkings
-          wait-for-service-stability: true
+    - name: Deploy to ECS
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+      with:
+        task-definition: ${{ steps.task-def.outputs.task-definition }}
+        service: ${{ matrix.service }}
+        cluster: auctionkings
+        wait-for-service-stability: true
 ```
 
 **Why:**
+
 - `needs: build-and-test` — only build images after tests pass
 - `if: github.ref == 'refs/heads/main'` — Docker build/push only on main, not on PRs (PRs only run build-and-test)
 - Matrix strategy builds both services in parallel
@@ -569,6 +585,7 @@ builder.Configuration.AddKeyPerFile("/run/secrets", optional: true);
 ```
 
 **How it works:**
+
 - `AddKeyPerFile` reads each file in `/run/secrets/` as a configuration key-value pair where the filename is the key and the file content is the value
 - In Docker Compose: secret files are mounted at `/run/secrets/postgres_password`, `/run/secrets/redis_password`
 - In ECS Fargate: secrets are injected as environment variables via the task definition `secrets` block — no files exist at `/run/secrets/`, so `optional: true` skips gracefully
@@ -617,6 +634,7 @@ git commit -m "feat(devops): add references/PATTERNS.md with annotated canonical
 ### Task 3: Verify Skill Registration
 
 **Files:**
+
 - None (verification only)
 
 - [ ] **Step 1: Verify the skill appears in Claude Code's skill list**
@@ -628,6 +646,7 @@ find .claude/skills/devops -type f
 ```
 
 Expected output:
+
 ```
 .claude/skills/devops/SKILL.md
 .claude/skills/devops/references/PATTERNS.md
@@ -640,6 +659,7 @@ head -4 .claude/skills/devops/SKILL.md
 ```
 
 Expected:
+
 ```
 ---
 name: devops
@@ -654,6 +674,7 @@ grep "^## P[0-9]" .claude/skills/devops/references/PATTERNS.md
 ```
 
 Expected:
+
 ```
 ## P1: Multi-Stage Dockerfile — ASP.NET Core API
 ## P2: Multi-Stage Dockerfile — Background Worker
@@ -672,3 +693,4 @@ If not already committed individually:
 git add .claude/skills/devops/
 git commit -m "feat(devops): add DevOps skill for containerization, compose, CI/CD, and secrets management"
 ```
+

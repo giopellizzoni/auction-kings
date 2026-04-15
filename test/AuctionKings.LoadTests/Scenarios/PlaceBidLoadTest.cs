@@ -49,7 +49,9 @@ public sealed class PlaceBidLoadTest : LoadTestBase
                     return response.IsSuccessStatusCode
                         ? Response.Ok()
                         : Response.Fail(
-                            statusCode: ((int)response.StatusCode).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                            statusCode: ((int)response.StatusCode).ToString(
+                                System.Globalization.CultureInfo.InvariantCulture
+                            ),
                             message: await response.Content.ReadAsStringAsync(),
                             sizeBytes: 0
                         );
@@ -78,9 +80,8 @@ public sealed class PlaceBidLoadTest : LoadTestBase
             .Run();
 
         var s = stats.ScenarioStats.First(x => x.ScenarioName == "place_bid");
-        var errorPct = s.AllRequestCount > 0
-            ? s.AllFailCount / (double)s.AllRequestCount * 100.0
-            : 0.0;
+        var errorPct =
+            s.AllRequestCount > 0 ? s.AllFailCount / (double)s.AllRequestCount * 100.0 : 0.0;
 
         // Concurrent bids on shared auctions produce some concurrency conflicts (expected).
         // Assert on latency: even under contention the API must stay responsive.

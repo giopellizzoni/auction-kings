@@ -10,10 +10,10 @@ Enable local testing of all AWS services referenced in `architecture/ARCHITECTUR
 
 ## Container Topology
 
-| Container | Image | Services Emulated | Port |
-|---|---|---|---|
+| Container    | Image                          | Services Emulated                                        | Port |
+| ------------ | ------------------------------ | -------------------------------------------------------- | ---- |
 | `localstack` | `localstack/localstack:latest` | DynamoDB, SQS, SNS, S3, Secrets Manager, CloudWatch Logs | 4566 |
-| `moto` | `motoserver/moto:latest` | Cognito, AppConfig, EventBridge, X-Ray | 5555 |
+| `moto`       | `motoserver/moto:latest`       | Cognito, AppConfig, EventBridge, X-Ray                   | 5555 |
 
 Both containers join the existing `backend` network in `docker-compose.infra.yml`. Existing `postgres` and `redis` services are unchanged.
 
@@ -24,6 +24,7 @@ Provisioned via `docker/localstack-init/ready.d/init-aws.sh` (mounted to `/etc/l
 ### DynamoDB
 
 **AuctionEvents table:**
+
 - Partition Key: `StreamId` (S)
 - Sort Key: `Version` (N)
 - GSI: `EventTypeTimestampIndex` — PK: `EventType` (S), SK: `Timestamp` (N), Projection: ALL
@@ -31,6 +32,7 @@ Provisioned via `docker/localstack-init/ready.d/init-aws.sh` (mounted to `/etc/l
 - Billing: PAY_PER_REQUEST
 
 **AuctionSnapshots table:**
+
 - Partition Key: `StreamId` (S)
 - Sort Key: `Version` (N)
 - TTL: Enabled on `ExpiresAt`
@@ -70,6 +72,7 @@ Provisioned via `docker/moto-init.sh`, executed by a one-shot init container (`m
 ### Cognito
 
 **User Pool:** `AuctionKingsDevPool`
+
 - Required attributes: `email`
 - Custom attributes: `custom:reputation`, `custom:is_verified`, `custom:total_bids`
 - App Client: `AuctionKingsDevClient` (no secret, flows: `ALLOW_USER_PASSWORD_AUTH`, `ALLOW_REFRESH_TOKEN_AUTH`)
@@ -80,6 +83,7 @@ Provisioned via `docker/moto-init.sh`, executed by a one-shot init container (`m
   - `buyer@test.com` / `Test1234!` — member of `Buyers`
 
 **Dynamic ID capture:** The init script captures `UserPoolId` and `AppClientId` from Moto output and writes them to:
+
 - `docker/secrets/cognito_user_pool_id.txt`
 - `docker/secrets/cognito_app_client_id.txt`
 
@@ -145,6 +149,7 @@ Cognito `UserPoolId` and `AppClientId` are read at runtime from `/run/secrets/` 
 ### Docker Compose Changes
 
 Added to `docker-compose.infra.yml`:
+
 - `localstack` service with health check on `_localstack/health`
 - `moto` service with health check on `/moto-api/`
 - `moto-init` one-shot container (`restart: "no"`) that depends on both `moto` (healthy) and `localstack` (healthy), runs the init script, then exits
@@ -154,6 +159,7 @@ Added to `docker-compose.infra.yml`:
 ### NuGet Packages
 
 Added to `Directory.Packages.props` (versions to be pinned at latest stable):
+
 - `AWSSDK.DynamoDBv2`
 - `AWSSDK.SQS`
 - `AWSSDK.SimpleNotificationService`
@@ -187,14 +193,17 @@ src/services/AuctionKings.API/
 ## Scope Boundaries
 
 **In scope:**
+
 - Docker infrastructure (containers, init scripts, health checks, networking)
 - `appsettings.LocalStack.json` configuration file
 - NuGet package declarations in `Directory.Packages.props`
 
 **Out of scope (future work):**
+
 - C# service implementations (`DynamoDbEventStore.cs`, `SqsMessagePublisher.cs`, etc.)
 - Modifying `Program.cs` or `DependencyInjection.cs` to wire up AWS services
 - Integration tests against LocalStack
 - CI/CD pipeline changes
 
 The goal is to have the infrastructure ready so that AWS service implementations can be developed and tested against it immediately.
+

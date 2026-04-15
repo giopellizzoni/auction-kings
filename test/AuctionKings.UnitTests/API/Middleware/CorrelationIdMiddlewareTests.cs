@@ -1,7 +1,5 @@
 using AuctionKings.API.Middleware;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
-using NSubstitute;
 
 namespace AuctionKings.UnitTests.API.Middleware;
 
@@ -9,21 +7,12 @@ public sealed class CorrelationIdMiddlewareTests
 {
     private const string HeaderName = CorrelationIdMiddleware.HeaderName;
 
-    private static ILogger<CorrelationIdMiddleware> BuildLogger()
-    {
-        var logger = Substitute.For<ILogger<CorrelationIdMiddleware>>();
-        logger
-            .BeginScope(Arg.Any<Dictionary<string, object>>())
-            .Returns(Substitute.For<IDisposable>());
-        return logger;
-    }
-
     [Fact]
     public async Task CorrelationIdMiddleware_NoHeader_ShouldGenerate()
     {
         var httpContext = new DefaultHttpContext();
         RequestDelegate next = _ => Task.CompletedTask;
-        var middleware = new CorrelationIdMiddleware(next, BuildLogger());
+        var middleware = new CorrelationIdMiddleware(next);
 
         await middleware.InvokeAsync(httpContext);
 
@@ -38,7 +27,7 @@ public sealed class CorrelationIdMiddlewareTests
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Headers[HeaderName] = existingId;
         RequestDelegate next = _ => Task.CompletedTask;
-        var middleware = new CorrelationIdMiddleware(next, BuildLogger());
+        var middleware = new CorrelationIdMiddleware(next);
 
         await middleware.InvokeAsync(httpContext);
 
@@ -46,23 +35,16 @@ public sealed class CorrelationIdMiddlewareTests
     }
 
     [Fact]
-    public async Task CorrelationIdMiddleware_ShouldBeginLogScopeWithCorrelationId()
+    public async Task CorrelationIdMiddleware_WithHeader_ShouldAddToResponseHeaders()
     {
         var existingId = Guid.NewGuid().ToString();
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Headers[HeaderName] = existingId;
         RequestDelegate next = _ => Task.CompletedTask;
-        var logger = BuildLogger();
-        var middleware = new CorrelationIdMiddleware(next, logger);
+        var middleware = new CorrelationIdMiddleware(next);
 
         await middleware.InvokeAsync(httpContext);
 
-        logger
-            .Received(1)
-            .BeginScope(
-                Arg.Is<Dictionary<string, object>>(d =>
-                    d.ContainsKey("CorrelationId") && d["CorrelationId"].ToString() == existingId
-                )
-            );
+        Assert.Equal(existingId, httpContext.Response.Headers[HeaderName].ToString());
     }
 }
