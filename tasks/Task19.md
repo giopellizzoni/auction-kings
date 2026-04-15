@@ -272,4 +272,3 @@ P2 (stretch goals):
 | [#52](https://github.com/PellizzoniCode/auction-kings/issues/52) | [Stretch] Preparar integração AWS Cognito (documento + POC)     | P2       | 🔴 open |
 | [#58](https://github.com/PellizzoniCode/auction-kings/issues/58) | [Stretch] Dashboard Grafana (dev)                               | P2       | 🔴 open |
 | [#69](https://github.com/PellizzoniCode/auction-kings/issues/69) | [Stretch] Deploy staging AWS (ECS + RDS + Redis + SQS)          | P2       | 🔴 open |
-
