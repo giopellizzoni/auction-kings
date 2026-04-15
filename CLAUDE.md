@@ -73,7 +73,7 @@ Clean Architecture: `API → Application → Domain ← Infrastructure`
 | T15  | Integration tests (Testcontainers — concurrency, idempotency)                                | ✅ Done        |
 | T16  | Architecture tests (NetArchTest)                                                             | ✅ Done        |
 | T17  | CI pipeline (GitHub Actions)                                                                 | ✅ Done        |
-| T18  | Load tests (NBomber)                                                                         | ⬜ Pending     |
+| T18  | Load tests (NBomber)                                                                         | ✅ Done        |
 
 ## Custom Instructions
 
