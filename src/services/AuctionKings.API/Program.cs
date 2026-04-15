@@ -58,17 +58,12 @@ var app = builder.Build();
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
-app.UseMiddleware<RequestLoggingMiddleware>();
 
 app.UseSerilogRequestLogging(options =>
 {
     options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
     {
         diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
-        if (httpContext.Response.Headers.TryGetValue(CorrelationIdMiddleware.HeaderName, out var cid))
-        {
-            diagnosticContext.Set("CorrelationId", cid.ToString());
-        }
     };
 });
 
