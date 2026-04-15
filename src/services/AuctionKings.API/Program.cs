@@ -1,4 +1,6 @@
+using System.Text;
 using System.Text.Json;
+using AuctionKings.API.Auth;
 using AuctionKings.API.Filters;
 using AuctionKings.API.Hubs;
 using AuctionKings.API.Middleware;
@@ -7,8 +9,10 @@ using AuctionKings.Application;
 using AuctionKings.Application.Abstractions;
 using AuctionKings.Infrastructure;
 using AuctionKings.Infrastructure.HealthChecks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using Serilog;
 
@@ -52,31 +56,33 @@ builder.Services.AddOpenApi(
     }
 );
 // JWT Authentication
-builder.Services.AddAuthentication(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme)
+builder.Services.AddOptions<JwtOptions>()
+    .BindConfiguration(JwtOptions.SectionName)
+    .ValidateOnStart();
+
+var jwtOptions = builder.Configuration
+    .GetSection(JwtOptions.SectionName)
+    .Get<JwtOptions>()
+    ?? throw new InvalidOperationException($"'{JwtOptions.SectionName}' configuration section is missing.");
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        var secret = builder.Configuration["Jwt:Secret"]
-            ?? throw new InvalidOperationException("Jwt:Secret is not configured.");
-        var issuer = builder.Configuration["Jwt:Issuer"]
-            ?? throw new InvalidOperationException("Jwt:Issuer is not configured.");
-        var audience = builder.Configuration["Jwt:Audience"]
-            ?? throw new InvalidOperationException("Jwt:Audience is not configured.");
-
-        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+        options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = issuer,
-            ValidAudience = audience,
-            IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
-                System.Text.Encoding.UTF8.GetBytes(secret)
+            ValidIssuer = jwtOptions.Issuer,
+            ValidAudience = jwtOptions.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(jwtOptions.Secret)
             ),
         };
     });
 builder.Services.AddAuthorization();
-builder.Services.AddSingleton<AuctionKings.API.Auth.JwtTokenGenerator>();
+builder.Services.AddSingleton<JwtTokenGenerator>();
 
 builder.Services.AddHealthChecks()
     .AddInfrastructureHealthChecks();
