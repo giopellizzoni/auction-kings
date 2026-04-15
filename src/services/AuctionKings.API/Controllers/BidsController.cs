@@ -3,6 +3,7 @@ using AuctionKings.Application.Auctions.Queries.GetAuctionBids;
 using AuctionKings.Application.DTOs;
 using AuctionKings.Shared.Common;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AuctionKings.API.Controllers;
@@ -18,8 +19,10 @@ public sealed class BidsController : ControllerBase
     public BidsController(ISender sender) => _sender = sender;
 
     [HttpPost]
+    [Authorize]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> PlaceBid(
         [FromRoute] Guid auctionId,

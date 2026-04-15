@@ -51,6 +51,33 @@ builder.Services.AddOpenApi(
         );
     }
 );
+// JWT Authentication
+builder.Services.AddAuthentication(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        var secret = builder.Configuration["Jwt:Secret"]
+            ?? throw new InvalidOperationException("Jwt:Secret is not configured.");
+        var issuer = builder.Configuration["Jwt:Issuer"]
+            ?? throw new InvalidOperationException("Jwt:Issuer is not configured.");
+        var audience = builder.Configuration["Jwt:Audience"]
+            ?? throw new InvalidOperationException("Jwt:Audience is not configured.");
+
+        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = issuer,
+            ValidAudience = audience,
+            IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
+                System.Text.Encoding.UTF8.GetBytes(secret)
+            ),
+        };
+    });
+builder.Services.AddAuthorization();
+builder.Services.AddSingleton<AuctionKings.API.Auth.JwtTokenGenerator>();
+
 builder.Services.AddHealthChecks()
     .AddInfrastructureHealthChecks();
 
