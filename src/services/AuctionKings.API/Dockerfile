@@ -23,6 +23,7 @@ RUN dotnet publish src/services/AuctionKings.API/AuctionKings.API.csproj \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 RUN groupadd --system appgroup && useradd --system --gid appgroup appuser
 USER appuser
 

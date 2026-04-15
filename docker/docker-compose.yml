@@ -12,10 +12,10 @@ services:
       dockerfile: src/services/AuctionKings.API/Dockerfile
     restart: unless-stopped
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-AuctionKingsDB};Username=${POSTGRES_USER:-dev};Password=${POSTGRES_PASSWORD:-}"
       ConnectionStrings__Redis: "redis:6379,password=${REDIS_PASSWORD:-}"
-      Jwt__Secret: "${JWT_SECRET:-dev-only-secret-key-at-least-32-chars!!}"
+      Jwt__Secret: "${JWT_SECRET}"
       Jwt__Issuer: "auction-kings-dev"
       Jwt__Audience: "auction-kings-dev"
       Jwt__ExpiresInMinutes: "60"
