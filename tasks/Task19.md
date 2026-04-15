@@ -15,11 +15,13 @@ Todas as features de negócio estão implementadas (T01–T18). Esta task agrupa
 Gerar e validar JWTs localmente (sem Cognito por enquanto) e proteger os endpoints de bid.
 
 **Aceite:**
+
 - `POST /api/v1/auctions/{id}/bids` requer header `Authorization: Bearer <token>`
 - Token inválido/ausente retorna 401
 - Geração de token via endpoint de dev (ex: `POST /dev/token`) ou script
 
 **Arquivos:**
+
 - `src/services/AuctionKings.API/Auth/JwtTokenGenerator.cs` — gerador de token para dev
 - `src/services/AuctionKings.API/Program.cs` — `AddAuthentication().AddJwtBearer(...)`
 - `src/services/AuctionKings.API/Controllers/BidsController.cs` — `[Authorize]`
@@ -32,11 +34,13 @@ Gerar e validar JWTs localmente (sem Cognito por enquanto) e proteger os endpoin
 Definir policies `Bidder` e `Admin` baseadas em claims do JWT e aplicar nos endpoints relevantes.
 
 **Aceite:**
+
 - Policy `Bidder` protege PlaceBid
 - Policy `Admin` protege CloseAuction
 - Policies configuradas via `AddAuthorization(options => ...)`
 
 **Arquivos:**
+
 - `src/services/AuctionKings.API/Auth/Policies.cs` — constantes de policy names
 - `src/services/AuctionKings.API/Program.cs` — registro das policies
 - Controllers relevantes — `[Authorize(Policy = "Admin")]` etc.
@@ -50,6 +54,7 @@ Definir policies `Bidder` e `Admin` baseadas em claims do JWT e aplicar nos endp
 Documento com passos para substituir JWT local por Cognito + POC mínimo.
 
 **Aceite:**
+
 - `docs/cognito-integration.md` com passos e diagrama
 - POC não precisa virar produção agora
 
@@ -64,11 +69,13 @@ Documento com passos para substituir JWT local por Cognito + POC mínimo.
 Substituir o logger padrão do ASP.NET Core por Serilog com output JSON, enriquecido com `RequestId` e `TraceId`.
 
 **Aceite:**
+
 - Logs em JSON no console (produção-ready)
 - `RequestId` e `CorrelationId` presentes em todos os logs do request pipeline
 - Nível configurável via `appsettings.json`
 
 **Arquivos:**
+
 - `Directory.Packages.props` — `Serilog.AspNetCore`, `Serilog.Sinks.Console`
 - `src/services/AuctionKings.API/Program.cs` — `UseSerilog(...)`
 - `src/services/AuctionKings.API/appsettings.json` — configuração de Serilog
@@ -80,10 +87,12 @@ Substituir o logger padrão do ASP.NET Core por Serilog com output JSON, enrique
 Expor endpoint `/metrics` com métricas de request duration, bids placed e outbox lag.
 
 **Aceite:**
+
 - `GET /metrics` retorna formato Prometheus
 - Métricas: request duration (histogram), bids placed (counter), outbox pending messages (gauge)
 
 **Arquivos:**
+
 - `Directory.Packages.props` — `prometheus-net.AspNetCore`
 - `src/services/AuctionKings.API/Program.cs` — `UseMetricServer()`, `UseHttpMetrics()`
 - `src/services/AuctionKings.Infrastructure/Outbox/OutboxMetrics.cs` — gauge do outbox lag
@@ -95,10 +104,12 @@ Expor endpoint `/metrics` com métricas de request duration, bids placed e outbo
 Subir Grafana no docker compose com datasource Prometheus e dashboard básico.
 
 **Aceite:**
+
 - `docker compose up` inclui Grafana na porta 3000
 - Dashboard com métricas principais visíveis
 
 **Arquivos:**
+
 - `docker/docker-compose.infra.yml` — serviço Grafana + Prometheus
 - `docker/grafana/provisioning/` — datasource e dashboard JSON
 
@@ -113,11 +124,13 @@ Subir Grafana no docker compose com datasource Prometheus e dashboard básico.
 Criar Dockerfile multi-stage para a API e adicionar o serviço `api` ao docker-compose junto às dependências existentes.
 
 **Aceite:**
+
 - `docker compose up` sobe PostgreSQL, Redis, LocalStack + API
 - Dockerfile usa multi-stage (build → runtime) com imagem base `mcr.microsoft.com/dotnet/aspnet:10.0`
 - API saudável em `http://localhost:5081/health/live` após `docker compose up`
 
 **Arquivos:**
+
 - `src/services/AuctionKings.API/Dockerfile`
 - `.dockerignore`
 - `docker/docker-compose.yml` — compose completo (infra + app)
@@ -129,10 +142,12 @@ Criar Dockerfile multi-stage para a API e adicionar o serviço `api` ao docker-c
 Adicionar job no CI para buildar e publicar a imagem Docker no GitHub Container Registry por tag/sha.
 
 **Aceite:**
+
 - Imagem publicada em `ghcr.io/pellizzonicode/auction-kings:sha-<commit>`
 - Job separado do build-and-test, acionado em push para `main`
 
 **Arquivos:**
+
 - `.github/workflows/docker.yml` — novo workflow de build + push
 
 **Dependência:** ST07
@@ -144,6 +159,7 @@ Adicionar job no CI para buildar e publicar a imagem Docker no GitHub Container 
 Infraestrutura mínima no AWS para staging: ECS Fargate, RDS PostgreSQL, ElastiCache Redis, SQS.
 
 **Aceite:**
+
 - Endpoint público de staging funcionando
 - Secrets via AWS Secrets Manager
 - Logs no CloudWatch
@@ -159,11 +175,13 @@ Infraestrutura mínima no AWS para staging: ECS Fargate, RDS PostgreSQL, ElastiC
 Criar `docs/decisions.md` com ADR curto explicando as escolhas de design.
 
 **Aceite:**
+
 - Explica por que `xmin` para concorrência otimista
 - Explica por que Outbox Pattern
 - Documenta limites atuais do sistema
 
 **Arquivos:**
+
 - `docs/decisions.md`
 
 ---
@@ -173,11 +191,13 @@ Criar `docs/decisions.md` com ADR curto explicando as escolhas de design.
 Documento de arquitetura consolidado: visão geral, trade-offs, decisões, pronto para entrevista técnica.
 
 **Aceite:**
+
 - Cobre: Clean Architecture, DDD, CQRS, Outbox, SignalR, concorrência, AWS roadmap
 - Inclui diagrama (Mermaid ou ASCII)
 - ADRs referenciados
 
 **Arquivos:**
+
 - `docs/architecture.md` — documento principal (atualização de `/architecture/ARCHITECTURE.md`)
 
 **Dependência:** ST10
@@ -189,10 +209,12 @@ Documento de arquitetura consolidado: visão geral, trade-offs, decisões, pront
 Guia operacional documentando health checks, logs, outbox lag e falhas comuns.
 
 **Aceite:**
+
 - Cobre: como checar `/health/ready`, como ler logs, como monitorar outbox
 - Seção de troubleshooting com cenários comuns (DB down, Redis down, outbox stuck)
 
 **Arquivos:**
+
 - `docs/runbook.md`
 
 ---
@@ -202,10 +224,12 @@ Guia operacional documentando health checks, logs, outbox lag e falhas comuns.
 Roteiro repetível de demonstração do sistema end-to-end.
 
 **Aceite:**
+
 - Criar leilão → 3 clientes conectados via SignalR → 20 lances concorrentes → mostrar logs/métricas
 - Demo repetível (script ou curl commands)
 
 **Arquivos:**
+
 - `docs/demo-script.md`
 
 ---
@@ -233,18 +257,19 @@ P2 (stretch goals):
 
 ## GitHub Issues
 
-| #                                                                | Title                                                              | Priority | Status  |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------ | -------- | ------- |
-| [#49](https://github.com/PellizzoniCode/auction-kings/issues/49) | Implementar autenticação JWT (local)                               | P0       | 🔴 open |
-| [#50](https://github.com/PellizzoniCode/auction-kings/issues/50) | Criar Authorization Policies (Bidder/Admin)                        | P1       | 🔴 open |
-| [#52](https://github.com/PellizzoniCode/auction-kings/issues/52) | [Stretch] Preparar integração AWS Cognito (documento + POC)        | P2       | 🔴 open |
-| [#54](https://github.com/PellizzoniCode/auction-kings/issues/54) | Adicionar logging estruturado (Serilog)                            | P0       | 🔴 open |
-| [#57](https://github.com/PellizzoniCode/auction-kings/issues/57) | Adicionar métricas Prometheus básicas                              | P1       | 🔴 open |
-| [#58](https://github.com/PellizzoniCode/auction-kings/issues/58) | [Stretch] Dashboard Grafana (dev)                                  | P2       | 🔴 open |
-| [#67](https://github.com/PellizzoniCode/auction-kings/issues/67) | Adicionar Dockerfile da API + docker compose final (app + deps)    | P0       | 🔴 open |
-| [#68](https://github.com/PellizzoniCode/auction-kings/issues/68) | Adicionar pipeline para build de imagem (GHCR)                     | P1       | 🔴 open |
-| [#69](https://github.com/PellizzoniCode/auction-kings/issues/69) | [Stretch] Deploy staging AWS (ECS + RDS + Redis + SQS)             | P2       | 🔴 open |
-| [#41](https://github.com/PellizzoniCode/auction-kings/issues/41) | Documentar trade-offs (Concorrência/Idempotência/Outbox)           | P1       | 🔴 open |
-| [#70](https://github.com/PellizzoniCode/auction-kings/issues/70) | Escrever docs/architecture.md final + ADRs                         | P0       | 🔴 open |
-| [#71](https://github.com/PellizzoniCode/auction-kings/issues/71) | Runbook básico (como operar + troubleshooting)                     | P1       | 🔴 open |
-| [#72](https://github.com/PellizzoniCode/auction-kings/issues/72) | Checklist final: Demo script de 5 minutos                          | P0       | 🔴 open |
+| #                                                                | Title                                                           | Priority | Status  |
+| ---------------------------------------------------------------- | --------------------------------------------------------------- | -------- | ------- |
+| [#49](https://github.com/PellizzoniCode/auction-kings/issues/49) | Implementar autenticação JWT (local)                            | P0       | 🔴 open |
+| [#54](https://github.com/PellizzoniCode/auction-kings/issues/54) | Adicionar logging estruturado (Serilog)                         | P0       | 🔴 open |
+| [#67](https://github.com/PellizzoniCode/auction-kings/issues/67) | Adicionar Dockerfile da API + docker compose final (app + deps) | P0       | 🔴 open |
+| [#70](https://github.com/PellizzoniCode/auction-kings/issues/70) | Escrever docs/architecture.md final + ADRs                      | P0       | 🔴 open |
+| [#72](https://github.com/PellizzoniCode/auction-kings/issues/72) | Checklist final: Demo script de 5 minutos                       | P0       | 🔴 open |
+| [#41](https://github.com/PellizzoniCode/auction-kings/issues/41) | Documentar trade-offs (Concorrência/Idempotência/Outbox)        | P1       | 🔴 open |
+| [#50](https://github.com/PellizzoniCode/auction-kings/issues/50) | Criar Authorization Policies (Bidder/Admin)                     | P1       | 🔴 open |
+| [#57](https://github.com/PellizzoniCode/auction-kings/issues/57) | Adicionar métricas Prometheus básicas                           | P1       | 🔴 open |
+| [#68](https://github.com/PellizzoniCode/auction-kings/issues/68) | Adicionar pipeline para build de imagem (GHCR)                  | P1       | 🔴 open |
+| [#71](https://github.com/PellizzoniCode/auction-kings/issues/71) | Runbook básico (como operar + troubleshooting)                  | P1       | 🔴 open |
+| [#52](https://github.com/PellizzoniCode/auction-kings/issues/52) | [Stretch] Preparar integração AWS Cognito (documento + POC)     | P2       | 🔴 open |
+| [#58](https://github.com/PellizzoniCode/auction-kings/issues/58) | [Stretch] Dashboard Grafana (dev)                               | P2       | 🔴 open |
+| [#69](https://github.com/PellizzoniCode/auction-kings/issues/69) | [Stretch] Deploy staging AWS (ECS + RDS + Redis + SQS)          | P2       | 🔴 open |
+
