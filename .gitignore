@@ -485,3 +485,6 @@ riderModule.iml
 docker/secrets/cognito_user_pool_id.txt
 docker/secrets/cognito_app_client_id.txt
 .worktrees/
+
+# NBomber load test reports
+**/reports/

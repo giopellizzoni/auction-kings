@@ -117,6 +117,9 @@ namespace AuctionKings.Infrastructure.Persistence.Migrations
                     b.HasIndex("Status")
                         .HasDatabaseName("ix_auctions_status");
 
+                    b.HasIndex("Status", "EndTime")
+                        .HasDatabaseName("ix_auctions_status_end_time");
+
                     b.ToTable("auctions", (string)null);
                 });
 
@@ -167,6 +170,12 @@ namespace AuctionKings.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("AuctionId", "BidderId")
                         .HasDatabaseName("ix_bids_auction_id_bidder_id");
+
+                    b.HasIndex("AuctionId", "PlacedAt")
+                        .HasDatabaseName("ix_bids_auction_id_placed_at");
+
+                    b.HasIndex("BidderId", "PlacedAt")
+                        .HasDatabaseName("ix_bids_bidder_id_placed_at");
 
                     b.ToTable("bids", (string)null);
                 });

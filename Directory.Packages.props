@@ -54,4 +54,9 @@
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
   </ItemGroup>
+
+  <ItemGroup Label="LoadTest">
+    <PackageVersion Include="NBomber" Version="5.5.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
+  </ItemGroup>
 </Project>
