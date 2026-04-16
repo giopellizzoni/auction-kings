@@ -1,3 +1,4 @@
+using AuctionKings.API.Auth;
 using AuctionKings.Application.Auctions.Commands.PlaceBid;
 using AuctionKings.Application.Auctions.Queries.GetAuctionBids;
 using AuctionKings.Application.DTOs;
@@ -5,6 +6,7 @@ using AuctionKings.Shared.Common;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Prometheus;
 
 namespace AuctionKings.API.Controllers;
 
@@ -14,15 +16,21 @@ public sealed record PlaceBidRequest(Guid BidderId, decimal Amount, string Curre
 [ApiController]
 public sealed class BidsController : ControllerBase
 {
+    private static readonly Counter BidsPlaced = Metrics.CreateCounter(
+        "auction_kings_bids_placed_total",
+        "Total number of bids successfully placed."
+    );
+
     private readonly ISender _sender;
 
     public BidsController(ISender sender) => _sender = sender;
 
     [HttpPost]
-    [Authorize]
+    [Authorize(Policy = Policies.Bidder)]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> PlaceBid(
         [FromRoute] Guid auctionId,
@@ -49,6 +57,7 @@ public sealed class BidsController : ControllerBase
             return MapError(result.Error);
         }
 
+        BidsPlaced.Inc();
         return Created($"/api/v1/auctions/{auctionId}/bids/{result.Value}", result.Value);
     }
 

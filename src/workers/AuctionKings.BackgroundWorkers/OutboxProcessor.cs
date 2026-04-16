@@ -47,6 +47,7 @@ public sealed class OutboxProcessor : BackgroundService
         var eventBus = scope.ServiceProvider.GetRequiredService<IEventBus>();
 
         var messages = await repository.FetchPendingAsync(_options.BatchSize, cancellationToken);
+        OutboxMetrics.SetPending(messages.Count);
 
         if (messages.Count == 0)
         {

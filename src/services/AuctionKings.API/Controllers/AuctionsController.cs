@@ -1,3 +1,4 @@
+using AuctionKings.API.Auth;
 using AuctionKings.Application.Auctions.Commands.CloseAuction;
 using AuctionKings.Application.Auctions.Commands.CreateAuction;
 using AuctionKings.Application.Auctions.Queries.GetActiveAuctions;
@@ -5,6 +6,7 @@ using AuctionKings.Application.Auctions.Queries.GetAuctionDetails;
 using AuctionKings.Application.DTOs;
 using AuctionKings.Shared.Common;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AuctionKings.API.Controllers;
@@ -99,8 +101,11 @@ public sealed class AuctionsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/close")]
+    [Authorize(Policy = Policies.Admin)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CloseAuction(
         [FromRoute] Guid id,
