@@ -1,3 +1,4 @@
+using AuctionKings.API.Auth;
 using AuctionKings.Application.Auctions.Commands.PlaceBid;
 using AuctionKings.Application.Auctions.Queries.GetAuctionBids;
 using AuctionKings.Application.DTOs;
@@ -19,7 +20,7 @@ public sealed class BidsController : ControllerBase
     public BidsController(ISender sender) => _sender = sender;
 
     [HttpPost]
-    [Authorize]
+    [Authorize(Policy = Policies.Bidder)]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

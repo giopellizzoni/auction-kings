@@ -81,7 +81,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ),
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(Policies.Bidder, policy => policy.RequireRole(Policies.Bidder));
+    options.AddPolicy(Policies.Admin, policy => policy.RequireRole(Policies.Admin));
+});
 builder.Services.AddSingleton<JwtTokenGenerator>();
 
 builder.Services.AddHealthChecks()
