@@ -74,6 +74,7 @@ Clean Architecture: `API → Application → Domain ← Infrastructure`
 | T16  | Architecture tests (NetArchTest)                                                             | ✅ Done        |
 | T17  | CI pipeline (GitHub Actions)                                                                 | ✅ Done        |
 | T18  | Load tests (NBomber)                                                                         | ✅ Done        |
+| T19  | Security, Observability, DevOps, Docs (P0+P1 complete)               | ✅ Done        |
 
 ## Custom Instructions
 

@@ -253,7 +253,7 @@ P2 (stretch goals):
 
 ## Status
 
-🟡 **In Progress** — P0 complete, P1 remaining
+✅ **P0 + P1 Complete** · ⏳ P2 Stretch (optional)
 
 ## GitHub Issues
 
@@ -264,11 +264,11 @@ P2 (stretch goals):
 | [#67](https://github.com/PellizzoniCode/auction-kings/issues/67) | Adicionar Dockerfile da API + docker compose final (app + deps) | P0       | ✅ closed |
 | [#70](https://github.com/PellizzoniCode/auction-kings/issues/70) | Escrever docs/architecture.md final + ADRs                      | P0       | ✅ closed |
 | [#72](https://github.com/PellizzoniCode/auction-kings/issues/72) | Checklist final: Demo script de 5 minutos                       | P0       | ✅ closed |
-| [#41](https://github.com/PellizzoniCode/auction-kings/issues/41) | Documentar trade-offs (Concorrência/Idempotência/Outbox)        | P1       | 🔴 open |
-| [#50](https://github.com/PellizzoniCode/auction-kings/issues/50) | Criar Authorization Policies (Bidder/Admin)                     | P1       | 🔴 open |
-| [#57](https://github.com/PellizzoniCode/auction-kings/issues/57) | Adicionar métricas Prometheus básicas                           | P1       | 🔴 open |
-| [#68](https://github.com/PellizzoniCode/auction-kings/issues/68) | Adicionar pipeline para build de imagem (GHCR)                  | P1       | 🔴 open |
-| [#71](https://github.com/PellizzoniCode/auction-kings/issues/71) | Runbook básico (como operar + troubleshooting)                  | P1       | 🔴 open |
+| [#41](https://github.com/PellizzoniCode/auction-kings/issues/41) | Documentar trade-offs (Concorrência/Idempotência/Outbox)        | P1       | ✅ closed |
+| [#50](https://github.com/PellizzoniCode/auction-kings/issues/50) | Criar Authorization Policies (Bidder/Admin)                     | P1       | ✅ closed |
+| [#57](https://github.com/PellizzoniCode/auction-kings/issues/57) | Adicionar métricas Prometheus básicas                           | P1       | ✅ closed |
+| [#68](https://github.com/PellizzoniCode/auction-kings/issues/68) | Adicionar pipeline para build de imagem (GHCR)                  | P1       | ✅ closed |
+| [#71](https://github.com/PellizzoniCode/auction-kings/issues/71) | Runbook básico (como operar + troubleshooting)                  | P1       | ✅ closed |
 | [#52](https://github.com/PellizzoniCode/auction-kings/issues/52) | [Stretch] Preparar integração AWS Cognito (documento + POC)     | P2       | 🔴 open |
 | [#58](https://github.com/PellizzoniCode/auction-kings/issues/58) | [Stretch] Dashboard Grafana (dev)                               | P2       | 🔴 open |
 | [#69](https://github.com/PellizzoniCode/auction-kings/issues/69) | [Stretch] Deploy staging AWS (ECS + RDS + Redis + SQS)          | P2       | 🔴 open |
