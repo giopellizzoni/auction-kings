@@ -18,6 +18,9 @@ This repo follows a lightweight GitFlow-style workflow:
 
 ## Branching Strategy
 
+Always before an implementation, create a new branch from the appropriate base:
+If github issue is provided follow the branch naming convention as described below, otherwise use the `feature/<short-description>` pattern.
+
 ### Branch naming
 
 Use consistent prefixes:
@@ -213,3 +216,4 @@ Automate changelogs/releases with tools like:
 - push directly to `main`
 - mix refactors + features + formatting in one PR
 - use vague messages like “updates”, “fix stuff”
+
