@@ -54,7 +54,7 @@ Sistema de leiloes em tempo real construido com arquitetura moderna, escalavel e
 
 ### Diagrama de Alto Nivel
 
-```
+```text
                                     +------------------+
                                     |   CloudFront     |
                                     |   (CDN + Edge)   |
