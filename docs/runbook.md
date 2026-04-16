@@ -113,7 +113,7 @@ A non-zero value that does not decrease over multiple polls indicates the backgr
 **Via database (direct query):**
 
 ```bash
-docker exec -it auction-kings-postgres-1 \
+docker exec -it infra-postgres \
   psql -U dev -d AuctionKingsDB \
   -c "SELECT COUNT(*) FROM outbox_messages WHERE processed_at IS NULL AND failed = false;"
 ```
@@ -138,7 +138,76 @@ Key metrics:
 
 ---
 
-## 6. Troubleshooting
+## 6. Grafana Dashboard
+
+When running the infra stack (`docker-compose.infra.yml`), Grafana is available at:
+
+```
+http://localhost:3000   (admin / admin)
+```
+
+The **AuctionKings Overview** dashboard is auto-provisioned and shows:
+- Request rate and error rate (by status code)
+- p50 / p99 latency
+- In-progress requests
+- Bids placed rate and cumulative total
+- Outbox pending messages gauge (red threshold at 50+)
+
+Prometheus is available at `http://localhost:9090` for ad-hoc PromQL queries.
+
+**Quick check that Prometheus is scraping the API:**
+
+```bash
+curl -s 'http://localhost:9090/api/v1/targets' | jq '.data.activeTargets[0].health'
+# Expected: "up"
+```
+
+---
+
+## 7. AWS Staging
+
+The staging environment runs on ECS Fargate. Access the staging API via the ALB DNS name output by Terraform:
+
+```bash
+cd infra/terraform/staging
+terraform output alb_url
+```
+
+**Check staging health:**
+
+```bash
+ALB=$(terraform output -raw alb_dns_name)
+curl -s "http://$ALB/health/ready" | jq .
+```
+
+**Tail staging logs (CloudWatch):**
+
+```bash
+aws logs tail /ecs/auction-kings-staging-api --follow --region us-east-1
+```
+
+**Force a new deployment** (after pushing a new image):
+
+```bash
+aws ecs update-service \
+  --cluster auction-kings-staging \
+  --service auction-kings-staging-api \
+  --force-new-deployment \
+  --region us-east-1
+```
+
+**Check ECS service stability:**
+
+```bash
+aws ecs wait services-stable \
+  --cluster auction-kings-staging \
+  --services auction-kings-staging-api \
+  --region us-east-1
+```
+
+---
+
+## 8. Troubleshooting
 
 ### Database is down
 
@@ -185,7 +254,7 @@ The API reconnects automatically via StackExchange.Redis retry policy.
 2. Are messages failing repeatedly?
 
    ```bash
-   docker exec -it auction-kings-postgres-1 \
+   docker exec -it infra-postgres \
      psql -U dev -d AuctionKingsDB \
      -c "SELECT id, type, retry_count, failed FROM outbox_messages WHERE failed = true ORDER BY occurred_on DESC LIMIT 10;"
    ```
@@ -193,7 +262,7 @@ The API reconnects automatically via StackExchange.Redis retry policy.
 **Resolution for failed messages:** Reset them for re-processing:
 
 ```bash
-docker exec -it auction-kings-postgres-1 \
+docker exec -it infra-postgres \
   psql -U dev -d AuctionKingsDB \
   -c "UPDATE outbox_messages SET failed = false, retry_count = 0 WHERE id = '<message-id>';"
 ```

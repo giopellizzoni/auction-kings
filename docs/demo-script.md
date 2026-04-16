@@ -12,25 +12,24 @@ This demo showcases the AuctionKings real-time auction platform: creating auctio
 ### Option A: Full Docker Stack (Recommended)
 
 ```bash
-# Start all services (API, PostgreSQL, Redis, LocalStack, Moto)
-cd /Users/giovannipellizzoni/source/course/auction-kings/docker
+# From the repo root — start all services (API, PostgreSQL, Redis, LocalStack, Moto, Prometheus, Grafana)
+cd docker
 docker compose -f docker-compose.yml up -d
 
 # Wait ~15 seconds for services to be healthy
 sleep 15
 
-# Export variables for demo
+# Export base URL for demo
 export API_URL="http://localhost:5081"
-export JWT_SECRET="your-super-secret-key-change-in-production"
-export POSTGRES_PASSWORD="dev"
-export REDIS_PASSWORD="dev"
 ```
 
 ### Option B: Local Development (dotnet run)
 
 ```bash
+# Start infrastructure first
+cd docker && docker compose -f docker-compose.infra.yml up -d && cd ..
+
 # In a separate terminal, run the API
-cd /Users/giovannipellizzoni/source/course/auction-kings
 dotnet run --project src/services/AuctionKings.API/AuctionKings.API.csproj
 
 # Wait for startup (~20 seconds), then in your main terminal:
@@ -159,37 +158,31 @@ curl -s -X POST "$API_URL/api/v1/auctions/$AUCTION_ID/bids" \
 This loop places 20 bids concurrently, cycling through the 3 bidders with incrementing amounts.
 
 ```bash
-# Generate 20 bids in parallel (each from a different bidder, incrementing amounts)
-{
-  for i in {1..20}; do
-    BIDDER_ID=$([[ $((i % 3)) -eq 1 ]] && echo "$BIDDER_1" || \
-                 [[ $((i % 3)) -eq 2 ]] && echo "$BIDDER_2" || \
-                 echo "$BIDDER_3")
-    TOKEN=$([[ $((i % 3)) -eq 1 ]] && echo "$TOKEN_1" || \
-            [[ $((i % 3)) -eq 2 ]] && echo "$TOKEN_2" || \
-            echo "$TOKEN_3")
-    
-    BID_AMOUNT=$(echo "5000 + ($i * 50)" | bc)
-    REQUEST_ID="bid-$(printf '%03d' $i)"
-    
-    # Fire async requests in background
-    (
-      curl -s -X POST "$API_URL/api/v1/auctions/$AUCTION_ID/bids" \
-        -H "Content-Type: application/json" \
-        -H "Authorization: Bearer $TOKEN" \
-        -H "X-Request-Id: $REQUEST_ID" \
-        -d '{
-          "bidderId": "'$BIDDER_ID'",
-          "amount": '$BID_AMOUNT',
-          "currency": "USD"
-        }' | jq -c '.id'
-    ) &
-  done
-  wait
-} | sort | uniq | wc -l
+# Generate 20 bids in parallel — all fire simultaneously in the background
+for i in {1..20}; do
+  MOD=$((i % 3))
+  if   [ $MOD -eq 1 ]; then BIDDER_ID="$BIDDER_1"; TOKEN="$TOKEN_1"
+  elif [ $MOD -eq 2 ]; then BIDDER_ID="$BIDDER_2"; TOKEN="$TOKEN_2"
+  else                       BIDDER_ID="$BIDDER_3"; TOKEN="$TOKEN_3"
+  fi
+
+  BID_AMOUNT=$((5000 + i * 50))
+  REQUEST_ID="bid-$(printf '%03d' $i)"
+
+  (
+    curl -s -X POST "$API_URL/api/v1/auctions/$AUCTION_ID/bids" \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bearer $TOKEN" \
+      -H "X-Request-Id: $REQUEST_ID" \
+      -d "{\"bidderId\": \"$BIDDER_ID\", \"amount\": $BID_AMOUNT, \"currency\": \"USD\"}" \
+      | jq -c '{id, amount: .amount}'
+  ) &
+done
+wait
+echo "All 20 bids fired."
 ```
 
-**Expected output:** `20` (all bids succeeded)
+**Expected output:** 20 JSON lines, each with an `id` and `amount`, then `All 20 bids fired.`
 
 ---
 
@@ -271,15 +264,41 @@ curl -s "$API_URL/health/ready" | jq '.checks.outbox'
 
 ---
 
+### Step 10: Inspect Prometheus Metrics (Docker Only)
+
+```bash
+echo "=== Bids placed total ==="
+curl -s "$API_URL/metrics" | grep "auction_kings_bids_placed_total"
+
+echo ""
+echo "=== Outbox pending ==="
+curl -s "$API_URL/metrics" | grep "auction_kings_outbox_pending_messages_count"
+```
+
+**Expected output:**
+```
+# HELP auction_kings_bids_placed_total Total number of bids successfully placed.
+# TYPE auction_kings_bids_placed_total counter
+auction_kings_bids_placed_total 20
+
+# HELP auction_kings_outbox_pending_messages_count ...
+# TYPE auction_kings_outbox_pending_messages_count gauge
+auction_kings_outbox_pending_messages_count 0
+```
+
+The Grafana dashboard at **http://localhost:3000** (admin / admin) shows these metrics live on the AuctionKings Overview dashboard.
+
+---
+
 ## Cleanup
 
 ### Option A: Stop Docker Stack
 
 ```bash
-cd /Users/giovannipellizzoni/source/course/auction-kings/docker
+cd docker
 docker compose -f docker-compose.yml down
 
-# Optional: remove volumes
+# Optional: remove volumes (clears PostgreSQL data, Redis data, Prometheus TSDB, Grafana state)
 docker compose -f docker-compose.yml down -v
 ```
 
@@ -303,6 +322,8 @@ docker compose -f docker-compose.yml down -v
 | **Real-time Highest Bid** | Step 7 shows current highest bid updated |
 | **Outbox Pattern** | Step 9 confirms outbox processor health |
 | **Structured Logging** | Step 8 shows JSON logs with correlation IDs |
+| **Prometheus Metrics** | Step 10 shows live counters and gauges |
+| **Grafana Dashboard** | http://localhost:3000 — AuctionKings Overview |
 
 ---
 
@@ -345,5 +366,5 @@ Connect to `ws://localhost:5081/hubs/auction` after creating auction to receive 
 
 ---
 
-**Last updated:** 2026-04-15  
-**Tested with:** ASP.NET Core 10, PostgreSQL 16, Redis 7
+**Last updated:** 2026-04-16  
+**Tested with:** ASP.NET Core 10, PostgreSQL 16, Redis 7, Prometheus 2.52, Grafana 10.4
