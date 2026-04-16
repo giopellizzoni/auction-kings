@@ -276,9 +276,23 @@ RS256 tokens issued by Cognito User Pools. The handler enriches the `ClaimsPrinc
 | `GET /health/ready` | PostgreSQL + Redis + Outbox backlog |
 | `GET /health/db` | Database connectivity only |
 
-### Roadmap: metrics and tracing
+### Prometheus metrics
 
-Prometheus metrics endpoint + Grafana dashboards; AWS X-Ray distributed tracing for ECS Fargate deployments.
+`GET /metrics` exposes a Prometheus-format endpoint via `prometheus-net.AspNetCore`. Three custom metrics are tracked:
+
+| Metric | Type | Description |
+|---|---|---|
+| `http_request_duration_seconds` | Histogram | Per-route HTTP latency (auto via `UseHttpMetrics`) |
+| `auction_kings_bids_placed_total` | Counter | Successful bids since startup |
+| `auction_kings_outbox_pending_messages_count` | Gauge | Pending outbox messages per batch |
+
+### Grafana dashboard
+
+An "AuctionKings Overview" dashboard is auto-provisioned in Grafana (`docker/grafana/provisioning/`). It includes panels for request rate, p50/p99 latency, status-code breakdown, bids-placed rate, and outbox lag. Grafana is available at `http://localhost:3000` (admin / admin) when running the infra compose stack.
+
+### Distributed tracing (roadmap)
+
+AWS X-Ray distributed tracing for ECS Fargate deployments is planned for the production environment.
 
 ---
 
@@ -291,28 +305,46 @@ docker/docker-compose.infra.yml
     ├── PostgreSQL 16      :5432  (DB: AuctionKingsDB, user: dev)
     ├── Redis 7            :6379
     ├── LocalStack 4.3     :4566  (S3, SQS, SNS, DynamoDB emulation)
-    └── Moto 5.1.4         :5555  (Cognito emulation)
+    ├── Moto 5.1.4         :5555  (Cognito emulation)
+    ├── Prometheus         :9090  (scrapes /metrics every 15 s)
+    └── Grafana            :3000  (auto-provisioned dashboard)
 ```
 
-### AWS target architecture (v2.0 roadmap)
+### AWS staging architecture (live)
+
+The staging environment is provisioned with Terraform (`infra/terraform/staging/`) and deployed via GitHub Actions OIDC. It consists of:
+
+```
+ALB (public, HTTP :80)
+    └─► ECS Fargate (auction-kings-staging cluster)
+            │  Task: 0.25 vCPU / 512 MB — API container
+            │  Logs → CloudWatch /ecs/auction-kings-staging-api
+            │
+            ├─► RDS PostgreSQL 16 (db.t4g.micro, encrypted, private subnet)
+            ├─► ElastiCache Redis 7 (cache.t4g.micro, TLS + AUTH, private subnet)
+            ├─► SQS bid-events queue + DLQ
+            └─► Secrets Manager (DB password, Redis AUTH, JWT secret)
+```
+
+GitHub OIDC → `AssumeRoleWithWebIdentity` is used for the deploy workflow — no long-lived AWS access keys in CI.
+
+### AWS production roadmap (v2.0)
 
 ```
 CloudFront (CDN)
     └─► ALB
-            ├─► API Service          (ECS Fargate)
-            ├─► SignalR Service      (ECS Fargate)
+            ├─► API Service          (ECS Fargate, multi-AZ)
+            ├─► SignalR Service      (ECS Fargate, Redis backplane)
             └─► Worker Service       (ECS Fargate)
                     │
-                    ├─► Amazon RDS PostgreSQL 16   (write + read model + outbox)
-                    ├─► ElastiCache Redis 7         (cache + SignalR backplane + rate limit)
-                    ├─► DynamoDB                    (event store — future)
-                    ├─► SQS / SNS / EventBridge     (async messaging — future)
-                    ├─► AWS Cognito                 (auth — future)
-                    ├─► AWS Secrets Manager         (secrets rotation, 5 min poll)
-                    └─► CloudWatch + X-Ray          (logs, metrics, traces)
+                    ├─► RDS PostgreSQL 16 Multi-AZ
+                    ├─► ElastiCache Redis 7 cluster mode
+                    ├─► DynamoDB          (event store — future)
+                    ├─► SNS / EventBridge (fan-out messaging — future)
+                    ├─► AWS Cognito       (RS256 auth — see docs/cognito-integration.md)
+                    ├─► Secrets Manager  (rotation enabled)
+                    └─► CloudWatch + X-Ray (logs, metrics, traces)
 ```
-
-IaC is Terraform (modules: vpc, ecs, rds, elasticache, dynamodb, cognito) with per-environment state in `deploy/terraform/environments/{dev,staging,prod}`.
 
 ---
 
