@@ -6,6 +6,7 @@ using AuctionKings.Shared.Common;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Prometheus;
 
 namespace AuctionKings.API.Controllers;
 
@@ -15,6 +16,11 @@ public sealed record PlaceBidRequest(Guid BidderId, decimal Amount, string Curre
 [ApiController]
 public sealed class BidsController : ControllerBase
 {
+    private static readonly Counter BidsPlaced = Metrics.CreateCounter(
+        "auction_kings_bids_placed_total",
+        "Total number of bids successfully placed."
+    );
+
     private readonly ISender _sender;
 
     public BidsController(ISender sender) => _sender = sender;
@@ -51,6 +57,7 @@ public sealed class BidsController : ControllerBase
             return MapError(result.Error);
         }
 
+        BidsPlaced.Inc();
         return Created($"/api/v1/auctions/{auctionId}/bids/{result.Value}", result.Value);
     }
 

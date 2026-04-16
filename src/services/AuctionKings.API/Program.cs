@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
+using Prometheus;
 using Scalar.AspNetCore;
 using Serilog;
 
@@ -95,6 +96,7 @@ var app = builder.Build();
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
+app.UseHttpMetrics();
 
 app.UseSerilogRequestLogging(options =>
 {
@@ -123,6 +125,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapMetrics(); // exposes GET /metrics
 app.MapHub<AuctionHub>("/hubs/auction");
 app.MapHub<NotificationHub>("/hubs/notifications");
 
