@@ -1,0 +1,16 @@
+# Local Terraform state — use remote backend (S3) instead
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Secret variable files — use tfvars.example as template
+terraform.tfvars
+*.auto.tfvars
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Plan output files
+*.tfplan

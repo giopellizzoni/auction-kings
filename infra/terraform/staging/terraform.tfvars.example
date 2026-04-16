@@ -1,0 +1,10 @@
+# Copy this file to terraform.tfvars and fill in the values.
+# NEVER commit terraform.tfvars — it contains secrets.
+
+aws_region    = "us-east-1"
+app_image     = "ghcr.io/pellizzonicode/auction-kings:sha-<commit-sha>"
+db_name       = "AuctionKingsDB"
+db_username   = "auctionkings"
+jwt_issuer    = "auction-kings-staging"
+jwt_audience  = "auction-kings-staging"
+desired_count = 1

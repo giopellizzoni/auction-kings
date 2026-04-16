@@ -1,0 +1,87 @@
+name: Deploy to Staging
+
+on:
+  workflow_run:
+    workflows: ["Docker"]
+    types:
+      - completed
+    branches:
+      - main
+
+  # Allow manual trigger with a specific image tag
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy (e.g. sha-abc1234). Defaults to sha-<latest commit on main>."
+        required: false
+        default: ""
+
+jobs:
+  deploy:
+    name: Deploy to ECS Staging
+    runs-on: ubuntu-latest
+    # Only run if the Docker build succeeded (or this is a manual dispatch)
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
+    permissions:
+      id-token: write   # Required for OIDC → AssumeRoleWithWebIdentity
+      contents: read
+
+    env:
+      AWS_REGION: us-east-1
+      ECS_CLUSTER: auction-kings-staging
+      ECS_SERVICE: auction-kings-staging-api
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: image
+        run: |
+          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            TAG="${{ github.event.inputs.image_tag }}"
+          else
+            TAG="sha-${{ github.sha }}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "uri=ghcr.io/pellizzonicode/auction-kings:${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_STAGING_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition auction-kings-staging-api \
+            --query taskDefinition \
+            > task-def.json
+
+      - name: Update image in task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-def.json
+          container-name: api
+          image: ${{ steps.image.outputs.uri }}
+
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+          wait-for-minutes: 10
+
+      - name: Print staging URL
+        run: |
+          ALB_DNS=$(aws elbv2 describe-load-balancers \
+            --names auction-kings-staging \
+            --query "LoadBalancers[0].DNSName" \
+            --output text)
+          echo "Staging URL: http://${ALB_DNS}"
+          echo "Health check: http://${ALB_DNS}/health/ready"
