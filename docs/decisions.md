@@ -1,6 +1,6 @@
 # Design Decisions
 
-This document records the three architectural choices that most affect correctness and scalability in AuctionKings.
+Full ADR records for AuctionKings. For a brief summary see [architecture.md — Key Design Decisions](architecture.md#13-key-design-decisions).
 
 ---
 
