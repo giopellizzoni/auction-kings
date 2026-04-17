@@ -31,13 +31,13 @@ docker compose up
 
 Services available after startup (~15 seconds):
 
-| Service | URL |
-|---------|-----|
-| API | http://localhost:5081 |
-| Swagger UI | http://localhost:5081/swagger |
-| Grafana | http://localhost:3000 (admin / admin) |
-| Prometheus | http://localhost:9090 |
-| LocalStack | http://localhost:4566 |
+| Service    | URL                                     |
+| ---------- | --------------------------------------- |
+| API        | <http://localhost:5081>                 |
+| Swagger UI | <http://localhost:5081/swagger>         |
+| Grafana    | <http://localhost:3000> (admin / admin) |
+| Prometheus | <http://localhost:9090>                 |
+| LocalStack | <http://localhost:4566>                 |
 
 ### Option B — Local Development (dotnet run)
 
@@ -75,7 +75,7 @@ dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
 
 ## Project Structure
 
-```
+```text
 auction-kings/
 ├── src/
 │   ├── services/
@@ -98,14 +98,14 @@ auction-kings/
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [Architecture](docs/architecture.md) | System design, DDD, CQRS, Outbox, SignalR, AWS roadmap |
-| [Decisions](docs/decisions.md) | Architecture Decision Records (ADRs) |
-| [Runbook](docs/runbook.md) | Health checks, metrics, troubleshooting, AWS staging ops |
-| [Demo Script](docs/demo-script.md) | Repeatable 5-minute demo with curl commands |
-| [Cognito Integration](docs/cognito-integration.md) | AWS Cognito migration guide |
-| [Audit](docs/audit.md) | Security and code audit findings |
+| Document                                           | Description                                              |
+| -------------------------------------------------- | -------------------------------------------------------- |
+| [Architecture](docs/architecture.md)               | System design, DDD, CQRS, Outbox, SignalR, AWS roadmap   |
+| [Decisions](docs/decisions.md)                     | Architecture Decision Records (ADRs)                     |
+| [Runbook](docs/runbook.md)                         | Health checks, metrics, troubleshooting, AWS staging ops |
+| [Demo Script](docs/demo-script.md)                 | Repeatable 5-minute demo with curl commands              |
+| [Cognito Integration](docs/cognito-integration.md) | AWS Cognito migration guide                              |
+| [Audit](docs/audit.md)                             | Security and code audit findings                         |
 
 ## Configuration
 
