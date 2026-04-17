@@ -42,6 +42,10 @@ Services available after startup (~15 seconds):
 ### Option B — Local Development (dotnet run)
 
 ```bash
+# 0. Copy env template and fill in secrets
+cp .env .env.local
+# Edit .env.local — passwords are in docker/secrets/
+
 # 1. Start infrastructure (PostgreSQL, Redis, LocalStack, Prometheus, Grafana)
 cd docker && docker compose -f docker-compose.infra.yml up -d && cd ..
 
@@ -109,6 +113,15 @@ auction-kings/
 
 ## Configuration
 
+Copy the env template and fill in your secrets before running locally:
+
+```bash
+cp .env .env.local
+# Edit .env.local — passwords are in docker/secrets/
+```
+
+`.env` is committed and documents every required variable. `.env.local` is git-ignored and holds real values. It is loaded automatically at startup; no extra step is needed when using `dotnet run`.
+
 ### Database
 
 - Host: `localhost:5432`, DB: `AuctionKingsDB`, user: `dev`
@@ -118,10 +131,6 @@ auction-kings/
 
 - Host: `localhost:6379`
 - Password: `docker/secrets/redis_password.txt`
-
-### Environment variables
-
-Key variables are in `docker/.env`. Secrets are in `docker/secrets/` (not committed).
 
 ## Stopping Services
 
