@@ -5,6 +5,8 @@ using AuctionKings.Infrastructure.Outbox;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
+DotNetEnv.Env.TraversePath().Load(".env.local");
+
 var builder = Host.CreateApplicationBuilder(args);
 
 builder.Services.AddInfrastructure(builder.Configuration);
