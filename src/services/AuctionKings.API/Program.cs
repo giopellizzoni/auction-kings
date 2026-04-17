@@ -17,13 +17,16 @@ using Prometheus;
 using Scalar.AspNetCore;
 using Serilog;
 
+DotNetEnv.Env.TraversePath().Load(".env.local");
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Host.UseSerilog((context, services, configuration) =>
-    configuration
-        .ReadFrom.Configuration(context.Configuration)
-        .ReadFrom.Services(services)
-        .Enrich.FromLogContext());
+builder.Host.UseSerilog(
+    (context, services, configuration) =>
+        configuration
+            .ReadFrom.Configuration(context.Configuration)
+            .ReadFrom.Services(services)
+            .Enrich.FromLogContext()
+);
 
 // Add services to the container.
 builder.Services.AddApplication();
@@ -56,17 +59,21 @@ builder.Services.AddOpenApi(
         );
     }
 );
+
 // JWT Authentication
-builder.Services.AddOptions<JwtOptions>()
+builder
+    .Services.AddOptions<JwtOptions>()
     .BindConfiguration(JwtOptions.SectionName)
     .ValidateOnStart();
 
-var jwtOptions = builder.Configuration
-    .GetSection(JwtOptions.SectionName)
-    .Get<JwtOptions>()
-    ?? throw new InvalidOperationException($"'{JwtOptions.SectionName}' configuration section is missing.");
+var jwtOptions =
+    builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
+    ?? throw new InvalidOperationException(
+        $"'{JwtOptions.SectionName}' configuration section is missing."
+    );
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+builder
+    .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters
@@ -77,9 +84,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwtOptions.Issuer,
             ValidAudience = jwtOptions.Audience,
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(jwtOptions.Secret)
-            ),
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Secret)),
         };
     });
 builder.Services.AddAuthorization(options =>
@@ -89,8 +94,7 @@ builder.Services.AddAuthorization(options =>
 });
 builder.Services.AddSingleton<JwtTokenGenerator>();
 
-builder.Services.AddHealthChecks()
-    .AddInfrastructureHealthChecks();
+builder.Services.AddHealthChecks().AddInfrastructureHealthChecks();
 
 var app = builder.Build();
 
@@ -111,7 +115,7 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapScalarApiReference(
-        "/scalar/{documentName}",
+        "/scalar",
         options =>
         {
             options.Title = "AuctionKings API";
@@ -131,33 +135,41 @@ app.MapHub<NotificationHub>("/hubs/notifications");
 
 app.MapHealthChecks("/health/live");
 
-app.MapHealthChecks("/health/ready", new HealthCheckOptions
-{
-    Predicate = check => check.Tags.Contains("ready"),
-    ResponseWriter = WriteHealthResponse,
-});
+app.MapHealthChecks(
+    "/health/ready",
+    new HealthCheckOptions
+    {
+        Predicate = check => check.Tags.Contains("ready"),
+        ResponseWriter = WriteHealthResponse,
+    }
+);
 
-app.MapHealthChecks("/health/db", new HealthCheckOptions
-{
-    Predicate = check => check.Tags.Contains("db"),
-    ResponseWriter = WriteHealthResponse,
-});
+app.MapHealthChecks(
+    "/health/db",
+    new HealthCheckOptions
+    {
+        Predicate = check => check.Tags.Contains("db"),
+        ResponseWriter = WriteHealthResponse,
+    }
+);
 
 static Task WriteHealthResponse(HttpContext httpContext, HealthReport report)
 {
     httpContext.Response.ContentType = "application/json";
-    var result = JsonSerializer.Serialize(new
-    {
-        status = report.Status.ToString(),
-        totalDurationMs = report.TotalDuration.TotalMilliseconds,
-        checks = report.Entries.Select(e => new
+    var result = JsonSerializer.Serialize(
+        new
         {
-            name = e.Key,
-            status = e.Value.Status.ToString(),
-            description = e.Value.Description,
-            durationMs = e.Value.Duration.TotalMilliseconds,
-        }),
-    });
+            status = report.Status.ToString(),
+            totalDurationMs = report.TotalDuration.TotalMilliseconds,
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description,
+                durationMs = e.Value.Duration.TotalMilliseconds,
+            }),
+        }
+    );
     return httpContext.Response.WriteAsync(result);
 }
 
