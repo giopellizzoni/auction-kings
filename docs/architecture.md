@@ -1,4 +1,4 @@
-# AuctionKings — Architecture Overview
+# AuctionKings — Architecture
 
 ---
 
@@ -92,6 +92,8 @@ graph TD
     Application --> SignalRNotif
     SignalRNotif -->|push| Client
 ```
+
+**Dependency rule:** The domain has zero outward dependencies. Architecture tests (NetArchTest) enforce this at build time.
 
 ---
 
@@ -301,10 +303,6 @@ Headers returned on every response: `X-RateLimit-Limit`, `X-RateLimit-Remaining`
 
 An "AuctionKings Overview" dashboard is auto-provisioned in Grafana (`docker/grafana/provisioning/`). It includes panels for request rate, p50/p99 latency, status-code breakdown, bids-placed rate, and outbox lag. Grafana is available at `http://localhost:3000` (admin / admin) when running the infra compose stack.
 
-### Distributed tracing (roadmap)
-
-AWS X-Ray distributed tracing for ECS Fargate deployments is planned for the production environment.
-
 ---
 
 ## 10. Infrastructure — Local Docker Stack
@@ -318,6 +316,8 @@ docker/docker-compose.infra.yml
     ├── Prometheus         :9090  (scrapes /metrics every 15 s)
     └── Grafana            :3000  (auto-provisioned dashboard)
 ```
+
+See the [Runbook](runbook.md) for operational commands, health check details, and troubleshooting.
 
 ---
 
