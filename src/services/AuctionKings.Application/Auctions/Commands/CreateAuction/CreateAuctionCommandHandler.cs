@@ -6,7 +6,8 @@ using MediatR;
 
 namespace AuctionKings.Application.Auctions.Commands.CreateAuction;
 
-public sealed class CreateAuctionCommandHandler : IRequestHandler<CreateAuctionCommand, Result<Guid>>
+public sealed class CreateAuctionCommandHandler
+    : IRequestHandler<CreateAuctionCommand, Result<Guid>>
 {
     private readonly IAuctionRepository _auctionRepository;
     private readonly IUnitOfWork _unitOfWork;
@@ -17,7 +18,8 @@ public sealed class CreateAuctionCommandHandler : IRequestHandler<CreateAuctionC
         IAuctionRepository auctionRepository,
         IUnitOfWork unitOfWork,
         IDateTimeProvider dateTimeProvider,
-        ICacheInvalidationService cacheInvalidation)
+        ICacheInvalidationService cacheInvalidation
+    )
     {
         _auctionRepository = auctionRepository;
         _unitOfWork = unitOfWork;
@@ -25,7 +27,10 @@ public sealed class CreateAuctionCommandHandler : IRequestHandler<CreateAuctionC
         _cacheInvalidation = cacheInvalidation;
     }
 
-    public async Task<Result<Guid>> Handle(CreateAuctionCommand request, CancellationToken cancellationToken)
+    public async Task<Result<Guid>> Handle(
+        CreateAuctionCommand request,
+        CancellationToken cancellationToken
+    )
     {
         var money = new Money(request.StartingPrice, request.Currency);
         var duration = new AuctionDuration(request.Duration);
@@ -37,7 +42,8 @@ public sealed class CreateAuctionCommandHandler : IRequestHandler<CreateAuctionC
             money,
             now,
             duration,
-            request.SellerId);
+            request.SellerId
+        );
 
         await _auctionRepository.AddAsync(auction, cancellationToken);
         await _unitOfWork.CommitAsync(cancellationToken);

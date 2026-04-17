@@ -1,6 +1,4 @@
-# AuctionKings — Architecture Overview
-
-> **Full v2.0 spec and AWS roadmap:** [`/architecture/ARCHITECTURE.md`](/architecture/ARCHITECTURE.md)
+# AuctionKings — Architecture
 
 ---
 
@@ -8,15 +6,17 @@
 
 1. [System Summary](#1-system-summary)
 2. [Layer Diagram](#2-layer-diagram)
-3. [Clean Architecture Layers](#3-clean-architecture-layers)
-4. [Domain Model (DDD)](#4-domain-model-ddd)
-5. [CQRS with MediatR](#5-cqrs-with-mediatr)
-6. [Outbox Pattern](#6-outbox-pattern)
-7. [SignalR Real-Time Layer](#7-signalr-real-time-layer)
-8. [Concurrency, Idempotency, and Auth](#8-concurrency-idempotency-and-auth)
+3. [Domain Model (DDD)](#3-domain-model-ddd)
+4. [CQRS with MediatR](#4-cqrs-with-mediatr)
+5. [Outbox Pattern](#5-outbox-pattern)
+6. [SignalR Real-Time Layer](#6-signalr-real-time-layer)
+7. [Concurrency, Idempotency, and Auth](#7-concurrency-idempotency-and-auth)
+8. [Rate Limiting](#8-rate-limiting)
 9. [Observability](#9-observability)
-10. [Infrastructure (Local and AWS)](#10-infrastructure-local-and-aws)
-11. [Key Design Decisions (ADRs)](#11-key-design-decisions-adrs)
+10. [Infrastructure — Local Docker Stack](#10-infrastructure--local-docker-stack)
+11. [AWS Staging Architecture](#11-aws-staging-architecture)
+12. [AWS Production Roadmap — v2.0](#12-aws-production-roadmap--v20)
+13. [Key Design Decisions](#13-key-design-decisions)
 
 ---
 
@@ -93,35 +93,11 @@ graph TD
     SignalRNotif -->|push| Client
 ```
 
----
-
-## 3. Clean Architecture Layers
-
-```
-┌──────────────────────────────────────────────────────┐
-│  API Layer  (Controllers · Hubs · Filters · Middleware)
-│  depends on → Application                             │
-└──────────────────────────────────────────────────────┘
-               │
-               ▼
-┌──────────────────────────────────────────────────────┐
-│  Application Layer  (Commands · Queries · Behaviors)  │
-│  defines interfaces, depends on → Domain              │
-└──────────────────────────────────────────────────────┘
-               │                        ▲
-               ▼                        │ implements
-┌────────────────────┐     ┌────────────────────────────┐
-│  Domain Layer      │     │  Infrastructure Layer       │
-│  Pure C# — no      │     │  EF Core · Redis · Workers  │
-│  framework deps    │     │  implements App interfaces  │
-└────────────────────┘     └────────────────────────────┘
-```
-
-**Dependency rule:** domain has zero outward dependencies. Infrastructure and API reference the inner layers; inner layers never reference outer layers. Architecture tests (NetArchTest) enforce this at build time.
+**Dependency rule:** The domain has zero outward dependencies. Architecture tests (NetArchTest) enforce this at build time.
 
 ---
 
-## 4. Domain Model (DDD)
+## 3. Domain Model (DDD)
 
 ### Aggregates
 
@@ -151,7 +127,7 @@ All events implement `IDomainEvent` and are collected on `AggregateRoot`. They a
 
 ---
 
-## 5. CQRS with MediatR
+## 4. CQRS with MediatR
 
 All use-cases flow through MediatR. Commands mutate state; queries are read-only and may hit the Redis cache before touching PostgreSQL.
 
@@ -180,7 +156,7 @@ All use-cases flow through MediatR. Commands mutate state; queries are read-only
 
 ---
 
-## 6. Outbox Pattern
+## 5. Outbox Pattern
 
 **Problem:** Domain events must be delivered even if the process crashes between saving state and publishing events.
 
@@ -205,7 +181,7 @@ OutboxProcessor (every 1 s)
 
 ---
 
-## 7. SignalR Real-Time Layer
+## 6. SignalR Real-Time Layer
 
 ### Two hubs
 
@@ -232,7 +208,7 @@ When a client calls `JoinAuction`, the hub sends the full current `AuctionStateD
 
 ---
 
-## 8. Concurrency, Idempotency, and Auth
+## 7. Concurrency, Idempotency, and Auth
 
 ### Optimistic concurrency via PostgreSQL `xmin`
 
@@ -255,7 +231,44 @@ Local HS256 tokens. The `sub` claim carries the user ID. SignalR hubs prefer the
 
 ### JWT Authentication (roadmap — AWS Cognito)
 
-RS256 tokens issued by Cognito User Pools. The handler enriches the `ClaimsPrincipal` with `reputation`, `is_verified`, and `total_bids` claims from the user profile. A `RedisTokenBlacklistService` checks the `jti` claim to support token revocation. Authorization policies (`CanBid`, `CanCreateAuction`, `HighValueBid`) are enforced via `IAuthorizationHandler`.
+RS256 tokens issued by Cognito User Pools. See [cognito-integration.md](cognito-integration.md) for the full migration guide.
+
+The Cognito auth layer adds:
+- **Token revocation:** `RedisTokenBlacklistService` checks the `jti` claim against a Redis key per revoked token. `RevokeAllUserTokensAsync` stores a `revoke_before` timestamp per user for global sign-out.
+- **Claim enrichment:** On token validation, the user profile is fetched and `reputation`, `is_verified`, and `total_bids` claims are added to the principal.
+- **Authorization policies:** `CanBid` (email verified + minimum reputation score), `CanCreateAuction`, and `HighValueBid` (MFA or KYC required for bids above $10,000) — enforced via `IAuthorizationHandler`.
+
+---
+
+## 8. Rate Limiting
+
+### Current implementation
+
+`[RateLimitAttribute]` is defined and wired to a Redis-backed `IDistributedRateLimiter`. The attribute is configurable per endpoint: `Limit` (default 10 requests) and `WindowSeconds` (default 60 seconds).
+
+**Current limit:** 10 bids per user per 10 seconds (configured in appsettings).
+
+**Known issue (audit H-6):** The attribute exists but is not yet applied to any controller action — rate limiting is currently inactive until `[RateLimit]` is added to `PlaceBid` and `CreateAuction`.
+
+### Algorithm — distributed sliding window (Redis Lua)
+
+The rate limiter uses an atomic Lua script executed on Redis to avoid race conditions across multiple API instances:
+
+```
+1. Remove expired entries from the sorted set: ZREMRANGEBYSCORE key 0 (now - window_ms)
+2. Count current entries: ZCARD key
+3. If count < limit:
+       Add new entry: ZADD key now <unique-member>
+       Set TTL: EXPIRE key (window_seconds + 1)
+       Return: allowed, remaining = limit - count - 1
+   Else:
+       Get oldest entry score: ZRANGE key 0 0 WITHSCORES
+       Return: denied, retry_after = oldest_score + window_ms - now
+```
+
+Headers returned on every response: `X-RateLimit-Limit`, `X-RateLimit-Remaining`. On 429: `Retry-After`.
+
+**Fail-open behaviour:** if Redis is unavailable, requests are allowed through. Audit finding H-4 flags this — write operations should fail closed when Redis is down.
 
 ---
 
@@ -290,15 +303,9 @@ RS256 tokens issued by Cognito User Pools. The handler enriches the `ClaimsPrinc
 
 An "AuctionKings Overview" dashboard is auto-provisioned in Grafana (`docker/grafana/provisioning/`). It includes panels for request rate, p50/p99 latency, status-code breakdown, bids-placed rate, and outbox lag. Grafana is available at `http://localhost:3000` (admin / admin) when running the infra compose stack.
 
-### Distributed tracing (roadmap)
-
-AWS X-Ray distributed tracing for ECS Fargate deployments is planned for the production environment.
-
 ---
 
-## 10. Infrastructure (Local and AWS)
-
-### Local Docker stack
+## 10. Infrastructure — Local Docker Stack
 
 ```
 docker/docker-compose.infra.yml
@@ -310,7 +317,11 @@ docker/docker-compose.infra.yml
     └── Grafana            :3000  (auto-provisioned dashboard)
 ```
 
-### AWS staging architecture (live)
+See the [Runbook](runbook.md) for operational commands, health check details, and troubleshooting.
+
+---
+
+## 11. AWS Staging Architecture
 
 The staging environment is provisioned with Terraform (`infra/terraform/staging/`) and deployed via GitHub Actions OIDC. It consists of:
 
@@ -328,7 +339,11 @@ ALB (public, HTTP :80)
 
 GitHub OIDC → `AssumeRoleWithWebIdentity` is used for the deploy workflow — no long-lived AWS access keys in CI.
 
-### AWS production roadmap (v2.0)
+---
+
+## 12. AWS Production Roadmap — v2.0
+
+### Target infrastructure
 
 ```
 CloudFront (CDN)
@@ -339,55 +354,51 @@ CloudFront (CDN)
                     │
                     ├─► RDS PostgreSQL 16 Multi-AZ
                     ├─► ElastiCache Redis 7 cluster mode
-                    ├─► DynamoDB          (event store — future)
-                    ├─► SNS / EventBridge (fan-out messaging — future)
-                    ├─► AWS Cognito       (RS256 auth — see docs/cognito-integration.md)
+                    ├─► DynamoDB          (event store)
+                    ├─► SNS / EventBridge (fan-out messaging)
+                    ├─► AWS Cognito       (RS256 auth)
                     ├─► Secrets Manager  (rotation enabled)
                     └─► CloudWatch + X-Ray (logs, metrics, traces)
 ```
 
----
+### Event Sourcing with DynamoDB snapshots
 
-## 11. Key Design Decisions (ADRs)
+Domain events will be stored in DynamoDB as an immutable event stream alongside the PostgreSQL write model. Two tables: `AuctionEvents` (stream ID + version as composite key) and `AuctionSnapshots`.
 
-### ADR-01 — PostgreSQL `xmin` for optimistic concurrency
+Snapshots are created every 50 events to avoid full stream replay on aggregate hydration. Load sequence: fetch latest snapshot → load events after snapshot version → replay incrementally onto the aggregate.
 
-**Context:** Multiple concurrent bids arrive for the same auction. We need a concurrency guard without a separate application-managed version column.
+Optimistic concurrency at the DynamoDB level: writes use a `ConditionExpression` that rejects the put if the version already exists, preventing concurrent event appends.
 
-**Decision:** Map PostgreSQL's built-in `xmin` system column as EF Core's concurrency token. Every row write increments `xmin` automatically at the database level.
+### Saga pattern — auction closing
 
-**Consequences:** Zero schema overhead (no extra column). Concurrency violations surface as `DbUpdateConcurrencyException` which is caught and translated to HTTP 409. Works correctly with connection pooling. Not portable to non-PostgreSQL databases.
+Auction close triggers a persisted `AuctionClosingSaga` that coordinates across services with compensating transactions:
 
----
+| Step | Action | Compensation |
+|---|---|---|
+| 1 | Determine winner | Reopen auction |
+| 2 | Reserve payment | Release payment reservation |
+| 3 | Reserve item in inventory | Release item |
+| 4 | Notify winner, losers, and seller | — |
 
-### ADR-02 — Outbox Pattern for domain event delivery
+Saga state (`AuctionClosingSagaState`) is persisted after every step. On failure, compensation runs in reverse order. Status values: `Started → DeterminingWinner → ReservingPayment → ReservingItem → NotifyingParticipants → Completed`. Failure paths: `Compensating → Failed`.
 
-**Context:** Dispatching domain events in-memory after `SaveChanges` risks losing events if the process crashes between the DB commit and the publish call.
+### Frontend — Blazor WebAssembly
 
-**Decision:** Serialise domain events as `outbox_messages` rows within the same database transaction as the aggregate state change. A background `OutboxProcessor` polls with `FOR UPDATE SKIP LOCKED`, deserialises each event, and publishes via MediatR.
+Planned frontend: Blazor WebAssembly served via CloudFront. Connects to `AuctionHub` via SignalR for real-time bid updates.
 
-**Consequences:** At-least-once delivery guarantee. Event handlers must be idempotent. Slight increase in write latency (additional rows per transaction). SKIP LOCKED enables safe horizontal scaling of the worker.
+### Distributed tracing
 
----
-
-### ADR-03 — Idempotency via `X-Request-Id` + Redis cache + DB store
-
-**Context:** Network retries and double-clicks can submit the same bid multiple times. The Outbox already guarantees at-least-once delivery; we additionally need exactly-once semantics at the HTTP layer.
-
-**Decision:** Clients send a UUID in `X-Request-Id`. `IdempotencyBehavior` checks Redis first (fast path), then the DB store, and short-circuits with the stored response if the key is already known. The result is persisted to both stores with a 24-hour TTL.
-
-**Consequences:** Duplicate requests are idempotent at zero DB cost on the hot path (Redis hit). The DB store protects against cache eviction. TTL means idempotency is not permanent — acceptable for bid operations.
+AWS X-Ray tracing for ECS Fargate deployments (planned). Correlates HTTP requests, MediatR commands, and database queries across service boundaries.
 
 ---
 
-### ADR-04 — `SignalRNotificationService` in the API project
+## 13. Key Design Decisions
 
-**Context:** `SignalRNotificationService` must use `IHubContext<AuctionHub>`, which is defined in the API project. Placing it in Infrastructure would create a circular dependency (API → Infrastructure → API).
+Full context, consequences, and trade-offs for each ADR are in [decisions.md](decisions.md).
 
-**Decision:** `SignalRNotificationService` lives in `AuctionKings.API` and is registered against the `IRealtimeNotificationService` interface (defined in Application). Infrastructure and Application reference only the interface; the concrete class is resolved at runtime by the DI container.
-
-**Consequences:** The API project remains the composition root. The interface abstraction keeps Application and Infrastructure free of SignalR/ASP.NET Core hub dependencies. Integration tests can substitute a no-op implementation.
-
----
-
-*For the full v2.0 roadmap, AWS deployment architecture, Saga pattern, Event Sourcing with DynamoDB snapshots, and rate-limiting design, see [`/architecture/ARCHITECTURE.md`](/architecture/ARCHITECTURE.md).*
+| ADR | Decision | Why |
+|---|---|---|
+| ADR-01 | PostgreSQL `xmin` as EF Core concurrency token | Zero schema overhead; DB-managed; no risk of app forgetting to increment |
+| ADR-02 | Outbox Pattern for domain event delivery | At-least-once delivery guarantee even on process crash between DB commit and publish |
+| ADR-03 | `X-Request-Id` + Redis cache + DB store for idempotency | Duplicate bids prevented at zero DB cost on hot path (Redis hit); DB store survives cache eviction |
+| ADR-04 | `SignalRNotificationService` lives in API project | Avoids circular dependency: Infrastructure → API; interface in Application keeps inner layers clean |
