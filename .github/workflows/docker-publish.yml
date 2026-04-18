@@ -1,6 +1,23 @@
+# ──────────────────────────────────────────────────────────────
+# Pipeline stage 2 of 4 — Build & push Docker images to GHCR.
+#
+# Logical order:
+#   1. ci.yml              → Build & test (.NET)
+#   2. docker-publish.yml  → Build & push Docker images (this file)
+#   3. infra-staging.yml   → Terraform plan / apply
+#   4. deploy-staging.yml  → Deploy containers to ECS
+# ──────────────────────────────────────────────────────────────
+
 name: Publish Docker Images
 
 on:
+  # Auto-trigger after CI passes on develop / main.
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [develop, main]
+
+  # Keep manual trigger for ad-hoc builds.
   workflow_dispatch:
     inputs:
       image:
@@ -13,11 +30,18 @@ on:
           - worker
           - both
 
+env:
+  # For workflow_run the SHA comes from the triggering workflow;
+  # for workflow_dispatch it falls back to the current commit.
+  COMMIT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+
 jobs:
   build-api:
     name: Build & Push API
     runs-on: ubuntu-latest
-    if: inputs.image == 'api' || inputs.image == 'both'
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch' && (inputs.image == 'api' || inputs.image == 'both'))
     permissions:
       contents: read
       packages: write
@@ -25,6 +49,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.COMMIT_SHA }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -47,7 +73,7 @@ jobs:
           file: docker/Dockerfile.api
           push: true
           tags: |
-            ghcr.io/${{ steps.repo.outputs.name }}-api:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.name }}-api:${{ env.COMMIT_SHA }}
             ghcr.io/${{ steps.repo.outputs.name }}-api:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -55,7 +81,9 @@ jobs:
   build-worker:
     name: Build & Push Worker
     runs-on: ubuntu-latest
-    if: inputs.image == 'worker' || inputs.image == 'both'
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch' && (inputs.image == 'worker' || inputs.image == 'both'))
     permissions:
       contents: read
       packages: write
@@ -63,6 +91,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.COMMIT_SHA }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -85,7 +115,7 @@ jobs:
           file: docker/Dockerfile.worker
           push: true
           tags: |
-            ghcr.io/${{ steps.repo.outputs.name }}-worker:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.name }}-worker:${{ env.COMMIT_SHA }}
             ghcr.io/${{ steps.repo.outputs.name }}-worker:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

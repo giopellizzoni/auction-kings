@@ -101,7 +101,11 @@ resource "aws_iam_role" "github_actions_deploy" {
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringLike = {
-          "token.actions.githubusercontent.com:sub" = "repo:PellizzoniCode/auction-kings:ref:refs/heads/main"
+          "token.actions.githubusercontent.com:sub" = [
+            "repo:PellizzoniCode/auction-kings:ref:refs/heads/main",
+            "repo:PellizzoniCode/auction-kings:ref:refs/heads/develop",
+            "repo:PellizzoniCode/auction-kings:pull_request"
+          ]
         }
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
@@ -111,6 +115,104 @@ resource "aws_iam_role" "github_actions_deploy" {
   })
 }
 
+# -- Terraform state backend (S3 + DynamoDB) --
+
+resource "aws_iam_role_policy" "github_actions_tf_state" {
+  name = "terraform-state"
+  role = aws_iam_role.github_actions_deploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "TerraformStateBackend"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:ListBucket",
+        ]
+        Resource = [
+          "arn:aws:s3:::auction-kings-terraform-state",
+          "arn:aws:s3:::auction-kings-terraform-state/staging/*",
+        ]
+      },
+      {
+        Sid    = "TerraformStateLocking"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:DescribeTable",
+        ]
+        Resource = "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/auction-kings-terraform-locks"
+      }
+    ]
+  })
+}
+
+# -- Networking (VPC, subnets, NAT, SGs) --
+
+resource "aws_iam_role_policy" "github_actions_networking" {
+  name = "vpc-networking"
+  role = aws_iam_role.github_actions_deploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "VPCNetworking"
+      Effect = "Allow"
+      Action = [
+        "ec2:CreateVpc", "ec2:DeleteVpc", "ec2:DescribeVpcs", "ec2:ModifyVpcAttribute", "ec2:DescribeVpcAttribute",
+        "ec2:CreateSubnet", "ec2:DeleteSubnet", "ec2:DescribeSubnets",
+        "ec2:CreateInternetGateway", "ec2:DeleteInternetGateway", "ec2:AttachInternetGateway", "ec2:DetachInternetGateway", "ec2:DescribeInternetGateways",
+        "ec2:AllocateAddress", "ec2:ReleaseAddress", "ec2:DescribeAddresses",
+        "ec2:CreateNatGateway", "ec2:DeleteNatGateway", "ec2:DescribeNatGateways",
+        "ec2:CreateRouteTable", "ec2:DeleteRouteTable", "ec2:DescribeRouteTables",
+        "ec2:CreateRoute", "ec2:DeleteRoute", "ec2:AssociateRouteTable", "ec2:DisassociateRouteTable",
+        "ec2:CreateSecurityGroup", "ec2:DeleteSecurityGroup", "ec2:DescribeSecurityGroups", "ec2:DescribeSecurityGroupRules",
+        "ec2:AuthorizeSecurityGroupIngress", "ec2:RevokeSecurityGroupIngress",
+        "ec2:AuthorizeSecurityGroupEgress", "ec2:RevokeSecurityGroupEgress",
+        "ec2:DescribeAvailabilityZones", "ec2:DescribeNetworkInterfaces", "ec2:DescribeAccountAttributes",
+        "ec2:CreateTags", "ec2:DeleteTags",
+      ]
+      Resource  = "*"
+      Condition = { StringEquals = { "aws:RequestedRegion" = var.aws_region } }
+    }]
+  })
+}
+
+# -- ALB --
+
+resource "aws_iam_role_policy" "github_actions_alb" {
+  name = "load-balancer"
+  role = aws_iam_role.github_actions_deploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "LoadBalancer"
+      Effect = "Allow"
+      Action = [
+        "elasticloadbalancing:CreateLoadBalancer", "elasticloadbalancing:DeleteLoadBalancer",
+        "elasticloadbalancing:DescribeLoadBalancers", "elasticloadbalancing:DescribeLoadBalancerAttributes",
+        "elasticloadbalancing:ModifyLoadBalancerAttributes", "elasticloadbalancing:SetSecurityGroups",
+        "elasticloadbalancing:CreateTargetGroup", "elasticloadbalancing:DeleteTargetGroup",
+        "elasticloadbalancing:DescribeTargetGroups", "elasticloadbalancing:DescribeTargetGroupAttributes",
+        "elasticloadbalancing:ModifyTargetGroupAttributes", "elasticloadbalancing:DescribeTargetHealth",
+        "elasticloadbalancing:CreateListener", "elasticloadbalancing:DeleteListener",
+        "elasticloadbalancing:DescribeListeners",
+        "elasticloadbalancing:AddTags", "elasticloadbalancing:RemoveTags", "elasticloadbalancing:DescribeTags",
+      ]
+      Resource = "*"
+    }]
+  })
+}
+
+# -- ECS (deploy + Terraform provisioning) --
+
 resource "aws_iam_role_policy" "github_actions_deploy" {
   name = "ecs-deploy"
   role = aws_iam_role.github_actions_deploy.id
@@ -119,13 +221,16 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "ECSDeploy"
+        Sid    = "ECS"
         Effect = "Allow"
         Action = [
-          "ecs:DescribeServices",
-          "ecs:DescribeTaskDefinition",
-          "ecs:RegisterTaskDefinition",
-          "ecs:UpdateService",
+          "ecs:CreateCluster", "ecs:DeleteCluster", "ecs:DescribeClusters",
+          "ecs:PutClusterCapacityProviders",
+          "ecs:CreateService", "ecs:DeleteService", "ecs:DescribeServices", "ecs:UpdateService",
+          "ecs:RegisterTaskDefinition", "ecs:DeregisterTaskDefinition",
+          "ecs:DescribeTaskDefinition", "ecs:ListTaskDefinitions",
+          "ecs:ListTasks", "ecs:DescribeTasks",
+          "ecs:TagResource", "ecs:UntagResource", "ecs:ListTagsForResource",
         ]
         Resource = "*"
       },
@@ -137,6 +242,151 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           aws_iam_role.ecs_execution.arn,
           aws_iam_role.ecs_task.arn,
         ]
+      }
+    ]
+  })
+}
+
+# -- RDS --
+
+resource "aws_iam_role_policy" "github_actions_rds" {
+  name = "rds"
+  role = aws_iam_role.github_actions_deploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "RDS"
+      Effect = "Allow"
+      Action = [
+        "rds:CreateDBInstance", "rds:DeleteDBInstance", "rds:DescribeDBInstances", "rds:ModifyDBInstance",
+        "rds:CreateDBSubnetGroup", "rds:DeleteDBSubnetGroup", "rds:DescribeDBSubnetGroups",
+        "rds:AddTagsToResource", "rds:RemoveTagsFromResource", "rds:ListTagsForResource",
+      ]
+      Resource = "*"
+    }]
+  })
+}
+
+# -- ElastiCache --
+
+resource "aws_iam_role_policy" "github_actions_elasticache" {
+  name = "elasticache"
+  role = aws_iam_role.github_actions_deploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "ElastiCache"
+      Effect = "Allow"
+      Action = [
+        "elasticache:CreateReplicationGroup", "elasticache:DeleteReplicationGroup",
+        "elasticache:DescribeReplicationGroups", "elasticache:ModifyReplicationGroup",
+        "elasticache:CreateCacheSubnetGroup", "elasticache:DeleteCacheSubnetGroup",
+        "elasticache:DescribeCacheSubnetGroups", "elasticache:DescribeCacheClusters",
+        "elasticache:AddTagsToResource", "elasticache:RemoveTagsFromResource", "elasticache:ListTagsForResource",
+      ]
+      Resource = "*"
+    }]
+  })
+}
+
+# -- SQS --
+
+resource "aws_iam_role_policy" "github_actions_sqs" {
+  name = "sqs"
+  role = aws_iam_role.github_actions_deploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "SQS"
+      Effect = "Allow"
+      Action = [
+        "sqs:CreateQueue", "sqs:DeleteQueue",
+        "sqs:GetQueueAttributes", "sqs:SetQueueAttributes", "sqs:GetQueueUrl",
+        "sqs:TagQueue", "sqs:UntagQueue", "sqs:ListQueueTags",
+      ]
+      Resource = "arn:aws:sqs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:auction-kings-staging-*"
+    }]
+  })
+}
+
+# -- Secrets Manager --
+
+resource "aws_iam_role_policy" "github_actions_secrets" {
+  name = "secrets-manager"
+  role = aws_iam_role.github_actions_deploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "SecretsManager"
+      Effect = "Allow"
+      Action = [
+        "secretsmanager:CreateSecret", "secretsmanager:DeleteSecret",
+        "secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue",
+        "secretsmanager:PutSecretValue", "secretsmanager:UpdateSecret",
+        "secretsmanager:TagResource", "secretsmanager:UntagResource",
+        "secretsmanager:GetResourcePolicy", "secretsmanager:PutResourcePolicy", "secretsmanager:DeleteResourcePolicy",
+      ]
+      Resource = "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:/auction-kings/staging/*"
+    }]
+  })
+}
+
+# -- CloudWatch Logs --
+
+resource "aws_iam_role_policy" "github_actions_logs" {
+  name = "cloudwatch-logs"
+  role = aws_iam_role.github_actions_deploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "CloudWatchLogs"
+      Effect = "Allow"
+      Action = [
+        "logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:DescribeLogGroups",
+        "logs:PutRetentionPolicy", "logs:DeleteRetentionPolicy",
+        "logs:TagLogGroup", "logs:UntagLogGroup", "logs:ListTagsLogGroup",
+        "logs:TagResource", "logs:UntagResource", "logs:ListTagsForResource",
+      ]
+      Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/auction-kings-staging-*"
+    }]
+  })
+}
+
+# -- IAM roles managed by Terraform --
+
+resource "aws_iam_role_policy" "github_actions_iam" {
+  name = "iam-roles"
+  role = aws_iam_role.github_actions_deploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "IAMRolesAndPolicies"
+        Effect = "Allow"
+        Action = [
+          "iam:CreateRole", "iam:DeleteRole", "iam:GetRole", "iam:UpdateRole",
+          "iam:TagRole", "iam:UntagRole", "iam:ListRoleTags",
+          "iam:PutRolePolicy", "iam:GetRolePolicy", "iam:DeleteRolePolicy", "iam:ListRolePolicies",
+          "iam:AttachRolePolicy", "iam:DetachRolePolicy", "iam:ListAttachedRolePolicies",
+          "iam:ListInstanceProfilesForRole", "iam:PassRole",
+        ]
+        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/auction-kings-staging-*"
+      },
+      {
+        Sid    = "IAMOIDCProvider"
+        Effect = "Allow"
+        Action = [
+          "iam:CreateOpenIDConnectProvider", "iam:DeleteOpenIDConnectProvider",
+          "iam:GetOpenIDConnectProvider", "iam:TagOpenIDConnectProvider",
+          "iam:UntagOpenIDConnectProvider", "iam:ListOpenIDConnectProviders",
+        ]
+        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
       }
     ]
   })

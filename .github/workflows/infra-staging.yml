@@ -1,0 +1,207 @@
+# ──────────────────────────────────────────────────────────────
+# Pipeline stage 3 of 4 — Provision / update staging infrastructure.
+#
+# Logical order:
+#   1. ci.yml              → Build & test (.NET)
+#   2. docker-publish.yml  → Build & push Docker images (after CI)
+#   3. infra-staging.yml   → Terraform plan / apply (this file)
+#   4. deploy-staging.yml  → Deploy containers to ECS (after docker-publish)
+#
+# Triggers:
+#   • PR  → terraform plan  (posted as PR comment)
+#   • Push to develop/main  → terraform apply (only when infra files change)
+#   • Manual                → plan / apply / destroy
+#
+# Prerequisites:
+#   1. Uncomment the S3 backend in infra/terraform/staging/main.tf
+#   2. Create the S3 bucket + DynamoDB lock table referenced there
+#   3. Set the AWS_STAGING_DEPLOY_ROLE_ARN secret (OIDC role with Terraform perms)
+# ──────────────────────────────────────────────────────────────
+
+name: "Infrastructure \u2013 Staging"
+
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - "infra/terraform/staging/**"
+
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - "infra/terraform/staging/**"
+
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Terraform action to perform"
+        required: true
+        default: plan
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+      confirm_destroy:
+        description: "Type 'yes' to confirm environment destruction (required for destroy)."
+        required: false
+        default: ""
+
+# Only one Terraform run at a time — never cancel a running apply.
+concurrency:
+  group: terraform-staging
+  cancel-in-progress: false
+
+permissions:
+  id-token: write # OIDC → AssumeRoleWithWebIdentity
+  contents: read
+  pull-requests: write # Post plan output on PRs
+
+env:
+  AWS_REGION: us-east-1
+  TF_WORKING_DIR: infra/terraform/staging
+  TF_VAR_app_image: "ghcr.io/pellizzonicode/auction-kings-api:latest"
+
+jobs:
+  # ── Plan (PRs + manual "plan") ─────────────────────────────
+  plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' && inputs.action == 'plan')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_STAGING_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init -input=false
+
+      - name: Terraform Validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform plan -input=false -no-color -out=tfplan
+        continue-on-error: true
+
+      - name: Post plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `${{ steps.plan.outputs.stdout || '' }}`;
+            const err    = `${{ steps.plan.outputs.stderr || '' }}`;
+            const status = '${{ steps.plan.outcome }}';
+
+            const maxLen = 60000;
+            let body = `### Terraform Plan – Staging\n\n`;
+            body += `**Result:** \`${status}\`\n\n`;
+            body += `<details><summary>Show plan</summary>\n\n\`\`\`\n`;
+            body += output.length > maxLen ? output.substring(0, maxLen) + '\n… (truncated)' : output;
+            body += `\n\`\`\`\n</details>\n\n`;
+            if (err) {
+              body += `<details><summary>Errors</summary>\n\n\`\`\`\n${err}\n\`\`\`\n</details>\n\n`;
+            }
+            body += `*Pusher: @${{ github.actor }}*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
+      - name: Upload plan artifact
+        if: steps.plan.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: ${{ env.TF_WORKING_DIR }}/tfplan
+          retention-days: 5
+
+      - name: Fail on plan error
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
+
+  # ── Apply (push to develop/main + manual "apply") ──────────
+  apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_STAGING_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init -input=false
+
+      - name: Terraform Apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform apply -input=false -auto-approve
+
+      - name: Print outputs
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform output -no-color
+
+  # ── Destroy (manual only, with confirmation) ────────────────
+  destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' &&
+      inputs.action == 'destroy' &&
+      inputs.confirm_destroy == 'yes'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_STAGING_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init -input=false
+
+      - name: Terraform Destroy
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform destroy -input=false -auto-approve
+
+      - name: Confirm destruction
+        run: |
+          echo "Staging infrastructure destroyed."
+          echo "  Region: ${{ env.AWS_REGION }}"
+          echo "  Config: ${{ env.TF_WORKING_DIR }}"
