@@ -20,7 +20,8 @@ RUN dotnet publish src/services/AuctionKings.API/AuctionKings.API.csproj \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
-RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+RUN groupadd --system appgroup \
+    && useradd --system --gid appgroup --no-create-home appuser
 
 COPY --from=builder /app/publish .
 

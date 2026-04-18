@@ -20,9 +20,11 @@ RUN dotnet publish src/workers/AuctionKings.BackgroundWorkers/AuctionKings.Backg
 FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime
 WORKDIR /app
 
-RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+RUN groupadd --system appgroup \
+    && useradd --system --gid appgroup --no-create-home appuser
 
 COPY --from=builder /app/publish .
+RUN chown -R appuser:appgroup /app
 
 USER appuser
 
