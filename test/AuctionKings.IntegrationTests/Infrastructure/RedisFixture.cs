@@ -5,9 +5,7 @@ namespace AuctionKings.IntegrationTests.Infrastructure;
 
 public sealed class RedisFixture : IAsyncLifetime
 {
-    private readonly RedisContainer _container = new RedisBuilder()
-        .WithImage("redis:7-alpine")
-        .Build();
+    private readonly RedisContainer _container = new RedisBuilder("redis:7-alpine").Build();
 
     public IConnectionMultiplexer CreateMultiplexer()
     {
