@@ -1,0 +1,74 @@
+# ──────────────────────────────────────────────────────────────
+# Pipeline stage 3b of 5 — Destroy staging infrastructure.
+#
+# Logical order:
+#   1.  ci.yml                    → Build & test (.NET)
+#   2.  docker-publish.yml        → Build & push Docker images (after CI)
+#   3a. infra-staging.yml         → Terraform plan / apply
+#   3b. infra-staging-destroy.yml → Terraform destroy (this file)
+#   4.  deploy-staging.yml        → Deploy containers to ECS (after docker-publish)
+#
+# MANUAL ONLY — requires explicit confirmation to prevent accidental destruction.
+# ──────────────────────────────────────────────────────────────
+
+name: "Infrastructure Destroy \u2013 Staging"
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_destroy:
+        description: "Type 'destroy-staging' to confirm full environment teardown."
+        required: true
+        default: ""
+
+# Only one Terraform run at a time — shares lock with infra-staging.yml.
+concurrency:
+  group: terraform-staging
+  cancel-in-progress: false
+
+permissions:
+  id-token: write # OIDC → AssumeRoleWithWebIdentity
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  TF_WORKING_DIR: infra/terraform/staging
+
+jobs:
+  destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    if: inputs.confirm_destroy == 'destroy-staging'
+
+    environment: staging-destroy # Optional: add GitHub environment protection rules
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_STAGING_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init -input=false
+
+      - name: Terraform Plan (destroy)
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform plan -destroy -input=false -no-color
+
+      - name: Terraform Destroy
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform destroy -input=false -auto-approve
+
+      - name: Confirm destruction
+        run: |
+          echo "::warning::Staging infrastructure destroyed."
+          echo "  Region: ${{ env.AWS_REGION }}"
+          echo "  Config: ${{ env.TF_WORKING_DIR }}"

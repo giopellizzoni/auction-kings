@@ -82,10 +82,10 @@ resource "aws_iam_role_policy" "ecs_task_sqs" {
 
 data "aws_caller_identity" "current" {}
 
-resource "aws_iam_openid_connect_provider" "github" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+# The GitHub OIDC provider is shared across repos and already exists in the account.
+# Construct the ARN directly to avoid needing iam:ListOpenIDConnectProviders on the bootstrap role.
+locals {
+  github_oidc_provider_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
 }
 
 resource "aws_iam_role" "github_actions_deploy" {
@@ -96,7 +96,7 @@ resource "aws_iam_role" "github_actions_deploy" {
     Statement = [{
       Effect = "Allow"
       Principal = {
-        Federated = aws_iam_openid_connect_provider.github.arn
+        Federated = local.github_oidc_provider_arn
       }
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
@@ -175,11 +175,12 @@ resource "aws_iam_role_policy" "github_actions_networking" {
         "ec2:CreateSecurityGroup", "ec2:DeleteSecurityGroup", "ec2:DescribeSecurityGroups", "ec2:DescribeSecurityGroupRules",
         "ec2:AuthorizeSecurityGroupIngress", "ec2:RevokeSecurityGroupIngress",
         "ec2:AuthorizeSecurityGroupEgress", "ec2:RevokeSecurityGroupEgress",
+        "ec2:ModifySubnetAttribute",
+        "ec2:DescribeAddressesAttribute",
         "ec2:DescribeAvailabilityZones", "ec2:DescribeNetworkInterfaces", "ec2:DescribeAccountAttributes",
         "ec2:CreateTags", "ec2:DeleteTags",
       ]
-      Resource  = "*"
-      Condition = { StringEquals = { "aws:RequestedRegion" = var.aws_region } }
+      Resource = "*"
     }]
   })
 }
@@ -352,7 +353,10 @@ resource "aws_iam_role_policy" "github_actions_logs" {
         "logs:TagLogGroup", "logs:UntagLogGroup", "logs:ListTagsLogGroup",
         "logs:TagResource", "logs:UntagResource", "logs:ListTagsForResource",
       ]
-      Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/auction-kings-staging-*"
+      Resource = [
+        "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/auction-kings-staging-*",
+        "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group::log-stream:"
+      ]
     }]
   })
 }
@@ -384,9 +388,29 @@ resource "aws_iam_role_policy" "github_actions_iam" {
         Action = [
           "iam:CreateOpenIDConnectProvider", "iam:DeleteOpenIDConnectProvider",
           "iam:GetOpenIDConnectProvider", "iam:TagOpenIDConnectProvider",
-          "iam:UntagOpenIDConnectProvider", "iam:ListOpenIDConnectProviders",
+          "iam:UntagOpenIDConnectProvider",
         ]
         Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
+      },
+      {
+        Sid      = "IAMOIDCProviderList"
+        Effect   = "Allow"
+        Action   = "iam:ListOpenIDConnectProviders"
+        Resource = "*"
+      },
+      {
+        Sid      = "ServiceLinkedRoles"
+        Effect   = "Allow"
+        Action   = "iam:CreateServiceLinkedRole"
+        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/*"
+        Condition = {
+          StringLike = {
+            "iam:AWSServiceName" = [
+              "ecs.amazonaws.com",
+              "elasticache.amazonaws.com"
+            ]
+          }
+        }
       }
     ]
   })
