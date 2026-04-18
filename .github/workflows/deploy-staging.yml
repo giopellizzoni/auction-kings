@@ -1,11 +1,12 @@
 # ──────────────────────────────────────────────────────────────
-# Pipeline stage 4 of 4 — Deploy containers to ECS Staging.
+# Pipeline stage 4 of 5 — Deploy containers to ECS Staging.
 #
 # Logical order:
-#   1. ci.yml              → Build & test (.NET)
-#   2. docker-publish.yml  → Build & push Docker images (after CI)
-#   3. infra-staging.yml   → Terraform plan / apply
-#   4. deploy-staging.yml  → Deploy containers to ECS (this file)
+#   1.  ci.yml                    → Build & test (.NET)
+#   2.  docker-publish.yml        → Build & push Docker images (after CI)
+#   3a. infra-staging.yml         → Terraform plan / apply
+#   3b. infra-staging-destroy.yml → Terraform destroy (manual, separate)
+#   4.  deploy-staging.yml        → Deploy containers to ECS (this file)
 #
 # This workflow assumes infrastructure has already been provisioned
 # by infra-staging.yml (Terraform). It only updates ECS task
