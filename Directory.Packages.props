@@ -1,6 +1,7 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup Label="API">
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.4" />
@@ -64,5 +65,9 @@
   <ItemGroup Label="LoadTest">
     <PackageVersion Include="NBomber" Version="6.3.0" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.4" />
+  </ItemGroup>
+  <ItemGroup Label="Transitive pins (vulnerability overrides)">
+    <PackageVersion Include="NuGet.Packaging" Version="6.14.3" />
+    <PackageVersion Include="NuGet.Protocol" Version="6.14.3" />
   </ItemGroup>
 </Project>

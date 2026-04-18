@@ -3,10 +3,8 @@ using Mapster;
 
 namespace AuctionKings.UnitTests.Application.Queries;
 
-[CollectionDefinition(nameof(MapsterCollection))]
-public sealed class MapsterCollection : ICollectionFixture<MapsterFixture>
-{
-}
+[CollectionDefinition(nameof(MapsterTestFixtures))]
+public sealed class MapsterTestFixtures : ICollectionFixture<MapsterFixture> { }
 
 public sealed class MapsterFixture
 {
