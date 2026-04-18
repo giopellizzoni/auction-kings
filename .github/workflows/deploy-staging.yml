@@ -15,13 +15,27 @@ on:
         description: "Image tag to deploy (e.g. sha-abc1234). Defaults to sha-<latest commit on main>."
         required: false
         default: ""
+      action:
+        description: "Action to perform: 'deploy' (default) or 'destroy' (tears down the staging environment)."
+        required: false
+        default: deploy
+        type: choice
+        options:
+          - deploy
+          - destroy
+      confirm_destroy:
+        description: "Type 'yes' to confirm environment destruction. Required when action is 'destroy'."
+        required: false
+        default: ""
 
 jobs:
   deploy:
     name: Deploy to ECS Staging
     runs-on: ubuntu-latest
-    # Only run if the Docker build succeeded (or this is a manual dispatch)
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    # Only run if the Docker build succeeded (or this is a manual deploy dispatch)
+    if: |
+      (github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action != 'destroy')
 
     permissions:
       id-token: write # Required for OIDC → AssumeRoleWithWebIdentity
@@ -85,3 +99,59 @@ jobs:
             --output text)
           echo "Staging URL: http://${ALB_DNS}"
           echo "Health check: http://${ALB_DNS}/health/ready"
+
+  destroy:
+    name: Destroy Staging Environment
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.action == 'destroy' &&
+      github.event.inputs.confirm_destroy == 'yes'
+
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      AWS_REGION: us-east-1
+      ECS_CLUSTER: auction-kings-staging
+      ECS_SERVICE: auction-kings-staging-api
+
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_STAGING_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Scale ECS service to zero
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE }} \
+            --desired-count 0
+          echo "Waiting for running tasks to drain..."
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services ${{ env.ECS_SERVICE }}
+
+      - name: Delete ECS service
+        run: |
+          aws ecs delete-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE }} \
+            --force
+          echo "ECS service '${{ env.ECS_SERVICE }}' deleted."
+
+      - name: Delete ECS cluster
+        run: |
+          aws ecs delete-cluster \
+            --cluster ${{ env.ECS_CLUSTER }}
+          echo "ECS cluster '${{ env.ECS_CLUSTER }}' deleted."
+
+      - name: Confirm destruction
+        run: |
+          echo "Staging environment destroyed:"
+          echo "  Cluster : ${{ env.ECS_CLUSTER }}"
+          echo "  Service : ${{ env.ECS_SERVICE }}"
+          echo "  Region  : ${{ env.AWS_REGION }}"
