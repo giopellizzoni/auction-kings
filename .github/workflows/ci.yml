@@ -1,3 +1,13 @@
+# ──────────────────────────────────────────────────────────────
+# Pipeline stage 1 of 4 — Build & test the .NET solution.
+#
+# Logical order:
+#   1. ci.yml              → Build & test (.NET)  (this file)
+#   2. docker-publish.yml  → Build & push Docker images (after CI)
+#   3. infra-staging.yml   → Terraform plan / apply
+#   4. deploy-staging.yml  → Deploy containers to ECS
+# ──────────────────────────────────────────────────────────────
+
 name: CI
 
 on:

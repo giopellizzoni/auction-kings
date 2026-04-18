@@ -1,3 +1,17 @@
+# ──────────────────────────────────────────────────────────────
+# Pipeline stage 4 of 4 — Deploy containers to ECS Staging.
+#
+# Logical order:
+#   1. ci.yml              → Build & test (.NET)
+#   2. docker-publish.yml  → Build & push Docker images (after CI)
+#   3. infra-staging.yml   → Terraform plan / apply
+#   4. deploy-staging.yml  → Deploy containers to ECS (this file)
+#
+# This workflow assumes infrastructure has already been provisioned
+# by infra-staging.yml (Terraform). It only updates ECS task
+# definitions with new container images.
+# ──────────────────────────────────────────────────────────────
+
 name: Deploy to Staging
 
 on:
@@ -60,6 +74,8 @@ jobs:
         run: |
           if [ -n "${{ github.event.inputs.image_tag }}" ]; then
             TAG="${{ github.event.inputs.image_tag }}"
+          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
+            TAG="${{ github.event.workflow_run.head_sha }}"
           else
             TAG="${{ github.sha }}"
           fi
@@ -135,6 +151,8 @@ jobs:
         run: |
           if [ -n "${{ github.event.inputs.image_tag }}" ]; then
             TAG="${{ github.event.inputs.image_tag }}"
+          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
+            TAG="${{ github.event.workflow_run.head_sha }}"
           else
             TAG="${{ github.sha }}"
           fi
@@ -171,7 +189,10 @@ jobs:
           wait-for-service-stability: true
           wait-for-minutes: 10
 
-  # ── Destroy ─────────────────────────────────────────────────
+  # ── Destroy (ECS services only) ─────────────────────────────
+  # This tears down ECS services and the cluster.
+  # For FULL infrastructure destruction (VPC, RDS, ElastiCache, etc.),
+  # use the "Infrastructure – Staging" workflow with action = destroy.
   destroy:
     name: Destroy Staging Environment
     runs-on: ubuntu-latest
