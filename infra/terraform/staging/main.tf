@@ -12,14 +12,13 @@ terraform {
     }
   }
 
-  # Uncomment and configure once an S3 bucket + DynamoDB table exist for remote state.
-  # backend "s3" {
-  #   bucket         = "auction-kings-terraform-state"
-  #   key            = "staging/terraform.tfstate"
-  #   region         = "us-east-1"
-  #   dynamodb_table = "auction-kings-terraform-locks"
-  #   encrypt        = true
-  # }
+  backend "s3" {
+    bucket         = "auction-kings-terraform-state"
+    key            = "staging/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "auction-kings-terraform-locks"
+    encrypt        = true
+  }
 }
 
 provider "aws" {
