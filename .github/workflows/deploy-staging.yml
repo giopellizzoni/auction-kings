@@ -6,6 +6,7 @@ on:
     types:
       - completed
     branches:
+      - develop
       - main
 
   # Allow manual trigger with a specific image tag
