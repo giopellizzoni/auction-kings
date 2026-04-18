@@ -53,9 +53,9 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  id-token: write      # OIDC → AssumeRoleWithWebIdentity
+  id-token: write # OIDC → AssumeRoleWithWebIdentity
   contents: read
-  pull-requests: write  # Post plan output on PRs
+  pull-requests: write # Post plan output on PRs
 
 env:
   AWS_REGION: us-east-1
