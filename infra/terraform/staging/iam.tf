@@ -82,10 +82,10 @@ resource "aws_iam_role_policy" "ecs_task_sqs" {
 
 data "aws_caller_identity" "current" {}
 
-# The GitHub OIDC provider may already exist in the account (shared across repos).
-# Use a data source to reference it instead of creating a duplicate.
-data "aws_iam_openid_connect_provider" "github" {
-  url = "https://token.actions.githubusercontent.com"
+# The GitHub OIDC provider is shared across repos and already exists in the account.
+# Construct the ARN directly to avoid needing iam:ListOpenIDConnectProviders on the bootstrap role.
+locals {
+  github_oidc_provider_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
 }
 
 resource "aws_iam_role" "github_actions_deploy" {
@@ -96,7 +96,7 @@ resource "aws_iam_role" "github_actions_deploy" {
     Statement = [{
       Effect = "Allow"
       Principal = {
-        Federated = data.aws_iam_openid_connect_provider.github.arn
+        Federated = local.github_oidc_provider_arn
       }
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
@@ -388,9 +388,15 @@ resource "aws_iam_role_policy" "github_actions_iam" {
         Action = [
           "iam:CreateOpenIDConnectProvider", "iam:DeleteOpenIDConnectProvider",
           "iam:GetOpenIDConnectProvider", "iam:TagOpenIDConnectProvider",
-          "iam:UntagOpenIDConnectProvider", "iam:ListOpenIDConnectProviders",
+          "iam:UntagOpenIDConnectProvider",
         ]
         Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
+      },
+      {
+        Sid      = "IAMOIDCProviderList"
+        Effect   = "Allow"
+        Action   = "iam:ListOpenIDConnectProviders"
+        Resource = "*"
       },
       {
         Sid      = "ServiceLinkedRoles"
