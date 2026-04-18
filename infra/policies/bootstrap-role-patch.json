@@ -8,6 +8,16 @@
       "Resource": "*"
     },
     {
+      "Sid": "CloudWatchLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeLogGroups",
+        "logs:ListTagsLogGroup",
+        "logs:ListTagsForResource"
+      ],
+      "Resource": "*"
+    },
+    {
       "Sid": "CreateServiceLinkedRoles",
       "Effect": "Allow",
       "Action": "iam:CreateServiceLinkedRole",
