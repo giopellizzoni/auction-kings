@@ -1,0 +1,26 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/src/" />
+  <Folder Name="/src/common/">
+    <Project Path="src/common/AuctionKings.Shared/AuctionKings.Shared.csproj" />
+  </Folder>
+  <Folder Name="/src/services/">
+    <Project Path="src/services/AuctionKings.API/AuctionKings.API.csproj" />
+    <Project Path="src/services/AuctionKings.Application/AuctionKings.Application.csproj" />
+    <Project Path="src/services/AuctionKings.Domain/AuctionKings.Domain.csproj" />
+    <Project Path="src/services/AuctionKings.Infrastructure/AuctionKings.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/workers/">
+    <Project Path="src/workers/AuctionKings.BackgroundWorkers/AuctionKings.BackgroundWorkers.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/AuctionKings.ArchitectureTests/AuctionKings.ArchitectureTests.csproj" />
+    <Project Path="test/AuctionKings.IntegrationTests/AuctionKings.IntegrationTests.csproj" />
+    <Project Path="test/AuctionKings.LoadTests/AuctionKings.LoadTests.csproj" />
+    <Project Path="test/AuctionKings.UnitTests/AuctionKings.UnitTests.csproj" />
+  </Folder>
+</Solution>
