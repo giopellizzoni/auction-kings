@@ -73,7 +73,7 @@ graph TD
     end
 
     subgraph Workers["Background Workers"]
-        OutboxProc["OutboxProcessor\n(1 s poll, SKIP LOCKED)"]
+        OutboxProc["OutboxProcessor\n(5 s poll, SKIP LOCKED)"]
         CloseWorker["AuctionCloseWorker\n(10 s poll)"]
         CleanupWorker["CleanupExpiredDataWorker\n(hourly)"]
     end
@@ -171,8 +171,8 @@ PlaceBid command
             └─► INSERT INTO outbox_messages ... (event)
                     ── single PostgreSQL transaction ──
 
-OutboxProcessor (every 1 s)
-    └─► SELECT ... FOR UPDATE SKIP LOCKED  (100 rows, no double-processing)
+OutboxProcessor (every 5 s)
+    └─► SELECT ... FOR UPDATE SKIP LOCKED  (20 rows, no double-processing)
     └─► Deserialise + MediatR.Publish()
     └─► SET processed_at = NOW()
 ```

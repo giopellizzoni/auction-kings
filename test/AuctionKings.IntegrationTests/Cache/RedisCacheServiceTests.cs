@@ -1,4 +1,3 @@
-using AuctionKings.Application.Abstractions;
 using AuctionKings.Infrastructure.Cache;
 using AuctionKings.IntegrationTests.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -13,7 +12,7 @@ public sealed class RedisCacheServiceTests
 
     public RedisCacheServiceTests(RedisFixture fixture) => _fixture = fixture;
 
-    private ICacheService CreateSut()
+    private RedisCacheService CreateSut()
     {
         var multiplexer = _fixture.CreateMultiplexer();
         var options = Options.Create(new CacheOptions());

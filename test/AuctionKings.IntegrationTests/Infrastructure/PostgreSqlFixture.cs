@@ -6,8 +6,7 @@ namespace AuctionKings.IntegrationTests.Infrastructure;
 
 public sealed class PostgreSqlFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder()
-        .WithImage("postgres:16-alpine")
+    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:16-alpine")
         .WithDatabase("auction_kings_test")
         .WithUsername("test")
         .WithPassword("test")

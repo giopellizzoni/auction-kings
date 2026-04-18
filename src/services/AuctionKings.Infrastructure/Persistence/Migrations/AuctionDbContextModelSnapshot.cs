@@ -18,7 +18,7 @@ namespace AuctionKings.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.1")
+                .HasAnnotation("ProductVersion", "10.0.4")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -67,12 +67,6 @@ namespace AuctionKings.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("winner_id");
 
-                    b.Property<uint>("xmin")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("xid")
-                        .HasColumnName("xmin");
-
                     b.ComplexProperty(typeof(Dictionary<string, object>), "CurrentPrice", "AuctionKings.Domain.Aggregates.Auction.CurrentPrice#Money", b1 =>
                         {
                             b1.IsRequired();
@@ -116,9 +110,6 @@ namespace AuctionKings.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("Status")
                         .HasDatabaseName("ix_auctions_status");
-
-                    b.HasIndex("Status", "EndTime")
-                        .HasDatabaseName("ix_auctions_status_end_time");
 
                     b.ToTable("auctions", (string)null);
                 });
@@ -171,13 +162,31 @@ namespace AuctionKings.Infrastructure.Persistence.Migrations
                     b.HasIndex("AuctionId", "BidderId")
                         .HasDatabaseName("ix_bids_auction_id_bidder_id");
 
-                    b.HasIndex("AuctionId", "PlacedAt")
-                        .HasDatabaseName("ix_bids_auction_id_placed_at");
-
-                    b.HasIndex("BidderId", "PlacedAt")
-                        .HasDatabaseName("ix_bids_bidder_id_placed_at");
-
                     b.ToTable("bids", (string)null);
+                });
+
+            modelBuilder.Entity("AuctionKings.Infrastructure.Persistence.IdempotencyKey", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("key");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.HasKey("Key")
+                        .HasName("pk_idempotency_keys");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_idempotency_keys_expires_at");
+
+                    b.ToTable("idempotency_keys", (string)null);
                 });
 
             modelBuilder.Entity("AuctionKings.Infrastructure.Persistence.OutboxMessage", b =>
@@ -192,6 +201,12 @@ namespace AuctionKings.Infrastructure.Persistence.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("content");
 
+                    b.Property<bool>("Failed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("failed");
+
                     b.Property<DateTime>("OccurredOn")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("occurred_on");
@@ -199,6 +214,12 @@ namespace AuctionKings.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("ProcessedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("processed_at");
+
+                    b.Property<int>("RetryCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("retry_count");
 
                     b.Property<string>("Type")
                         .IsRequired()
@@ -211,7 +232,7 @@ namespace AuctionKings.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ProcessedAt")
                         .HasDatabaseName("ix_outbox_messages_unprocessed")
-                        .HasFilter("processed_at IS NULL");
+                        .HasFilter("processed_at IS NULL AND failed = false");
 
                     b.ToTable("outbox_messages", (string)null);
                 });

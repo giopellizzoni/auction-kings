@@ -1,3 +1,4 @@
+using AuctionKings.Application;
 using AuctionKings.BackgroundWorkers;
 using AuctionKings.BackgroundWorkers.Workers;
 using AuctionKings.Infrastructure;
@@ -9,6 +10,7 @@ DotNetEnv.Env.TraversePath().Load(".env.local");
 
 var builder = Host.CreateApplicationBuilder(args);
 
+builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.Configure<OutboxOptions>(

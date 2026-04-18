@@ -1,4 +1,3 @@
-using AuctionKings.Application.Abstractions;
 using AuctionKings.Infrastructure.RateLimiting;
 using AuctionKings.IntegrationTests.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -13,7 +12,7 @@ public sealed class RedisRateLimiterTests
 
     public RedisRateLimiterTests(RedisFixture fixture) => _fixture = fixture;
 
-    private IRateLimiter CreateSut(int maxRequests = 3, int windowSeconds = 10)
+    private RedisRateLimiter CreateSut(int maxRequests = 3, int windowSeconds = 10)
     {
         var multiplexer = _fixture.CreateMultiplexer();
         var options = Options.Create(new RateLimitOptions

@@ -1,6 +1,6 @@
 using AuctionKings.Shared.Common;
 
-namespace AuctionKings.UnitTests.Shared;
+namespace AuctionKings.UnitTests.Common;
 
 public class EntityTests
 {
