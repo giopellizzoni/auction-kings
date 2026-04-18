@@ -3,7 +3,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /repo
 
 # Copy project files for restore layer caching
-COPY AuctionKings.sln .
+COPY AuctionKings.slnx .
 COPY Directory.Build.props .
 COPY Directory.Packages.props .
 COPY src/common/AuctionKings.Shared/AuctionKings.Shared.csproj src/common/AuctionKings.Shared/
