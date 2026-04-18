@@ -2,7 +2,7 @@ name: Deploy to Staging
 
 on:
   workflow_run:
-    workflows: ["Docker"]
+    workflows: ["Publish Docker Images"]
     types:
       - completed
     branches:
@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: "Image tag to deploy (e.g. sha-abc1234). Defaults to sha-<latest commit on main>."
+        description: "Image tag to deploy (e.g. abc1234). Defaults to latest commit SHA on main."
         required: false
         default: ""
       action:
@@ -29,10 +29,10 @@ on:
         default: ""
 
 jobs:
-  deploy:
-    name: Deploy to ECS Staging
+  # ── Deploy API ──────────────────────────────────────────────
+  deploy-api:
+    name: Deploy API to ECS Staging
     runs-on: ubuntu-latest
-    # Only run if the Docker build succeeded (or this is a manual deploy dispatch)
     if: |
       (github.event.workflow_run.conclusion == 'success') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.action != 'destroy')
@@ -50,16 +50,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Normalize repository name
+        id: repo
+        run: echo "name=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Resolve image tag
         id: image
         run: |
           if [ -n "${{ github.event.inputs.image_tag }}" ]; then
             TAG="${{ github.event.inputs.image_tag }}"
           else
-            TAG="sha-${{ github.sha }}"
+            TAG="${{ github.sha }}"
           fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "uri=ghcr.io/pellizzonicode/auction-kings:${TAG}" >> "$GITHUB_OUTPUT"
+          echo "uri=ghcr.io/${{ steps.repo.outputs.name }}-api:${TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -100,6 +104,73 @@ jobs:
           echo "Staging URL: http://${ALB_DNS}"
           echo "Health check: http://${ALB_DNS}/health/ready"
 
+  # ── Deploy Worker ───────────────────────────────────────────
+  deploy-worker:
+    name: Deploy Worker to ECS Staging
+    runs-on: ubuntu-latest
+    if: |
+      (github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action != 'destroy')
+
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      AWS_REGION: us-east-1
+      ECS_CLUSTER: auction-kings-staging
+      ECS_SERVICE: auction-kings-staging-worker
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Normalize repository name
+        id: repo
+        run: echo "name=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Resolve image tag
+        id: image
+        run: |
+          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            TAG="${{ github.event.inputs.image_tag }}"
+          else
+            TAG="${{ github.sha }}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "uri=ghcr.io/${{ steps.repo.outputs.name }}-worker:${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_STAGING_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition auction-kings-staging-worker \
+            --query taskDefinition \
+            > task-def.json
+
+      - name: Update image in task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-def.json
+          container-name: worker
+          image: ${{ steps.image.outputs.uri }}
+
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
+          wait-for-minutes: 10
+
+  # ── Destroy ─────────────────────────────────────────────────
   destroy:
     name: Destroy Staging Environment
     runs-on: ubuntu-latest
@@ -115,7 +186,6 @@ jobs:
     env:
       AWS_REGION: us-east-1
       ECS_CLUSTER: auction-kings-staging
-      ECS_SERVICE: auction-kings-staging-api
 
     steps:
       - name: Configure AWS credentials (OIDC)
@@ -124,24 +194,41 @@ jobs:
           role-to-assume: ${{ secrets.AWS_STAGING_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Scale ECS service to zero
+      - name: Scale API service to zero
         run: |
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
-            --service ${{ env.ECS_SERVICE }} \
+            --service auction-kings-staging-api \
             --desired-count 0
-          echo "Waiting for running tasks to drain..."
+
+      - name: Scale Worker service to zero
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service auction-kings-staging-worker \
+            --desired-count 0
+
+      - name: Wait for services to drain
+        run: |
           aws ecs wait services-stable \
             --cluster ${{ env.ECS_CLUSTER }} \
-            --services ${{ env.ECS_SERVICE }}
+            --services auction-kings-staging-api auction-kings-staging-worker
 
-      - name: Delete ECS service
+      - name: Delete API service
         run: |
           aws ecs delete-service \
             --cluster ${{ env.ECS_CLUSTER }} \
-            --service ${{ env.ECS_SERVICE }} \
+            --service auction-kings-staging-api \
             --force
-          echo "ECS service '${{ env.ECS_SERVICE }}' deleted."
+          echo "ECS service 'auction-kings-staging-api' deleted."
+
+      - name: Delete Worker service
+        run: |
+          aws ecs delete-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service auction-kings-staging-worker \
+            --force
+          echo "ECS service 'auction-kings-staging-worker' deleted."
 
       - name: Delete ECS cluster
         run: |
@@ -153,5 +240,5 @@ jobs:
         run: |
           echo "Staging environment destroyed:"
           echo "  Cluster : ${{ env.ECS_CLUSTER }}"
-          echo "  Service : ${{ env.ECS_SERVICE }}"
+          echo "  Services: auction-kings-staging-api, auction-kings-staging-worker"
           echo "  Region  : ${{ env.AWS_REGION }}"
