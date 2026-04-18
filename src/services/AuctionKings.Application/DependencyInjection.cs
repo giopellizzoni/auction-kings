@@ -14,6 +14,7 @@ public static class DependencyInjection
 
         services.AddMediatR(cfg =>
         {
+            cfg.LicenseKey = Environment.GetEnvironmentVariable("MediatR__License");
             cfg.RegisterServicesFromAssembly(assembly);
 
             // Order: Logging → Validation → Idempotency → Performance → Handler
