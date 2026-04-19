@@ -114,6 +114,13 @@ resource "aws_iam_role" "github_actions_deploy" {
     }]
   })
 
+  # Prevent destroy: deleting this role mid-run invalidates the OIDC session
+  # that Terraform itself is using, causing all subsequent AWS calls to fail.
+  # Delete this role manually via the AWS console/CLI after the rest of the
+  # infrastructure has been torn down.
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # -- Terraform state backend (S3 + DynamoDB) --
