@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 
 namespace AuctionKings.Infrastructure.Messaging;
 
-public sealed class SqsMessagePublisher(
+public sealed partial class SqsMessagePublisher(
     IAmazonSQS sqsClient,
     IOptions<SqsOptions> options,
     ILogger<SqsMessagePublisher> logger) : IEventBus
@@ -45,8 +45,11 @@ public sealed class SqsMessagePublisher(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "SQS publish failed for event {EventType} {EventId}.",
-                domainEvent.GetType().Name, domainEvent.EventId);
+            var eventType = domainEvent.GetType().Name;
+            LogPublishFailed(logger, ex, eventType, domainEvent.EventId);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "SQS publish failed for event {EventType} {EventId}.")]
+    private static partial void LogPublishFailed(ILogger logger, Exception ex, string eventType, Guid eventId);
 }

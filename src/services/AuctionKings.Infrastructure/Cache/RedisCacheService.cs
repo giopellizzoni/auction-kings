@@ -7,7 +7,7 @@ using StackExchange.Redis;
 
 namespace AuctionKings.Infrastructure.Cache;
 
-internal sealed class RedisCacheService : ICacheService
+internal sealed partial class RedisCacheService : ICacheService
 {
     private readonly IConnectionMultiplexer _multiplexer;
     private readonly CacheOptions _options;
@@ -47,7 +47,7 @@ internal sealed class RedisCacheService : ICacheService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Redis GET failed for key {Key}. Returning null.", key);
+            LogGetFailed(_logger, ex, key);
             return null;
         }
     }
@@ -68,7 +68,7 @@ internal sealed class RedisCacheService : ICacheService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Redis SET failed for key {Key}. Bypassing cache.", key);
+            LogSetFailed(_logger, ex, key);
         }
     }
 
@@ -81,7 +81,7 @@ internal sealed class RedisCacheService : ICacheService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Redis DEL failed for key {Key}. Bypassing cache.", key);
+            LogDelFailed(_logger, ex, key);
         }
     }
 
@@ -111,11 +111,7 @@ internal sealed class RedisCacheService : ICacheService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(
-                ex,
-                "Redis SCAN/DEL failed for prefix {Prefix}. Bypassing cache.",
-                prefix
-            );
+            LogScanDelFailed(_logger, ex, prefix);
         }
     }
 
@@ -138,4 +134,16 @@ internal sealed class RedisCacheService : ICacheService
         await SetAsync(key, value, expiry, cancellationToken);
         return value;
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Redis GET failed for key {Key}. Returning null.")]
+    private static partial void LogGetFailed(ILogger logger, Exception ex, string key);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Redis SET failed for key {Key}. Bypassing cache.")]
+    private static partial void LogSetFailed(ILogger logger, Exception ex, string key);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Redis DEL failed for key {Key}. Bypassing cache.")]
+    private static partial void LogDelFailed(ILogger logger, Exception ex, string key);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Redis SCAN/DEL failed for prefix {Prefix}. Bypassing cache.")]
+    private static partial void LogScanDelFailed(ILogger logger, Exception ex, string prefix);
 }

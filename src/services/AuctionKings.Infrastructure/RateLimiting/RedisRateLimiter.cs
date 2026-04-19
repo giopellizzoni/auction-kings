@@ -5,7 +5,7 @@ using StackExchange.Redis;
 
 namespace AuctionKings.Infrastructure.RateLimiting;
 
-internal sealed class RedisRateLimiter : IRateLimiter
+internal sealed partial class RedisRateLimiter : IRateLimiter
 {
     private readonly IConnectionMultiplexer _multiplexer;
     private readonly RateLimitOptions _options;
@@ -70,12 +70,11 @@ internal sealed class RedisRateLimiter : IRateLimiter
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(
-                ex,
-                "Rate limiter Redis error for key {Key}. Failing open.",
-                key
-            );
+            LogRateLimiterError(_logger, ex, key);
             return true;
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Rate limiter Redis error for key {Key}. Failing open.")]
+    private static partial void LogRateLimiterError(ILogger logger, Exception ex, string key);
 }
