@@ -51,6 +51,8 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false  # wrapper swallows -detailed-exitcode; disable so exit code 2 (changes) is preserved
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
