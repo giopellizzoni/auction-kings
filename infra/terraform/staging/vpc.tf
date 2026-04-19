@@ -5,9 +5,9 @@ data "aws_availability_zones" "available" {
 }
 
 locals {
-  azs             = slice(data.aws_availability_zones.available.names, 0, 2)
-  public_cidrs    = ["10.0.1.0/24", "10.0.2.0/24"]
-  private_cidrs   = ["10.0.11.0/24", "10.0.12.0/24"]
+  azs           = slice(data.aws_availability_zones.available.names, 0, 2)
+  public_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+  private_cidrs = ["10.0.11.0/24", "10.0.12.0/24"]
 }
 
 resource "aws_vpc" "main" {
@@ -140,7 +140,7 @@ resource "aws_security_group" "api" {
 
 resource "aws_security_group" "worker" {
   name        = "auction-kings-staging-worker"
-  description = "Background worker — egress only, no inbound HTTP"
+  description = "Background worker egress only, no inbound HTTP"
   vpc_id      = aws_vpc.main.id
 
   egress {
