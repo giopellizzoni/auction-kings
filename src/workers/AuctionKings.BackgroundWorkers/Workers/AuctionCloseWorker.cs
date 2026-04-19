@@ -1,5 +1,6 @@
 using AuctionKings.Application.Abstractions;
 using AuctionKings.Application.Auctions.Commands.CloseAuction;
+using AuctionKings.Shared.Common;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -15,7 +16,7 @@ public sealed class AuctionCloseWorkerOptions
     public int BatchSize { get; init; } = 50;
 }
 
-public sealed class AuctionCloseWorker : BackgroundService
+public sealed partial class AuctionCloseWorker : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly AuctionCloseWorkerOptions _options;
@@ -56,7 +57,7 @@ public sealed class AuctionCloseWorker : BackgroundService
             return;
         }
 
-        _logger.LogInformation("Found {Count} expired auction(s) to close.", expired.Count);
+        LogExpiredAuctions(_logger, expired.Count);
 
         foreach (var auction in expired)
         {
@@ -65,17 +66,29 @@ public sealed class AuctionCloseWorker : BackgroundService
                 var result = await sender.Send(new CloseAuctionCommand(auction.Id), cancellationToken);
                 if (result.IsFailure)
                 {
-                    _logger.LogWarning("Failed to close auction {Id}: {Error}", auction.Id, result.Error);
+                    LogCloseFailed(_logger, auction.Id, result.Error);
                 }
                 else
                 {
-                    _logger.LogInformation("Auction {Id} closed.", auction.Id);
+                    LogAuctionClosed(_logger, auction.Id);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error closing auction {Id}. Continuing.", auction.Id);
+                LogUnexpectedError(_logger, ex, auction.Id);
             }
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Found {Count} expired auction(s) to close.")]
+    private static partial void LogExpiredAuctions(ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to close auction {Id}: {Error}")]
+    private static partial void LogCloseFailed(ILogger logger, Guid id, Error error);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Auction {Id} closed.")]
+    private static partial void LogAuctionClosed(ILogger logger, Guid id);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Unexpected error closing auction {Id}. Continuing.")]
+    private static partial void LogUnexpectedError(ILogger logger, Exception ex, Guid id);
 }

@@ -12,7 +12,7 @@ using Microsoft.Extensions.Options;
 
 namespace AuctionKings.BackgroundWorkers;
 
-public sealed class OutboxProcessor : BackgroundService
+public sealed partial class OutboxProcessor : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly OutboxOptions _options;
@@ -75,11 +75,7 @@ public sealed class OutboxProcessor : BackgroundService
 
             if (eventType is null)
             {
-                _logger.LogWarning(
-                    "Unknown outbox message type '{Type}' for message {Id}. Marking as failed.",
-                    message.Type,
-                    message.Id
-                );
+                LogUnknownType(_logger, message.Type, message.Id);
                 message.MarkAsFailed();
                 return;
             }
@@ -88,11 +84,7 @@ public sealed class OutboxProcessor : BackgroundService
 
             if (domainEvent is null)
             {
-                _logger.LogWarning(
-                    "Failed to deserialize outbox message {Id} of type '{Type}'. Marking as failed.",
-                    message.Id,
-                    message.Type
-                );
+                LogDeserializeFailed(_logger, message.Id, message.Type);
                 message.MarkAsFailed();
                 return;
             }
@@ -103,33 +95,35 @@ public sealed class OutboxProcessor : BackgroundService
 
             message.MarkAsProcessed(DateTime.UtcNow);
 
-            _logger.LogDebug(
-                "Outbox message {Id} of type '{Type}' processed successfully.",
-                message.Id,
-                message.Type
-            );
+            LogProcessed(_logger, message.Id, message.Type);
         }
         catch (Exception ex)
         {
             message.IncrementRetry();
 
-            _logger.LogError(
-                ex,
-                "Failed to process outbox message {Id} (attempt {RetryCount}).",
-                message.Id,
-                message.RetryCount
-            );
+            LogProcessFailed(_logger, ex, message.Id, message.RetryCount);
 
             if (message.RetryCount >= _options.MaxRetries)
             {
                 message.MarkAsFailed();
 
-                _logger.LogError(
-                    "Outbox message {Id} exceeded max retries ({MaxRetries}). Marked as failed.",
-                    message.Id,
-                    _options.MaxRetries
-                );
+                LogMaxRetriesExceeded(_logger, message.Id, _options.MaxRetries);
             }
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Unknown outbox message type '{Type}' for message {Id}. Marking as failed.")]
+    private static partial void LogUnknownType(ILogger logger, string type, Guid id);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to deserialize outbox message {Id} of type '{Type}'. Marking as failed.")]
+    private static partial void LogDeserializeFailed(ILogger logger, Guid id, string type);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Outbox message {Id} of type '{Type}' processed successfully.")]
+    private static partial void LogProcessed(ILogger logger, Guid id, string type);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to process outbox message {Id} (attempt {RetryCount}).")]
+    private static partial void LogProcessFailed(ILogger logger, Exception ex, Guid id, int retryCount);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Outbox message {Id} exceeded max retries ({MaxRetries}). Marked as failed.")]
+    private static partial void LogMaxRetriesExceeded(ILogger logger, Guid id, int maxRetries);
 }

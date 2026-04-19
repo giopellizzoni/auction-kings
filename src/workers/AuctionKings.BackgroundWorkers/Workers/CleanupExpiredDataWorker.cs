@@ -13,7 +13,7 @@ public sealed class CleanupWorkerOptions
     public int OutboxRetentionDays { get; init; } = 7;
 }
 
-public sealed class CleanupExpiredDataWorker : BackgroundService
+public sealed partial class CleanupExpiredDataWorker : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly CleanupWorkerOptions _options;
@@ -46,14 +46,20 @@ public sealed class CleanupExpiredDataWorker : BackgroundService
         var keysDeleted = await cleanup.DeleteExpiredIdempotencyKeysAsync(cancellationToken);
         if (keysDeleted > 0)
         {
-            _logger.LogInformation("Deleted {Count} expired idempotency key(s).", keysDeleted);
+            LogIdempotencyKeysDeleted(_logger, keysDeleted);
         }
 
         var retention = TimeSpan.FromDays(_options.OutboxRetentionDays);
         var messagesDeleted = await cleanup.DeleteOldOutboxMessagesAsync(retention, cancellationToken);
         if (messagesDeleted > 0)
         {
-            _logger.LogInformation("Deleted {Count} old outbox message(s).", messagesDeleted);
+            LogOutboxMessagesDeleted(_logger, messagesDeleted);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Deleted {Count} expired idempotency key(s).")]
+    private static partial void LogIdempotencyKeysDeleted(ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Deleted {Count} old outbox message(s).")]
+    private static partial void LogOutboxMessagesDeleted(ILogger logger, int count);
 }
