@@ -4,19 +4,23 @@
 # Logical order:
 #   1.  ci.yml                    → Build & test (.NET)
 #   2.  docker-publish.yml        → Build & push Docker images (this file)
-#   3a. infra-staging.yml         → Terraform plan / apply
-#   3b. infra-staging-destroy.yml → Terraform destroy (manual, separate)
+#   3a. infra-staging.yml         → Terraform plan / apply  (manual)
+#   3b. infra-staging-destroy.yml → Terraform destroy       (manual)
 #   4.  deploy-staging.yml        → Deploy containers to ECS
+#
+# Triggers:
+#   • CI passes on a PR targeting develop → auto-build & push
+#   • Manual dispatch                     → ad-hoc builds
 # ──────────────────────────────────────────────────────────────
 
 name: Publish Docker Images
 
 on:
-  # Auto-trigger after CI passes on develop / main.
+  # Auto-trigger after CI passes on a PR targeting develop.
   workflow_run:
     workflows: ["CI"]
     types: [completed]
-    branches: [develop, main]
+    branches: [develop]
 
   # Keep manual trigger for ad-hoc builds.
   workflow_dispatch:
@@ -41,7 +45,7 @@ jobs:
     name: Build & Push API
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request') ||
       (github.event_name == 'workflow_dispatch' && (inputs.image == 'api' || inputs.image == 'both'))
     permissions:
       contents: read
@@ -84,6 +88,7 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request') ||
       (github.event_name == 'workflow_dispatch' && (inputs.image == 'worker' || inputs.image == 'both'))
     permissions:
       contents: read
