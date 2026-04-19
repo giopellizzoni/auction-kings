@@ -295,3 +295,7 @@ dotnet_code_quality_unused_parameters = non_public
 dotnet_diagnostic.IDE0040.severity = none
 [*.cs]
 dotnet_style_require_accessibility_modifiers = never:silent
+
+# EF Core migration files are auto-generated — suppress array allocation warnings
+[**/Migrations/**.cs]
+dotnet_diagnostic.CA1861.severity = none
