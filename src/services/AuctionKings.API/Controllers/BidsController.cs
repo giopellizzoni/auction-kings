@@ -88,7 +88,7 @@ public sealed class BidsController : ControllerBase
         return Ok(result.Value);
     }
 
-    private ActionResult MapError(Error error) =>
+    private ObjectResult MapError(Error error) =>
         error.Type switch
         {
             ErrorType.NotFound => NotFound(new { error.Code, error.Message }),

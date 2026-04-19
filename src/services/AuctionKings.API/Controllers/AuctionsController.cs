@@ -123,7 +123,7 @@ public sealed class AuctionsController : ControllerBase
         return NoContent();
     }
 
-    private ActionResult MapError(Error error) =>
+    private ObjectResult MapError(Error error) =>
         error.Type switch
         {
             ErrorType.NotFound => NotFound(new { error.Code, error.Message }),
