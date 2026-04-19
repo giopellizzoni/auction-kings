@@ -2,7 +2,7 @@ using System.Diagnostics;
 
 namespace AuctionKings.API.Middleware;
 
-public sealed class RequestLoggingMiddleware(
+public sealed partial class RequestLoggingMiddleware(
     RequestDelegate next,
     ILogger<RequestLoggingMiddleware> logger
 )
@@ -17,13 +17,16 @@ public sealed class RequestLoggingMiddleware(
         finally
         {
             sw.Stop();
-            logger.LogInformation(
-                "HTTP {Method} {Path} responded {StatusCode} in {ElapsedMs}ms",
+            LogRequest(
+                logger,
                 context.Request.Method,
-                context.Request.Path,
+                context.Request.Path.Value ?? string.Empty,
                 context.Response.StatusCode,
                 sw.ElapsedMilliseconds
             );
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "HTTP {Method} {Path} responded {StatusCode} in {ElapsedMs}ms")]
+    private static partial void LogRequest(ILogger logger, string method, string path, int statusCode, long elapsedMs);
 }
