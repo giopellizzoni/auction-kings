@@ -73,6 +73,11 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform validate -no-color
 
+      - name: Terraform Apply - IAM permissions (bootstrap)
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform apply -input=false -auto-approve -target=aws_iam_role_policy.github_actions_alb
+        continue-on-error: true
+
       - name: Terraform Plan
         id: plan
         working-directory: ${{ env.TF_WORKING_DIR }}
@@ -113,6 +118,10 @@ jobs:
       - name: Terraform Init
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform init -input=false
+
+      - name: Terraform Apply - IAM permissions (bootstrap)
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform apply -input=false -auto-approve -target=aws_iam_role_policy.github_actions_alb
 
       - name: Terraform Apply
         working-directory: ${{ env.TF_WORKING_DIR }}
