@@ -1,7 +1,9 @@
 resource "random_password" "redis" {
-  length           = 32
-  special          = true
-  override_special = "!#$%&*()-_=+[]<>?"
+  length  = 32
+  special = true
+  # ElastiCache auth tokens prohibit: space, ", /, @, and bracket-like chars.
+  # Safe subset: ! # $ % & * - _ = + ?
+  override_special = "!#$%&*-_=+?"
 }
 
 resource "aws_elasticache_subnet_group" "redis" {
