@@ -348,20 +348,27 @@ resource "aws_iam_role_policy" "github_actions_logs" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Sid    = "CloudWatchLogs"
-      Effect = "Allow"
-      Action = [
-        "logs:CreateLogGroup", "logs:DeleteLogGroup", "logs:DescribeLogGroups",
-        "logs:PutRetentionPolicy", "logs:DeleteRetentionPolicy",
-        "logs:TagLogGroup", "logs:UntagLogGroup", "logs:ListTagsLogGroup",
-        "logs:TagResource", "logs:UntagResource", "logs:ListTagsForResource",
-      ]
-      Resource = [
-        "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/auction-kings-staging-*",
-        "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group::log-stream:"
-      ]
-    }]
+    Statement = [
+      {
+        Sid    = "CloudWatchLogsManage"
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup", "logs:DeleteLogGroup",
+          "logs:PutRetentionPolicy", "logs:DeleteRetentionPolicy",
+          "logs:TagLogGroup", "logs:UntagLogGroup", "logs:ListTagsLogGroup",
+          "logs:TagResource", "logs:UntagResource", "logs:ListTagsForResource",
+        ]
+        Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/auction-kings-staging-*"
+      },
+      {
+        # DescribeLogGroups is a list-level action; AWS evaluates it against
+        # arn:...:log-group::log-stream: (empty name), so it requires Resource = "*".
+        Sid      = "CloudWatchLogsDescribe"
+        Effect   = "Allow"
+        Action   = ["logs:DescribeLogGroups"]
+        Resource = "*"
+      }
+    ]
   })
 }
 

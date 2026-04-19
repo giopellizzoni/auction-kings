@@ -7,29 +7,24 @@
 #   3.  infra-staging.yml  → Terraform plan / apply / destroy (this file) — MANUAL
 #   4.  deploy-staging.yml → Deploy containers to ECS
 #
-# Triggers:
-#   • Manual only (workflow_dispatch)
-#   • action = plan-apply (default) → plan, then auto-apply if changes detected
-#   • action = destroy              → full environment teardown
+# Single unified flow (manual trigger):
+#   1. plan  — always runs; detects changes
+#   2. apply — runs automatically if plan found changes
+#   3. destroy — always present; pauses for manual approval via the
+#                'staging-destroy' GitHub environment (required reviewers).
+#                Approve in the Actions UI to tear down; reject to skip.
 #
 # Prerequisites:
 #   1. S3 backend configured in infra/terraform/staging/main.tf
 #   2. AWS_STAGING_DEPLOY_ROLE_ARN secret set (OIDC role with Terraform perms)
+#   3. GitHub environment 'staging-destroy' created with required reviewers
+#      (Settings → Environments → New environment)
 # ──────────────────────────────────────────────────────────────
 
 name: "Infrastructure – Staging"
 
 on:
   workflow_dispatch:
-    inputs:
-      action:
-        description: "Action to perform"
-        required: true
-        default: "plan-apply"
-        type: choice
-        options:
-          - plan-apply
-          - destroy
 
 # Only one Terraform run at a time — never cancel a running apply.
 concurrency:
@@ -51,7 +46,6 @@ jobs:
   plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
-    if: inputs.action == 'plan-apply'
     outputs:
       has_changes: ${{ steps.plan.outputs.has_changes }}
 
@@ -79,8 +73,24 @@ jobs:
         run: terraform validate -no-color
 
       - name: Terraform Apply - IAM permissions (bootstrap)
+        # Self-apply all IAM policies attached to the deploy role so the role gains
+        # its full permission set before the plan reads the rest of the state.
+        # continue-on-error because the role may not yet have iam:PutRolePolicy on
+        # first bootstrap (requires manual seed — see infra/terraform/staging/iam.tf).
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform apply -input=false -auto-approve -target=aws_iam_role_policy.github_actions_alb
+        run: |
+          terraform apply -input=false -auto-approve \
+            -target=aws_iam_role.github_actions_deploy \
+            -target=aws_iam_role_policy.github_actions_tf_state \
+            -target=aws_iam_role_policy.github_actions_networking \
+            -target=aws_iam_role_policy.github_actions_alb \
+            -target=aws_iam_role_policy.github_actions_deploy \
+            -target=aws_iam_role_policy.github_actions_rds \
+            -target=aws_iam_role_policy.github_actions_elasticache \
+            -target=aws_iam_role_policy.github_actions_sqs \
+            -target=aws_iam_role_policy.github_actions_secrets \
+            -target=aws_iam_role_policy.github_actions_logs \
+            -target=aws_iam_role_policy.github_actions_iam
         continue-on-error: true
 
       - name: Terraform Plan
@@ -115,7 +125,7 @@ jobs:
     name: Terraform Apply
     runs-on: ubuntu-latest
     needs: plan
-    if: needs.plan.outputs.has_changes == 'true' && inputs.action == 'plan-apply'
+    if: needs.plan.outputs.has_changes == 'true'
 
     steps:
       - name: Checkout
@@ -148,11 +158,19 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform output -no-color
 
-  # ── Destroy (manual, requires confirmation) ───────────────────
+  # ── Destroy (waits for manual approval via environment gate) ──
   destroy:
     name: Terraform Destroy
     runs-on: ubuntu-latest
-    if: inputs.action == 'destroy'
+    needs: [plan, apply]
+    # Run after plan succeeds; apply may be skipped (no changes) — that is fine.
+    if: |
+      always() &&
+      needs.plan.result == 'success' &&
+      (needs.apply.result == 'success' || needs.apply.result == 'skipped')
+    # The 'staging-destroy' environment must have required reviewers configured in
+    # GitHub repository Settings → Environments. The job pauses here until approved.
+    environment: staging-destroy
 
     steps:
       - name: Checkout
