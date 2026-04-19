@@ -91,6 +91,9 @@ locals {
 resource "aws_iam_role" "github_actions_deploy" {
   name = "auction-kings-staging-github-deploy"
 
+  # Trust policy is intentionally managed outside Terraform:
+  # the role cannot update its own assume_role_policy (AWS blocks self-modification).
+  # Edit the trust relationship directly in the IAM console when branches need to be added.
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -115,6 +118,10 @@ resource "aws_iam_role" "github_actions_deploy" {
       }
     }]
   })
+
+  lifecycle {
+    ignore_changes = [assume_role_policy]
+  }
 }
 
 # -- Terraform state backend (S3 + DynamoDB) --
