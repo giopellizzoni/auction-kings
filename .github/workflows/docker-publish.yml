@@ -1,11 +1,12 @@
 # ──────────────────────────────────────────────────────────────
-# Pipeline stage 2 of 4 — Build & push Docker images to GHCR.
+# Pipeline stage 2 of 5 — Build & push Docker images to GHCR.
 #
 # Logical order:
 #   1.  ci.yml                    → Build & test (.NET)
 #   2.  docker-publish.yml        → Build & push Docker images (this file)
-#   3.  infra-staging.yml         → Terraform plan / apply (auto after Docker push)
-#   4.  infra-staging-destroy.yml → Terraform destroy (manual)
+#   3.  infra-staging.yml         → Terraform plan / apply
+#   4.  deploy-staging.yml        → Deploy containers to ECS
+#   5.  infra-staging-destroy.yml → Terraform destroy (manual only)
 #
 # Triggers:
 #   • CI passes on push or PR targeting develop/main → auto-build & push

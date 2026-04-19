@@ -5,7 +5,8 @@
 #   1.  ci.yml                    → Build & test (.NET)
 #   2.  docker-publish.yml        → Build & push Docker images
 #   3.  infra-staging.yml         → Terraform plan / apply
-#   4.  infra-staging-destroy.yml → Terraform destroy (this file) — MANUAL ONLY
+#   4.  deploy-staging.yml        → Deploy containers to ECS
+#   5.  infra-staging-destroy.yml → Terraform destroy (this file) — MANUAL ONLY
 #
 # Trigger: manual dispatch only (workflow_dispatch).
 #
