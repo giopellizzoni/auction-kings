@@ -104,13 +104,7 @@ resource "aws_iam_role" "github_actions_deploy" {
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringLike = {
-          "token.actions.githubusercontent.com:sub" = [
-            "repo:PellizzoniCode/auction-kings:ref:refs/heads/main",
-            "repo:PellizzoniCode/auction-kings:ref:refs/heads/develop",
-            "repo:PellizzoniCode/auction-kings:ref:refs/heads/fix/*",
-            "repo:PellizzoniCode/auction-kings:ref:refs/heads/feat/*",
-            "repo:PellizzoniCode/auction-kings:pull_request"
-          ]
+          "token.actions.githubusercontent.com:sub" = "repo:PellizzoniCode/auction-kings:*"
         }
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
