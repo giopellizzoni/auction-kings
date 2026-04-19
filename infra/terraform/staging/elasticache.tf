@@ -12,7 +12,7 @@ resource "aws_elasticache_subnet_group" "redis" {
 
 resource "aws_elasticache_replication_group" "redis" {
   replication_group_id = "auction-kings-staging"
-  description          = "Redis for AuctionKings staging — cache + SignalR backplane"
+  description          = "Redis for AuctionKings staging - cache + SignalR backplane"
 
   node_type            = "cache.t4g.micro"
   num_cache_clusters   = 1   # Single node for staging; increase for prod

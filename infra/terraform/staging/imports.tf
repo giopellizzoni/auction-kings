@@ -23,11 +23,6 @@ import {
 }
 
 import {
-  to = aws_db_subnet_group.postgres
-  id = "auction-kings-staging"
-}
-
-import {
   to = aws_secretsmanager_secret.db_password
   id = "arn:aws:secretsmanager:us-east-1:314146334477:secret:/auction-kings/staging/db-password"
 }
@@ -53,4 +48,19 @@ import {
 import {
   to = aws_eip.nat
   id = "eipalloc-0de5215ec10b8aecd"
+}
+
+import {
+  to = aws_lb_target_group.api
+  id = "arn:aws:elasticloadbalancing:us-east-1:314146334477:targetgroup/auction-kings-staging-api/4cb818846726a31f"
+}
+
+import {
+  to = aws_iam_role.github_actions_deploy
+  id = "auction-kings-staging-github-deploy"
+}
+
+import {
+  to = aws_secretsmanager_secret.jwt_secret
+  id = "arn:aws:secretsmanager:us-east-1:314146334477:secret:/auction-kings/staging/jwt-secret-MZw5aO"
 }
