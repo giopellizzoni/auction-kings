@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AuctionKings.Application.Behaviors;
 
-public sealed class PerformanceBehavior<TRequest, TResponse>
+public sealed partial class PerformanceBehavior<TRequest, TResponse>
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
 {
@@ -31,14 +31,12 @@ public sealed class PerformanceBehavior<TRequest, TResponse>
 
         if (stopwatch.ElapsedMilliseconds > WarningThresholdMs)
         {
-            _logger.LogWarning(
-                "Long running request detected: {RequestName} took {ElapsedMilliseconds}ms (threshold: {ThresholdMs}ms)",
-                typeof(TRequest).Name,
-                stopwatch.ElapsedMilliseconds,
-                WarningThresholdMs
-            );
+            LogLongRunning(_logger, typeof(TRequest).Name, stopwatch.ElapsedMilliseconds, WarningThresholdMs);
         }
 
         return response;
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Long running request detected: {RequestName} took {ElapsedMilliseconds}ms (threshold: {ThresholdMs}ms)")]
+    private static partial void LogLongRunning(ILogger logger, string requestName, long elapsedMilliseconds, int thresholdMs);
 }
