@@ -1,11 +1,12 @@
 # ──────────────────────────────────────────────────────────────
-# Pipeline stage 3 of 4 — Provision / update staging infrastructure.
+# Pipeline stage 3 of 5 — Provision / update staging infrastructure.
 #
 # Logical order:
 #   1.  ci.yml                    → Build & test (.NET)
 #   2.  docker-publish.yml        → Build & push Docker images
 #   3.  infra-staging.yml         → Terraform plan / apply (this file)
-#   4.  infra-staging-destroy.yml → Terraform destroy (manual, separate)
+#   4.  deploy-staging.yml        → Deploy containers to ECS
+#   5.  infra-staging-destroy.yml → Terraform destroy (manual only)
 #
 # Triggers:
 #   • Docker publish completes successfully → auto plan + apply

@@ -3,10 +3,10 @@
 #
 # Logical order:
 #   1.  ci.yml                    → Build & test (.NET)  (this file)
-#   2.  docker-publish.yml        → Build & push Docker images (after CI)
-#   3a. infra-staging.yml         → Terraform plan / apply
-#   3b. infra-staging-destroy.yml → Terraform destroy (manual, separate)
+#   2.  docker-publish.yml        → Build & push Docker images
+#   3.  infra-staging.yml         → Terraform plan / apply
 #   4.  deploy-staging.yml        → Deploy containers to ECS
+#   5.  infra-staging-destroy.yml → Terraform destroy (manual only)
 # ──────────────────────────────────────────────────────────────
 
 name: CI
