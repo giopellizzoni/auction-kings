@@ -1,16 +1,15 @@
 # ──────────────────────────────────────────────────────────────
-# Pipeline stage 2 of 5 — Build & push Docker images to GHCR.
+# Pipeline stage 2 of 4 — Build & push Docker images to GHCR.
 #
 # Logical order:
 #   1.  ci.yml                    → Build & test (.NET)
 #   2.  docker-publish.yml        → Build & push Docker images (this file)
-#   3a. infra-staging.yml         → Terraform plan / apply  (manual)
-#   3b. infra-staging-destroy.yml → Terraform destroy       (manual)
-#   4.  deploy-staging.yml        → Deploy containers to ECS
+#   3.  infra-staging.yml         → Terraform plan / apply (auto after Docker push)
+#   4.  infra-staging-destroy.yml → Terraform destroy (manual)
 #
 # Triggers:
-#   • CI passes on a PR targeting develop → auto-build & push
-#   • Manual dispatch                     → ad-hoc builds
+#   • CI passes on push or PR targeting develop/main → auto-build & push
+#   • Manual dispatch                                → ad-hoc builds
 # ──────────────────────────────────────────────────────────────
 
 name: Publish Docker Images
@@ -45,7 +44,7 @@ jobs:
     name: Build & Push API
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
       (github.event_name == 'workflow_dispatch' && (inputs.image == 'api' || inputs.image == 'both'))
     permissions:
       contents: read
@@ -87,7 +86,7 @@ jobs:
     name: Build & Push Worker
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
       (github.event_name == 'workflow_dispatch' && (inputs.image == 'worker' || inputs.image == 'both'))
     permissions:
       contents: read
