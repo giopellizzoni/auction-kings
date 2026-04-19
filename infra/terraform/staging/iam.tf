@@ -204,7 +204,8 @@ resource "aws_iam_role_policy" "github_actions_alb" {
         "elasticloadbalancing:DescribeTargetGroups", "elasticloadbalancing:DescribeTargetGroupAttributes",
         "elasticloadbalancing:ModifyTargetGroupAttributes", "elasticloadbalancing:DescribeTargetHealth",
         "elasticloadbalancing:CreateListener", "elasticloadbalancing:DeleteListener",
-        "elasticloadbalancing:DescribeListeners",
+        "elasticloadbalancing:DescribeListeners", "elasticloadbalancing:DescribeListenerAttributes",
+        "elasticloadbalancing:ModifyListener",
         "elasticloadbalancing:AddTags", "elasticloadbalancing:RemoveTags", "elasticloadbalancing:DescribeTags",
       ]
       Resource = "*"
