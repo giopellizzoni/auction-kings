@@ -2,15 +2,15 @@
 # Pipeline stage 3a of 5 — Provision / update staging infrastructure.
 #
 # Logical order:
-#   1.  ci.yml                    → Build & test (.NET)
-#   2.  docker-publish.yml        → Build & push Docker images (PR → develop)
-#   3a. infra-staging.yml         → Terraform plan / apply (this file) — MANUAL
-#   3b. infra-staging-destroy.yml → Terraform destroy — MANUAL
-#   4.  deploy-staging.yml        → Deploy containers to ECS
+#   1.  ci.yml             → Build & test (.NET)
+#   2.  docker-publish.yml → Build & push Docker images (PR → develop)
+#   3.  infra-staging.yml  → Terraform plan / apply / destroy (this file) — MANUAL
+#   4.  deploy-staging.yml → Deploy containers to ECS
 #
 # Triggers:
-#   • Manual only
-#   • Plan always runs; apply runs automatically if plan detects changes.
+#   • Manual only (workflow_dispatch)
+#   • Leave confirm_destroy blank  → plan, then auto-apply if changes detected
+#   • Type 'destroy-staging'       → full environment teardown
 #
 # Prerequisites:
 #   1. S3 backend configured in infra/terraform/staging/main.tf
@@ -21,6 +21,11 @@ name: "Infrastructure – Staging"
 
 on:
   workflow_dispatch:
+    inputs:
+      confirm_destroy:
+        description: "Leave blank for plan/apply. Type 'destroy-staging' to tear down the full environment."
+        required: false
+        default: ""
 
 # Only one Terraform run at a time — never cancel a running apply.
 concurrency:
@@ -42,6 +47,7 @@ jobs:
   plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
+    if: inputs.confirm_destroy == ''
     outputs:
       has_changes: ${{ steps.plan.outputs.has_changes }}
 
@@ -105,7 +111,7 @@ jobs:
     name: Terraform Apply
     runs-on: ubuntu-latest
     needs: plan
-    if: needs.plan.outputs.has_changes == 'true'
+    if: needs.plan.outputs.has_changes == 'true' && inputs.confirm_destroy == ''
 
     steps:
       - name: Checkout
@@ -137,3 +143,40 @@ jobs:
       - name: Print outputs
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform output -no-color
+
+  # ── Destroy (manual, requires confirmation) ───────────────────
+  destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    if: inputs.confirm_destroy == 'destroy-staging'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_STAGING_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init -input=false
+
+      - name: Terraform Plan (destroy)
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform plan -destroy -input=false -no-color
+
+      - name: Terraform Destroy
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform destroy -input=false -auto-approve
+
+      - name: Confirm destruction
+        run: |
+          echo "::warning::Staging infrastructure destroyed."
+          echo "  Region: ${{ env.AWS_REGION }}"
+          echo "  Config: ${{ env.TF_WORKING_DIR }}"
