@@ -104,6 +104,8 @@ resource "aws_iam_role" "github_actions_deploy" {
           "token.actions.githubusercontent.com:sub" = [
             "repo:PellizzoniCode/auction-kings:ref:refs/heads/main",
             "repo:PellizzoniCode/auction-kings:ref:refs/heads/develop",
+            "repo:PellizzoniCode/auction-kings:ref:refs/heads/fix/*",
+            "repo:PellizzoniCode/auction-kings:ref:refs/heads/feat/*",
             "repo:PellizzoniCode/auction-kings:pull_request"
           ]
         }
