@@ -5,7 +5,12 @@ variable "aws_region" {
 }
 
 variable "app_image" {
-  description = "Full ECR/GHCR image URI for the API (e.g. ghcr.io/pellizzonicode/auction-kings:sha-abc123)."
+  description = "Full ECR/GHCR image URI for the API (e.g. ghcr.io/pellizzonicode/auction-kings-api:sha-abc123)."
+  type        = string
+}
+
+variable "worker_image" {
+  description = "Full ECR/GHCR image URI for the BackgroundWorkers (e.g. ghcr.io/pellizzonicode/auction-kings-worker:sha-abc123)."
   type        = string
 }
 

@@ -14,13 +14,28 @@ output "ecs_cluster_name" {
 }
 
 output "ecs_service_name" {
-  description = "ECS service name (used in deploy workflow)."
+  description = "ECS API service name (used in deploy workflow)."
   value       = aws_ecs_service.api.name
 }
 
 output "ecs_task_definition_family" {
-  description = "ECS task definition family name."
+  description = "ECS API task definition family name."
   value       = aws_ecs_task_definition.api.family
+}
+
+output "ecs_worker_service_name" {
+  description = "ECS worker service name (used in deploy workflow)."
+  value       = aws_ecs_service.worker.name
+}
+
+output "ecs_worker_task_definition_family" {
+  description = "ECS worker task definition family name."
+  value       = aws_ecs_task_definition.worker.family
+}
+
+output "cloudwatch_worker_log_group" {
+  description = "CloudWatch log group for ECS worker logs."
+  value       = aws_cloudwatch_log_group.worker.name
 }
 
 output "sqs_bid_queue_url" {

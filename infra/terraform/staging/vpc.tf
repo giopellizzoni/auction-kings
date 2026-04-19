@@ -138,6 +138,21 @@ resource "aws_security_group" "api" {
   tags = { Name = "auction-kings-staging-api-sg" }
 }
 
+resource "aws_security_group" "worker" {
+  name        = "auction-kings-staging-worker"
+  description = "Background worker — egress only, no inbound HTTP"
+  vpc_id      = aws_vpc.main.id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = { Name = "auction-kings-staging-worker-sg" }
+}
+
 resource "aws_security_group" "rds" {
   name        = "auction-kings-staging-rds"
   description = "Allow PostgreSQL from ECS tasks only"
@@ -147,7 +162,7 @@ resource "aws_security_group" "rds" {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.api.id]
+    security_groups = [aws_security_group.api.id, aws_security_group.worker.id]
   }
 
   egress {
@@ -169,7 +184,7 @@ resource "aws_security_group" "elasticache" {
     from_port       = 6379
     to_port         = 6379
     protocol        = "tcp"
-    security_groups = [aws_security_group.api.id]
+    security_groups = [aws_security_group.api.id, aws_security_group.worker.id]
   }
 
   egress {
