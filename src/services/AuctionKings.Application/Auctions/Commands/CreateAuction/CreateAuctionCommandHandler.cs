@@ -35,12 +35,13 @@ public sealed class CreateAuctionCommandHandler
         var money = new Money(request.StartingPrice, request.Currency);
         var duration = new AuctionDuration(request.Duration);
         var now = _dateTimeProvider.UtcNow;
+        var startTime = request.StartTime ?? now;
 
         var auction = Auction.Create(
             request.Title,
             request.Description,
             money,
-            now,
+            startTime,
             duration,
             request.SellerId
         );

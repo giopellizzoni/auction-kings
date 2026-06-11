@@ -33,6 +33,20 @@ public sealed class AuctionTests
         return auction;
     }
 
+    private static Auction CreatePendingAuction(DateTime futureStart)
+    {
+        var auction = Auction.Create(
+            "Test Auction",
+            "Description",
+            StartingPrice,
+            futureStart,
+            Duration,
+            SellerId
+        );
+        auction.ClearDomainEvents();
+        return auction;
+    }
+
     [Fact]
     public void Auction_Create_ShouldRaiseAuctionCreatedEvent()
     {
@@ -180,5 +194,122 @@ public sealed class AuctionTests
 
         var events = auction.GetDomainEvents();
         Assert.Contains(events, e => e is BidPlacedEvent);
+    }
+
+    [Fact]
+    public void Auction_PlaceBid_AfterEndTime_ShouldFail()
+    {
+        var auction = CreateActiveAuction();
+        var bidTime = auction.EndTime; // exactly at end is past
+
+        var result = auction.PlaceBid(Guid.NewGuid(), new Money(110m, "USD"), bidTime);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("Auction.Ended", result.Error.Code);
+    }
+
+    [Fact]
+    public void Auction_PlaceBid_AfterEndTime_ShouldNotExtendAuction()
+    {
+        var auction = CreateActiveAuction();
+        var endTime = auction.EndTime;
+
+        auction.PlaceBid(Guid.NewGuid(), new Money(110m, "USD"), endTime.AddSeconds(1));
+
+        Assert.Equal(endTime, auction.EndTime);
+    }
+
+    [Fact]
+    public void Auction_PlaceBid_SelfOutbid_ShouldFail()
+    {
+        var auction = CreateActiveAuction();
+        var bidderId = Guid.NewGuid();
+
+        auction.PlaceBid(bidderId, new Money(110m, "USD"), Now);
+        var result = auction.PlaceBid(bidderId, new Money(130m, "USD"), Now);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("Auction.CannotOutbidSelf", result.Error.Code);
+    }
+
+    [Fact]
+    public void Auction_PlaceBid_CurrencyMismatch_ShouldFail()
+    {
+        var auction = CreateActiveAuction(startingPrice: new Money(100m, "USD"));
+
+        var result = auction.PlaceBid(Guid.NewGuid(), new Money(110m, "EUR"), Now);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("Bid.CurrencyMismatch", result.Error.Code);
+    }
+
+    [Fact]
+    public void Auction_Create_WithPastStartTime_ShouldBeActive()
+    {
+        var pastStart = DateTime.UtcNow.AddHours(-1);
+
+        var auction = Auction.Create("Test", "Desc", StartingPrice, pastStart, Duration, SellerId);
+
+        Assert.Equal(AuctionStatus.Active, auction.Status);
+    }
+
+    [Fact]
+    public void Auction_Create_WithFutureStartTime_ShouldBePending()
+    {
+        var futureStart = DateTime.UtcNow.AddHours(2);
+
+        var auction = Auction.Create("Test", "Desc", StartingPrice, futureStart, Duration, SellerId);
+
+        Assert.Equal(AuctionStatus.Pending, auction.Status);
+    }
+
+    [Fact]
+    public void Auction_Activate_PendingWhenStartTimeReached_ShouldSucceedAndRaiseEvent()
+    {
+        var futureStart = DateTime.UtcNow.AddHours(2);
+        var auction = CreatePendingAuction(futureStart);
+
+        var result = auction.Activate(futureStart.AddSeconds(1));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(AuctionStatus.Active, auction.Status);
+        Assert.Contains(auction.GetDomainEvents(), e => e is AuctionActivatedEvent);
+    }
+
+    [Fact]
+    public void Auction_Activate_BeforeStartTime_ShouldBeNoOp()
+    {
+        var futureStart = DateTime.UtcNow.AddHours(2);
+        var auction = CreatePendingAuction(futureStart);
+
+        var result = auction.Activate(futureStart.AddMinutes(-30));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(AuctionStatus.Pending, auction.Status);
+        Assert.Empty(auction.GetDomainEvents());
+    }
+
+    [Fact]
+    public void Auction_Activate_AlreadyActive_ShouldBeIdempotent()
+    {
+        var auction = CreateActiveAuction();
+
+        var result = auction.Activate(Now);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(AuctionStatus.Active, auction.Status);
+    }
+
+    [Fact]
+    public void Auction_Cancel_AlreadyCancelled_ShouldFail()
+    {
+        var auction = CreateActiveAuction();
+        auction.Cancel(Now);
+        auction.ClearDomainEvents();
+
+        var result = auction.Cancel(Now);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("Auction.AlreadyCancelled", result.Error.Code);
     }
 }

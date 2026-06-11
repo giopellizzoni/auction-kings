@@ -16,7 +16,8 @@ public sealed record CreateAuctionRequest(
     string Description,
     decimal StartingPrice,
     string Currency,
-    double DurationInHours
+    double DurationInHours,
+    DateTime? StartTime = null
 );
 
 [Route("api/v1/auctions")]
@@ -50,7 +51,8 @@ public sealed class AuctionsController : ControllerBase
             request.StartingPrice,
             request.Currency,
             TimeSpan.FromHours(request.DurationInHours),
-            sellerId.Value
+            sellerId.Value,
+            request.StartTime
         );
 
         var result = await _sender.Send(command, cancellationToken);

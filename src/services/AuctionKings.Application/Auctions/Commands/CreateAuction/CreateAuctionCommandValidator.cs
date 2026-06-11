@@ -26,5 +26,9 @@ public sealed class CreateAuctionCommandValidator : AbstractValidator<CreateAuct
 
         RuleFor(x => x.SellerId)
             .NotEmpty();
+
+        RuleFor(x => x.StartTime)
+            .Must(t => t is null || (t >= DateTime.UtcNow.AddMinutes(-1) && t <= DateTime.UtcNow.AddDays(30)))
+            .WithMessage("StartTime must be within the next 30 days (or omitted to start immediately).");
     }
 }

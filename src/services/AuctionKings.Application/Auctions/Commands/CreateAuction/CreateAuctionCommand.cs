@@ -9,4 +9,5 @@ public sealed record CreateAuctionCommand(
     decimal StartingPrice,
     string Currency,
     TimeSpan Duration,
-    Guid SellerId) : IRequest<Result<Guid>>;
+    Guid SellerId,
+    DateTime? StartTime = null) : IRequest<Result<Guid>>;
