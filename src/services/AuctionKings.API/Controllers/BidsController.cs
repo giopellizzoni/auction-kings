@@ -1,4 +1,5 @@
 using AuctionKings.API.Auth;
+using AuctionKings.API.Filters;
 using AuctionKings.Application.Auctions.Commands.PlaceBid;
 using AuctionKings.Application.Auctions.Queries.GetAuctionBids;
 using AuctionKings.Application.DTOs;
@@ -27,6 +28,7 @@ public sealed class BidsController : ControllerBase
 
     [HttpPost]
     [Authorize(Policy = Policies.Bidder)]
+    [Idempotent]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -44,11 +46,14 @@ public sealed class BidsController : ControllerBase
             return Unauthorized();
         }
 
-        var idempotencyKey =
-            HttpContext.Items["IdempotencyKey"] as string
+        var requestId =
+            HttpContext.Items[IdempotencyFilter.ItemsKey] as string
             ?? throw new InvalidOperationException(
                 "IdempotencyKey was not set by IdempotencyFilter."
             );
+
+        // Derived key prevents one user from replaying another user's request.
+        var idempotencyKey = $"{bidderId.Value}:{auctionId}:{requestId}";
         var command = new PlaceBidCommand(
             auctionId,
             bidderId.Value,
