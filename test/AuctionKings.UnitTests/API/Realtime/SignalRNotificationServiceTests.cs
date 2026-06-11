@@ -1,6 +1,7 @@
 using AuctionKings.API.Hubs;
 using AuctionKings.API.Realtime;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 namespace AuctionKings.UnitTests.API.Realtime;
@@ -16,7 +17,7 @@ public sealed class SignalRNotificationServiceTests
     {
         _hubContext.Clients.Returns(_clients);
         _clients.Group(Arg.Any<string>()).Returns(_groupProxy);
-        _service = new SignalRNotificationService(_hubContext);
+        _service = new SignalRNotificationService(_hubContext, NullLogger<SignalRNotificationService>.Instance);
     }
 
     [Fact]

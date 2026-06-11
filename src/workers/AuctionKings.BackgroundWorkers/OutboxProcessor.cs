@@ -33,7 +33,15 @@ public sealed partial class OutboxProcessor : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            await ProcessBatchAsync(stoppingToken);
+            try
+            {
+                await ProcessBatchAsync(stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                LogUnexpectedLoopError(_logger, ex);
+            }
+
             await Task.Delay(TimeSpan.FromSeconds(_options.PollingIntervalSeconds), stoppingToken);
         }
     }
@@ -43,8 +51,12 @@ public sealed partial class OutboxProcessor : BackgroundService
         await using var scope = _scopeFactory.CreateAsyncScope();
         var repository = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
         var publisher = scope.ServiceProvider.GetRequiredService<IPublisher>();
-
         var eventBus = scope.ServiceProvider.GetRequiredService<IEventBus>();
+
+        // Open a transaction so FOR UPDATE SKIP LOCKED holds row-level locks for
+        // the full batch. Without a transaction the lock is released immediately after
+        // the query, allowing a second worker to pick up the same rows.
+        await repository.BeginTransactionAsync(cancellationToken);
 
         var messages = await repository.FetchPendingAsync(_options.BatchSize, cancellationToken);
         OutboxMetrics.SetPending(messages.Count);
@@ -60,6 +72,7 @@ public sealed partial class OutboxProcessor : BackgroundService
         }
 
         await repository.SaveAsync(cancellationToken);
+        await repository.CommitAsync(cancellationToken);
     }
 
     private async Task ProcessMessageAsync(
@@ -126,4 +139,7 @@ public sealed partial class OutboxProcessor : BackgroundService
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Outbox message {Id} exceeded max retries ({MaxRetries}). Marked as failed.")]
     private static partial void LogMaxRetriesExceeded(ILogger logger, Guid id, int maxRetries);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Unexpected error in outbox processor loop. Continuing after delay.")]
+    private static partial void LogUnexpectedLoopError(ILogger logger, Exception ex);
 }

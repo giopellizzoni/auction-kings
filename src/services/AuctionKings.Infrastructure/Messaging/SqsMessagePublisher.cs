@@ -47,6 +47,7 @@ public sealed partial class SqsMessagePublisher(
         {
             var eventType = domainEvent.GetType().Name;
             LogPublishFailed(logger, ex, eventType, domainEvent.EventId);
+            throw; // Let the outbox retry loop handle it via IncrementRetry/MarkAsFailed.
         }
     }
 

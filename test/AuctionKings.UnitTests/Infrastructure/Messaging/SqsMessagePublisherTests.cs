@@ -104,9 +104,8 @@ public sealed class SqsMessagePublisherTests
     }
 
     [Fact]
-    public async Task PublishAsync_WhenSqsThrows_ShouldNotPropagate()
+    public async Task PublishAsync_WhenSqsThrows_ShouldLogAndRethrow()
     {
-        // Arrange
         _sqsClient
             .SendMessageAsync(Arg.Any<SendMessageRequest>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new AmazonSQSException("simulated failure"));
@@ -114,13 +113,10 @@ public sealed class SqsMessagePublisherTests
         var publisher = CreatePublisher();
         var domainEvent = CreateBidPlacedEvent();
 
-        // Act
-        var exception = await Record.ExceptionAsync(() => publisher.PublishAsync(domainEvent));
+        // Exception must propagate so the outbox retry loop can increment the retry counter.
+        await Assert.ThrowsAsync<AmazonSQSException>(() => publisher.PublishAsync(domainEvent));
 
-        // Assert — exception must be swallowed
-        Assert.Null(exception);
-
-        // Assert — warning must be logged
+        // Warning must still be logged before rethrowing.
         Assert.True(_logger.HasLog(LogLevel.Warning, "SQS publish failed"));
     }
 }
