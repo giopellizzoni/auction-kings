@@ -29,6 +29,7 @@ public sealed class BidsController : ControllerBase
     [HttpPost]
     [Authorize(Policy = Policies.Bidder)]
     [Idempotent]
+    [RateLimit(policy: "place-bid", failOpen: false)]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

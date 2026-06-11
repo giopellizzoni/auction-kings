@@ -14,6 +14,7 @@ internal sealed partial class RedisRateLimiter : IRateLimiter
     // Sliding window using a sorted set.
     // Members are scored by their request timestamp (ms).
     // ZREMRANGEBYSCORE prunes entries outside the window before counting.
+    // Returns a two-element array: { isAllowed (1/0), currentCount }.
     private const string SlidingWindowScript = """
         local key       = KEYS[1]
         local now       = tonumber(ARGV[1])
@@ -30,9 +31,9 @@ internal sealed partial class RedisRateLimiter : IRateLimiter
             redis.call('ZADD', key, now, tostring(now) .. ':' .. tostring(seq))
             redis.call('PEXPIRE', key, window_ms)
             redis.call('PEXPIRE', seq_key, window_ms)
-            return 1
+            return {1, count + 1}
         else
-            return 0
+            return {0, count}
         end
         """;
 
@@ -47,7 +48,7 @@ internal sealed partial class RedisRateLimiter : IRateLimiter
         _logger = logger;
     }
 
-    public async Task<bool> IsAllowedAsync(string key, CancellationToken cancellationToken = default)
+    public async Task<RateLimitResult> IsAllowedAsync(string key, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -55,7 +56,7 @@ internal sealed partial class RedisRateLimiter : IRateLimiter
             var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var windowMs = (long)_options.Window.TotalMilliseconds;
 
-            var result = await db.ScriptEvaluateAsync(
+            var result = (RedisResult[]?)await db.ScriptEvaluateAsync(
                 SlidingWindowScript,
                 keys: [new RedisKey(key)],
                 values:
@@ -66,12 +67,15 @@ internal sealed partial class RedisRateLimiter : IRateLimiter
                 ]
             );
 
-            return (long)result == 1;
+            var isAllowed = result is not null && (long)result[0] == 1;
+            var count = result is not null ? (int)(long)result[1] : 0;
+
+            return new RateLimitResult(isAllowed, count);
         }
         catch (Exception ex)
         {
             LogRateLimiterError(_logger, ex, key);
-            return true;
+            return new RateLimitResult(IsAllowed: true, CurrentCount: 0, IsError: true);
         }
     }
 

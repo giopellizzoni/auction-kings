@@ -1,4 +1,5 @@
 using AuctionKings.API.Auth;
+using AuctionKings.API.Filters;
 using AuctionKings.Application.Auctions.Commands.CloseAuction;
 using AuctionKings.Application.Auctions.Commands.CreateAuction;
 using AuctionKings.Application.Auctions.Queries.GetActiveAuctions;
@@ -30,6 +31,7 @@ public sealed class AuctionsController : ControllerBase
 
     [HttpPost]
     [Authorize(Policy = Policies.Bidder)]
+    [RateLimit(policy: "create-auction", failOpen: false)]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

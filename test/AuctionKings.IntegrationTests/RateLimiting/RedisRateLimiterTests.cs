@@ -31,7 +31,7 @@ public sealed class RedisRateLimiterTests
 
         var result = await sut.IsAllowedAsync(key);
 
-        Assert.True(result);
+        Assert.True(result.IsAllowed);
     }
 
     [Fact]
@@ -45,7 +45,7 @@ public sealed class RedisRateLimiterTests
 
         var result = await sut.IsAllowedAsync(key); // 3rd — over limit
 
-        Assert.False(result);
+        Assert.False(result.IsAllowed);
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public sealed class RedisRateLimiterTests
         await sut.IsAllowedAsync(key); // 2nd
         var result = await sut.IsAllowedAsync(key); // 3rd — exactly at limit
 
-        Assert.True(result);
+        Assert.True(result.IsAllowed);
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public sealed class RedisRateLimiterTests
 
         var result = await sut.IsAllowedAsync(key); // 4th — over limit
 
-        Assert.False(result);
+        Assert.False(result.IsAllowed);
     }
 
     [Fact]
@@ -85,12 +85,12 @@ public sealed class RedisRateLimiterTests
 
         await sut.IsAllowedAsync(key); // consume the 1 allowed slot
         var blockedResult = await sut.IsAllowedAsync(key); // should be blocked
-        Assert.False(blockedResult);
+        Assert.False(blockedResult.IsAllowed);
 
         await Task.Delay(TimeSpan.FromSeconds(1.2)); // wait for window to expire
 
         var result = await sut.IsAllowedAsync(key); // should be allowed again
-        Assert.True(result);
+        Assert.True(result.IsAllowed);
     }
 
     [Fact]
@@ -104,8 +104,8 @@ public sealed class RedisRateLimiterTests
         var key1Result = await sut.IsAllowedAsync(key1); // blocked
         var key2Result = await sut.IsAllowedAsync(key2); // different key — should be allowed
 
-        Assert.False(key1Result);
-        Assert.True(key2Result);
+        Assert.False(key1Result.IsAllowed);
+        Assert.True(key2Result.IsAllowed);
     }
 
     [Fact]
@@ -122,7 +122,7 @@ public sealed class RedisRateLimiterTests
 
         var results = await Task.WhenAll(tasks);
 
-        var allowedCount = results.Count(r => r);
+        var allowedCount = results.Count(r => r.IsAllowed);
         Assert.Equal(limit, allowedCount);
     }
 }
