@@ -10,7 +10,7 @@ using Prometheus;
 
 namespace AuctionKings.API.Controllers;
 
-public sealed record PlaceBidRequest(Guid BidderId, decimal Amount, string Currency);
+public sealed record PlaceBidRequest(decimal Amount, string Currency);
 
 [Route("api/v1/auctions/{auctionId:guid}/bids")]
 [ApiController]
@@ -38,6 +38,12 @@ public sealed class BidsController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        var bidderId = User.GetUserId();
+        if (bidderId is null)
+        {
+            return Unauthorized();
+        }
+
         var idempotencyKey =
             HttpContext.Items["IdempotencyKey"] as string
             ?? throw new InvalidOperationException(
@@ -45,7 +51,7 @@ public sealed class BidsController : ControllerBase
             );
         var command = new PlaceBidCommand(
             auctionId,
-            request.BidderId,
+            bidderId.Value,
             request.Amount,
             request.Currency,
             idempotencyKey

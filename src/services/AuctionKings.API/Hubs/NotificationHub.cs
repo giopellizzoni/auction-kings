@@ -1,9 +1,10 @@
 using AuctionKings.Application.Abstractions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 
 namespace AuctionKings.API.Hubs;
 
-// TODO: Add [Authorize] once authentication (Cognito/JWT) is implemented — Task 10
+[Authorize]
 public sealed class NotificationHub(IConnectionTracker connectionTracker) : Hub
 {
     public override async Task OnConnectedAsync()

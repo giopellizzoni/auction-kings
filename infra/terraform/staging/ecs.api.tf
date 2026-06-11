@@ -48,8 +48,9 @@ resource "aws_ecs_task_definition" "api" {
       ]
 
       environment = [
-        { name = "ASPNETCORE_ENVIRONMENT",         value = "Production" },
-        { name = "ASPNETCORE_URLS",                value = "http://+:8080" },
+        { name = "ASPNETCORE_ENVIRONMENT",              value = "Staging" },
+        { name = "ASPNETCORE_URLS",                     value = "http://+:8080" },
+        { name = "Features__EnableDevTokenEndpoint",    value = "true" },
         { name = "ConnectionStrings__DefaultConnection", value = local.db_connection_string },
         { name = "ConnectionStrings__Redis",        value = local.redis_connection_string },
         { name = "Jwt__Issuer",                     value = var.jwt_issuer },

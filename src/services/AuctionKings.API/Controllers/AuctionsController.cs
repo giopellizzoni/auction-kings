@@ -16,8 +16,7 @@ public sealed record CreateAuctionRequest(
     string Description,
     decimal StartingPrice,
     string Currency,
-    double DurationInHours,
-    Guid SellerId
+    double DurationInHours
 );
 
 [Route("api/v1/auctions")]
@@ -29,20 +28,29 @@ public sealed class AuctionsController : ControllerBase
     public AuctionsController(ISender sender) => _sender = sender;
 
     [HttpPost]
+    [Authorize(Policy = Policies.Bidder)]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> CreateAuction(
         [FromBody] CreateAuctionRequest request,
         CancellationToken cancellationToken
     )
     {
+        var sellerId = User.GetUserId();
+        if (sellerId is null)
+        {
+            return Unauthorized();
+        }
+
         var command = new CreateAuctionCommand(
             request.Title,
             request.Description,
             request.StartingPrice,
             request.Currency,
             TimeSpan.FromHours(request.DurationInHours),
-            request.SellerId
+            sellerId.Value
         );
 
         var result = await _sender.Send(command, cancellationToken);

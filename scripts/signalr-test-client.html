@@ -236,6 +236,10 @@ Prerequisites:
     <label for="bidAmount">Bid Amount</label>
     <input type="number" id="bidAmount" min="1" value="10" />
   </div>
+  <div class="field" style="grid-column: 1 / -1;">
+    <label for="accessToken">JWT Token (from POST /dev/token)</label>
+    <input type="text" id="accessToken" placeholder="eyJ..." style="font-family: monospace; font-size: 11px;" />
+  </div>
 </div>
 
 <div class="actions">
@@ -331,9 +335,12 @@ Prerequisites:
   }
 
   // ── Build SignalR connection ──────────────────────────────────────────────────
-  function buildConnection(baseUrl) {
+  function buildConnection(baseUrl, token) {
+    const urlFactory = token
+      ? `${baseUrl}/hubs/auction?access_token=${encodeURIComponent(token)}`
+      : `${baseUrl}/hubs/auction`;
     return new signalR.HubConnectionBuilder()
-      .withUrl(`${baseUrl}/hubs/auction`)
+      .withUrl(urlFactory)
       .withAutomaticReconnect([0, 1000, 2000, 5000, 10000, 30000])
       .configureLogging(signalR.LogLevel.Warning)
       .build();
@@ -413,7 +420,8 @@ Prerequisites:
 
     for (let i = 0; i < numClients; i++) {
       const panel = createClientPanel(i);
-      const connection = buildConnection(baseUrl);
+      const token = document.getElementById('accessToken').value.trim();
+      const connection = buildConnection(baseUrl, token);
       const client = { connection, ...panel };
       clients.push(client);
 

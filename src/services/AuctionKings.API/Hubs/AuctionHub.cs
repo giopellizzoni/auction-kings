@@ -1,11 +1,12 @@
 using AuctionKings.Application.Abstractions;
 using AuctionKings.Application.Auctions.Queries.GetAuctionDetails;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 
 namespace AuctionKings.API.Hubs;
 
-// TODO: Add [Authorize] once authentication (Cognito/JWT) is implemented — Task 10
+[Authorize]
 public sealed class AuctionHub(IConnectionTracker connectionTracker, IMediator mediator) : Hub
 {
     private readonly IConnectionTracker _connectionTracker = connectionTracker;
