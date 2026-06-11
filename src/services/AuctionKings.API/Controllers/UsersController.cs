@@ -9,9 +9,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace AuctionKings.API.Controllers;
 
 [Route("api/v1/users")]
-[ApiController]
 [Authorize]
-public sealed class UsersController : ControllerBase
+public sealed class UsersController : ApiControllerBase
 {
     private readonly ISender _sender;
 
@@ -57,14 +56,4 @@ public sealed class UsersController : ControllerBase
         return Ok(result.Value);
     }
 
-    private ObjectResult MapError(Error error) =>
-        error.Type switch
-        {
-            ErrorType.NotFound => NotFound(new { error.Code, error.Message }),
-            ErrorType.Unexpected => StatusCode(
-                StatusCodes.Status500InternalServerError,
-                new { error.Code, error.Message }
-            ),
-            _ => BadRequest(new { error.Code, error.Message }),
-        };
 }

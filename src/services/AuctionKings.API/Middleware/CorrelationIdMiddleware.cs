@@ -8,9 +8,18 @@ public sealed class CorrelationIdMiddleware(RequestDelegate next)
 
     public async Task InvokeAsync(HttpContext context)
     {
-        var correlationId = context.Request.Headers.TryGetValue(HeaderName, out var value)
-            ? value.ToString()
-            : Guid.NewGuid().ToString();
+        // Accept the inbound header only when it is a well-formed GUID; otherwise generate a
+        // fresh one. This prevents log-injection via a crafted X-Correlation-Id value.
+        string correlationId;
+        if (context.Request.Headers.TryGetValue(HeaderName, out var value)
+            && Guid.TryParse(value.ToString(), out _))
+        {
+            correlationId = value.ToString();
+        }
+        else
+        {
+            correlationId = Guid.NewGuid().ToString();
+        }
 
         context.Response.Headers[HeaderName] = correlationId;
 

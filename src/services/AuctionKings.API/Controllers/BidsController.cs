@@ -14,8 +14,7 @@ namespace AuctionKings.API.Controllers;
 public sealed record PlaceBidRequest(decimal Amount, string Currency);
 
 [Route("api/v1/auctions/{auctionId:guid}/bids")]
-[ApiController]
-public sealed class BidsController : ControllerBase
+public sealed class BidsController : ApiControllerBase
 {
     private static readonly Counter BidsPlaced = Metrics.CreateCounter(
         "auction_kings_bids_placed_total",
@@ -100,15 +99,4 @@ public sealed class BidsController : ControllerBase
         return Ok(result.Value);
     }
 
-    private ObjectResult MapError(Error error) =>
-        error.Type switch
-        {
-            ErrorType.NotFound => NotFound(new { error.Code, error.Message }),
-            ErrorType.Conflict => Conflict(new { error.Code, error.Message }),
-            ErrorType.Unexpected => StatusCode(
-                StatusCodes.Status500InternalServerError,
-                new { error.Code, error.Message }
-            ),
-            _ => BadRequest(new { error.Code, error.Message }),
-        };
 }
