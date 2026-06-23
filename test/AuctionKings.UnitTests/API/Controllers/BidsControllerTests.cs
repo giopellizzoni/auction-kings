@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AuctionKings.API.Controllers;
 using AuctionKings.Application.Auctions.Commands.PlaceBid;
 using AuctionKings.Application.Auctions.Queries.GetAuctionBids;
@@ -16,10 +17,17 @@ public sealed class BidsControllerTests
 {
     private readonly ISender _sender = Substitute.For<ISender>();
     private readonly BidsController _controller;
+    private readonly Guid _callerId = Guid.NewGuid();
 
     public BidsControllerTests()
     {
-        var httpContext = new DefaultHttpContext();
+        var claims = new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(ClaimTypes.NameIdentifier, _callerId.ToString()),
+            new Claim(ClaimTypes.Role, "Bidder"),
+        ], "Test"));
+
+        var httpContext = new DefaultHttpContext { User = claims };
         httpContext.Items["IdempotencyKey"] = "test-idempotency-key";
 
         _controller = new BidsController(_sender)
@@ -35,10 +43,12 @@ public sealed class BidsControllerTests
         var auctionId = Guid.NewGuid();
 
         _sender
-            .Send(Arg.Any<PlaceBidCommand>(), Arg.Any<CancellationToken>())
+            .Send(
+                Arg.Is<PlaceBidCommand>(c => c.BidderId == _callerId),
+                Arg.Any<CancellationToken>())
             .Returns(Result.Success(bidId));
 
-        var request = new PlaceBidRequest(Guid.NewGuid(), 150m, "USD");
+        var request = new PlaceBidRequest(150m, "USD");
 
         var actionResult = await _controller.PlaceBid(auctionId, request, CancellationToken.None);
 
@@ -48,13 +58,28 @@ public sealed class BidsControllerTests
     }
 
     [Fact]
+    public async Task BidsController_PlaceBid_NoClaims_ShouldReturn401()
+    {
+        var httpContext = new DefaultHttpContext { User = new ClaimsPrincipal() };
+        httpContext.Items["IdempotencyKey"] = "key";
+        var controller = new BidsController(_sender)
+        {
+            ControllerContext = new ControllerContext { HttpContext = httpContext },
+        };
+
+        var result = await controller.PlaceBid(Guid.NewGuid(), new PlaceBidRequest(100m, "USD"), CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    [Fact]
     public async Task BidsController_PlaceBid_InvalidData_ShouldReturn400()
     {
         _sender
             .Send(Arg.Any<PlaceBidCommand>(), Arg.Any<CancellationToken>())
             .Returns(Result.Failure<Guid>(DomainErrors.Auction.BidTooLow));
 
-        var request = new PlaceBidRequest(Guid.NewGuid(), 1m, "USD");
+        var request = new PlaceBidRequest(1m, "USD");
 
         var actionResult = await _controller.PlaceBid(
             Guid.NewGuid(),
@@ -69,11 +94,10 @@ public sealed class BidsControllerTests
     public async Task BidsController_GetBids_ShouldReturnPaginatedList()
     {
         var auctionId = Guid.NewGuid();
-        var bidderId = Guid.NewGuid();
         var pagedResult = new PagedResult<BidDto>(
             new List<BidDto>
             {
-                new(Guid.NewGuid(), bidderId, 100m, "USD", DateTime.UtcNow, BidStatus.Active),
+                new(Guid.NewGuid(), _callerId, 100m, "USD", DateTime.UtcNow, BidStatus.Active),
             },
             totalCount: 1,
             page: 1,

@@ -1,4 +1,5 @@
 using AuctionKings.API.Auth;
+using AuctionKings.API.Filters;
 using AuctionKings.Application.Auctions.Commands.CloseAuction;
 using AuctionKings.Application.Auctions.Commands.CreateAuction;
 using AuctionKings.Application.Auctions.Queries.GetActiveAuctions;
@@ -17,32 +18,42 @@ public sealed record CreateAuctionRequest(
     decimal StartingPrice,
     string Currency,
     double DurationInHours,
-    Guid SellerId
+    DateTime? StartTime = null
 );
 
 [Route("api/v1/auctions")]
-[ApiController]
-public sealed class AuctionsController : ControllerBase
+public sealed class AuctionsController : ApiControllerBase
 {
     private readonly ISender _sender;
 
     public AuctionsController(ISender sender) => _sender = sender;
 
     [HttpPost]
+    [Authorize(Policy = Policies.Bidder)]
+    [RateLimit(policy: "create-auction", failOpen: false)]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> CreateAuction(
         [FromBody] CreateAuctionRequest request,
         CancellationToken cancellationToken
     )
     {
+        var sellerId = User.GetUserId();
+        if (sellerId is null)
+        {
+            return Unauthorized();
+        }
+
         var command = new CreateAuctionCommand(
             request.Title,
             request.Description,
             request.StartingPrice,
             request.Currency,
             TimeSpan.FromHours(request.DurationInHours),
-            request.SellerId
+            sellerId.Value,
+            request.StartTime
         );
 
         var result = await _sender.Send(command, cancellationToken);
@@ -123,15 +134,4 @@ public sealed class AuctionsController : ControllerBase
         return NoContent();
     }
 
-    private ObjectResult MapError(Error error) =>
-        error.Type switch
-        {
-            ErrorType.NotFound => NotFound(new { error.Code, error.Message }),
-            ErrorType.Conflict => Conflict(new { error.Code, error.Message }),
-            ErrorType.Unexpected => StatusCode(
-                StatusCodes.Status500InternalServerError,
-                new { error.Code, error.Message }
-            ),
-            _ => BadRequest(new { error.Code, error.Message }),
-        };
 }

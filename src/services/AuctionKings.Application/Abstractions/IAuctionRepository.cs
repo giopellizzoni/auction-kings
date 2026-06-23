@@ -22,4 +22,9 @@ public interface IAuctionRepository
         DateTime now,
         int batchSize,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<Auction>> GetPendingAuctionsToActivateAsync(
+        DateTime now,
+        int batchSize,
+        CancellationToken cancellationToken = default);
 }

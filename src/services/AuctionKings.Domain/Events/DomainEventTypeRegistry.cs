@@ -5,6 +5,7 @@ public static class DomainEventTypeRegistry
     private static readonly Dictionary<string, Type> Registry = new()
     {
         [typeof(AuctionCreatedEvent).FullName!] = typeof(AuctionCreatedEvent),
+        [typeof(AuctionActivatedEvent).FullName!] = typeof(AuctionActivatedEvent),
         [typeof(AuctionClosedEvent).FullName!] = typeof(AuctionClosedEvent),
         [typeof(AuctionExtendedEvent).FullName!] = typeof(AuctionExtendedEvent),
         [typeof(BidPlacedEvent).FullName!] = typeof(BidPlacedEvent),

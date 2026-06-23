@@ -19,11 +19,14 @@ builder.Services.Configure<OutboxOptions>(
 
 builder.Services.Configure<AuctionCloseWorkerOptions>(
     builder.Configuration.GetSection(AuctionCloseWorkerOptions.SectionName));
+builder.Services.Configure<AuctionActivationWorkerOptions>(
+    builder.Configuration.GetSection(AuctionActivationWorkerOptions.SectionName));
 builder.Services.Configure<CleanupWorkerOptions>(
     builder.Configuration.GetSection(CleanupWorkerOptions.SectionName));
 
 builder.Services.AddHostedService<OutboxProcessor>();
 builder.Services.AddHostedService<AuctionCloseWorker>();
+builder.Services.AddHostedService<AuctionActivationWorker>();
 builder.Services.AddHostedService<CleanupExpiredDataWorker>();
 
 var host = builder.Build();

@@ -11,6 +11,7 @@ using AuctionKings.Infrastructure;
 using AuctionKings.Infrastructure.HealthChecks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Prometheus;
@@ -86,6 +87,23 @@ builder
             ValidAudience = jwtOptions.Audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Secret)),
         };
+        // SignalR WebSocket connections cannot send Authorization headers, so the JWT
+        // is passed as the access_token query parameter instead.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (context.Request.Path.StartsWithSegments("/hubs"))
+                {
+                    var token = context.Request.Query["access_token"].ToString();
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        context.Token = token;
+                    }
+                }
+                return Task.CompletedTask;
+            },
+        };
     });
 builder.Services.AddAuthorization(options =>
 {
@@ -97,6 +115,14 @@ builder.Services.AddSingleton<JwtTokenGenerator>();
 builder.Services.AddHealthChecks().AddInfrastructureHealthChecks();
 
 var app = builder.Build();
+
+// Must be first so that RemoteIpAddress and Request.Scheme are correct behind the ALB.
+// KnownNetworks/KnownProxies are cleared so that X-Forwarded-For is trusted from any source;
+// the ALB is the only entry point in staging/production so all requests come through it.
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+});
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();

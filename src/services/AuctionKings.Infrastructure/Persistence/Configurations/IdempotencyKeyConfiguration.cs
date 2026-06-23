@@ -13,6 +13,10 @@ internal sealed class IdempotencyKeyConfiguration : IEntityTypeConfiguration<Ide
 
         builder.Property(x => x.Key).HasMaxLength(500).IsRequired();
 
+        builder.Property(x => x.Status).HasMaxLength(20).IsRequired();
+
+        builder.Property(x => x.Response).HasColumnType("text");
+
         builder.Property(x => x.CreatedAt).IsRequired();
 
         builder.Property(x => x.ExpiresAt).IsRequired();
