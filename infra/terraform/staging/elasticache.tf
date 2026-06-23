@@ -7,19 +7,22 @@ resource "random_password" "redis" {
 }
 
 resource "aws_elasticache_subnet_group" "redis" {
-  name       = "auction-kings-staging"
+  name       = "${local.name_prefix}"
   subnet_ids = aws_subnet.private[*].id
-  tags       = { Name = "auction-kings-staging-redis-subnet-group" }
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-redis-subnet-group"
+  })
 }
 
 resource "aws_elasticache_replication_group" "redis" {
-  replication_group_id = "auction-kings-staging"
+  replication_group_id = "${local.name_prefix}"
   description          = "Redis for AuctionKings staging - cache + SignalR backplane"
 
-  node_type            = "cache.t4g.micro"
-  num_cache_clusters   = 1   # Single node for staging; increase for prod
-  engine_version       = "7.1"
-  port                 = 6379
+  node_type          = "cache.t4g.micro"
+  num_cache_clusters = 1 # Single node for staging; increase for prod
+  engine_version     = "7.1"
+  port               = 6379
 
   subnet_group_name  = aws_elasticache_subnet_group.redis.name
   security_group_ids = [aws_security_group.elasticache.id]
@@ -35,5 +38,7 @@ resource "aws_elasticache_replication_group" "redis" {
 
   apply_immediately = true
 
-  tags = { Name = "auction-kings-staging-redis" }
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-redis"
+  })
 }

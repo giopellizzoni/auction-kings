@@ -1,12 +1,14 @@
 resource "aws_ecs_cluster" "main" {
-  name = "auction-kings-staging"
+  name = "${local.name_prefix}"
 
   setting {
     name  = "containerInsights"
     value = "enabled"
   }
 
-  tags = { Name = "auction-kings-staging-cluster" }
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-cluster"
+  })
 }
 
 resource "aws_ecs_cluster_capacity_providers" "fargate" {
@@ -20,19 +22,11 @@ resource "aws_ecs_cluster_capacity_providers" "fargate" {
   }
 }
 
-locals {
-  # Build the PostgreSQL connection string from RDS outputs.
-  db_connection_string = "Host=${aws_db_instance.postgres.address};Port=${aws_db_instance.postgres.port};Database=${var.db_name};Username=${var.db_username};Password=${random_password.db.result};SSL Mode=Require;Trust Server Certificate=true"
-
-  # Redis connection string — TLS required by ElastiCache AUTH token.
-  redis_connection_string = "${aws_elasticache_replication_group.redis.primary_endpoint_address}:6379,password=${random_password.redis.result},ssl=true,abortConnect=false"
-}
-
 resource "aws_ecs_task_definition" "api" {
-  family                   = "auction-kings-staging-api"
+  family                   = "${local.name_prefix}-api"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = 256    # 0.25 vCPU — adequate for staging
+  cpu                      = 256 # 0.25 vCPU — adequate for staging
   memory                   = 512
   execution_role_arn       = aws_iam_role.ecs_execution.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
@@ -40,7 +34,7 @@ resource "aws_ecs_task_definition" "api" {
   container_definitions = jsonencode([
     {
       name      = "api"
-      image     = var.app_image
+      image     = var.ecs.api_image
       essential = true
 
       portMappings = [
@@ -48,15 +42,15 @@ resource "aws_ecs_task_definition" "api" {
       ]
 
       environment = [
-        { name = "ASPNETCORE_ENVIRONMENT",         value = "Production" },
-        { name = "ASPNETCORE_URLS",                value = "http://+:8080" },
+        { name = "ASPNETCORE_ENVIRONMENT", value = "Production" },
+        { name = "ASPNETCORE_URLS", value = "http://+:8080" },
         { name = "ConnectionStrings__DefaultConnection", value = local.db_connection_string },
-        { name = "ConnectionStrings__Redis",        value = local.redis_connection_string },
-        { name = "Jwt__Issuer",                     value = var.jwt_issuer },
-        { name = "Jwt__Audience",                   value = var.jwt_audience },
-        { name = "Jwt__ExpiresInMinutes",           value = "60" },
-        { name = "Sqs__BidQueueUrl",                value = aws_sqs_queue.bid_events.url },
-        { name = "AWS_DEFAULT_REGION",              value = var.aws_region },
+        { name = "ConnectionStrings__Redis", value = local.redis_connection_string },
+        { name = "Jwt__Issuer", value = var.jwt.issuer },
+        { name = "Jwt__Audience", value = var.jwt.audience },
+        { name = "Jwt__ExpiresInMinutes", value = "60" },
+        { name = "Sqs__BidQueueUrl", value = aws_sqs_queue.bid_events.url },
+        { name = "AWS_DEFAULT_REGION", value = var.aws_region },
       ]
 
       # Secrets injected at task start by the execution role — never appear in plain-text env vars in the console.
@@ -83,20 +77,22 @@ resource "aws_ecs_task_definition" "api" {
     }
   ])
 
-  tags = { Name = "auction-kings-staging-api-task" }
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-api-task"
+  })
 }
 
 resource "aws_ecs_service" "api" {
-  name            = "auction-kings-staging-api"
+  name            = "${local.name_prefix}-api"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.api.arn
-  desired_count   = var.desired_count
+  desired_count   = var.ecs.desired_count
   launch_type     = "FARGATE"
 
   network_configuration {
     subnets          = aws_subnet.private[*].id
     security_groups  = [aws_security_group.api.id]
-    assign_public_ip = false   # Traffic via NAT Gateway
+    assign_public_ip = false # Traffic via NAT Gateway
   }
 
   load_balancer {
@@ -121,5 +117,7 @@ resource "aws_ecs_service" "api" {
 
   depends_on = [aws_lb_listener.http]
 
-  tags = { Name = "auction-kings-staging-api-service" }
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-api-service"
+  })
 }

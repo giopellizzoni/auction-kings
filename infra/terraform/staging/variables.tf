@@ -1,51 +1,39 @@
 variable "aws_region" {
   description = "AWS region for all resources."
   type        = string
-  default     = "us-east-1"
+  nullable    = false
 }
 
-variable "app_image" {
-  description = "Full ECR/GHCR image URI for the API (e.g. ghcr.io/pellizzonicode/auction-kings-api:sha-abc123)."
-  type        = string
+variable "vpc" {
+  description = "VPC network configuration."
+  type = object({
+    cidr            = string
+    public_subnets  = list(string)
+    private_subnets = list(string)
+  })
 }
 
-variable "worker_image" {
-  description = "Full ECR/GHCR image URI for the BackgroundWorkers (e.g. ghcr.io/pellizzonicode/auction-kings-worker:sha-abc123)."
-  type        = string
+variable "rds" {
+  description = "RDS PostgreSQL configuration."
+  type = object({
+    name     = string
+    username = string
+  })
 }
 
-variable "db_name" {
-  description = "PostgreSQL database name."
-  type        = string
-  default     = "AuctionKingsDB"
+variable "jwt" {
+  description = "JWT token configuration."
+  type = object({
+    issuer   = string
+    audience = string
+  })
 }
 
-variable "db_username" {
-  description = "PostgreSQL master username."
-  type        = string
-  default     = "auctionkings"
-}
-
-variable "jwt_issuer" {
-  description = "JWT issuer claim."
-  type        = string
-  default     = "auction-kings-staging"
-}
-
-variable "jwt_audience" {
-  description = "JWT audience claim."
-  type        = string
-  default     = "auction-kings-staging"
-}
-
-variable "desired_count" {
-  description = "Desired number of ECS tasks."
-  type        = number
-  default     = 1
-}
-
-variable "vpc_cidr" {
-  description = "CIDR block for the VPC."
-  type        = string
-  default     = "10.0.0.0/16"
+variable "ecs" {
+  description = "ECS Fargate service configuration."
+  type = object({
+    api_image     = string
+    worker_image  = string
+    desired_count = number
+  })
 }

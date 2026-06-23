@@ -1,5 +1,5 @@
 resource "aws_ecs_task_definition" "worker" {
-  family                   = "auction-kings-staging-worker"
+  family                   = "${local.name_prefix}-worker"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   cpu                      = 256
@@ -10,15 +10,15 @@ resource "aws_ecs_task_definition" "worker" {
   container_definitions = jsonencode([
     {
       name      = "worker"
-      image     = var.worker_image
+      image     = var.ecs.worker_image
       essential = true
 
       environment = [
-        { name = "ASPNETCORE_ENVIRONMENT",               value = "Production" },
-        { name = "ConnectionStrings__DefaultConnection",  value = local.db_connection_string },
-        { name = "ConnectionStrings__Redis",              value = local.redis_connection_string },
-        { name = "Sqs__BidQueueUrl",                     value = aws_sqs_queue.bid_events.url },
-        { name = "AWS_DEFAULT_REGION",                   value = var.aws_region },
+        { name = "ASPNETCORE_ENVIRONMENT", value = "Production" },
+        { name = "ConnectionStrings__DefaultConnection", value = local.db_connection_string },
+        { name = "ConnectionStrings__Redis", value = local.redis_connection_string },
+        { name = "Sqs__BidQueueUrl", value = aws_sqs_queue.bid_events.url },
+        { name = "AWS_DEFAULT_REGION", value = var.aws_region },
       ]
 
       logConfiguration = {
@@ -32,11 +32,13 @@ resource "aws_ecs_task_definition" "worker" {
     }
   ])
 
-  tags = { Name = "auction-kings-staging-worker-task" }
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-worker-task"
+  })
 }
 
 resource "aws_ecs_service" "worker" {
-  name            = "auction-kings-staging-worker"
+  name            = "${local.name_prefix}-worker"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.worker.arn
   desired_count   = 1
@@ -61,5 +63,7 @@ resource "aws_ecs_service" "worker" {
     ignore_changes = [task_definition]
   }
 
-  tags = { Name = "auction-kings-staging-worker-service" }
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-worker-service"
+  })
 }

@@ -1,10 +1,26 @@
 # Copy this file to terraform.tfvars and fill in the values.
 # NEVER commit terraform.tfvars — it contains secrets.
 
-aws_region    = "us-east-1"
-app_image     = "ghcr.io/pellizzonicode/auction-kings:sha-<commit-sha>"
-db_name       = "AuctionKingsDB"
-db_username   = "auctionkings"
-jwt_issuer    = "auction-kings-staging"
-jwt_audience  = "auction-kings-staging"
-desired_count = 1
+aws_region = "us-east-1"
+
+vpc = {
+  cidr            = "10.0.0.0/16"
+  public_subnets  = ["10.0.1.0/24", "10.0.2.0/24"]
+  private_subnets = ["10.0.11.0/24", "10.0.12.0/24"]
+}
+
+rds = {
+  name     = "AuctionKingsDB"
+  username = "auctionkings"
+}
+
+jwt = {
+  issuer   = "auction-kings-staging"
+  audience = "auction-kings-staging"
+}
+
+ecs = {
+  api_image     = "ghcr.io/pellizzonicode/auction-kings-api:sha-<commit-sha>"
+  worker_image  = "ghcr.io/pellizzonicode/auction-kings-worker:sha-<commit-sha>"
+  desired_count = 1
+}
