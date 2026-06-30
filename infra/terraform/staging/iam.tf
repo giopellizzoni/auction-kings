@@ -2,7 +2,7 @@
 # Used by the ECS agent to pull images and push logs.
 
 resource "aws_iam_role" "ecs_execution" {
-  name = "auction-kings-staging-ecs-execution"
+  name = "${local.name_prefix}-ecs-execution"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -21,7 +21,7 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_managed" {
 
 # Allow the execution role to read secrets so ECS can inject them as env vars.
 resource "aws_iam_role_policy" "ecs_execution_secrets" {
-  name = "read-staging-secrets"
+  name = "read-${var.environment}-secrets"
   role = aws_iam_role.ecs_execution.id
 
   policy = jsonencode({
@@ -42,7 +42,7 @@ resource "aws_iam_role_policy" "ecs_execution_secrets" {
 # Assumed by the running application container for runtime AWS API calls.
 
 resource "aws_iam_role" "ecs_task" {
-  name = "auction-kings-staging-ecs-task"
+  name = "${local.name_prefix}-ecs-task"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -85,7 +85,7 @@ data "aws_caller_identity" "current" {}
 # local.github_oidc_provider_arn is defined in locals.tf
 
 resource "aws_iam_role" "github_actions_deploy" {
-  name = "auction-kings-staging-github-deploy"
+  name = "${local.name_prefix}-github-deploy"
 
   # Trust policy is managed by Terraform. The role can update its own trust policy because
   # iam:UpdateAssumeRolePolicy is granted via the github_actions_iam inline policy below.
@@ -101,7 +101,7 @@ resource "aws_iam_role" "github_actions_deploy" {
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringLike = {
-          "token.actions.githubusercontent.com:sub" = "repo:PellizzoniCode/auction-kings:*"
+          "token.actions.githubusercontent.com:sub" = var.github.repo
         }
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
@@ -139,7 +139,7 @@ resource "aws_iam_role_policy" "github_actions_tf_state" {
         ]
         Resource = [
           "arn:aws:s3:::auction-kings-terraform-state",
-          "arn:aws:s3:::auction-kings-terraform-state/staging/*",
+          "arn:aws:s3:::auction-kings-terraform-state/${var.environment}/*",
         ]
       },
       {
@@ -313,7 +313,7 @@ resource "aws_iam_role_policy" "github_actions_sqs" {
         "sqs:GetQueueAttributes", "sqs:SetQueueAttributes", "sqs:GetQueueUrl",
         "sqs:TagQueue", "sqs:UntagQueue", "sqs:ListQueueTags",
       ]
-      Resource = "arn:aws:sqs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:auction-kings-staging-*"
+      Resource = "arn:aws:sqs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${local.name_prefix}-*"
     }]
   })
 }
@@ -336,7 +336,7 @@ resource "aws_iam_role_policy" "github_actions_secrets" {
         "secretsmanager:TagResource", "secretsmanager:UntagResource",
         "secretsmanager:GetResourcePolicy", "secretsmanager:PutResourcePolicy", "secretsmanager:DeleteResourcePolicy",
       ]
-      Resource = "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:/auction-kings/staging/*"
+      Resource = "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:/auction-kings/${var.environment}/*"
     }]
   })
 }
@@ -359,7 +359,7 @@ resource "aws_iam_role_policy" "github_actions_logs" {
           "logs:TagLogGroup", "logs:UntagLogGroup", "logs:ListTagsLogGroup",
           "logs:TagResource", "logs:UntagResource", "logs:ListTagsForResource",
         ]
-        Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/auction-kings-staging-*"
+        Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/${local.name_prefix}-*"
       },
       {
         # DescribeLogGroups is a list-level action; AWS evaluates it against
@@ -393,7 +393,7 @@ resource "aws_iam_role_policy" "github_actions_iam" {
           "iam:ListInstanceProfilesForRole", "iam:PassRole",
           "iam:UpdateAssumeRolePolicy",
         ]
-        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/auction-kings-staging-*"
+        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.name_prefix}-*"
       },
       {
         Sid    = "IAMOIDCProvider"

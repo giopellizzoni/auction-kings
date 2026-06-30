@@ -1,7 +1,12 @@
 # Copy this file to terraform.tfvars and fill in the values.
 # NEVER commit terraform.tfvars — it contains secrets.
 
-aws_region = "us-east-1"
+environment = "staging"
+aws_region  = "us-east-1"
+
+github = {
+  repo = "repo:PellizzoniCode/auction-kings:*"
+}
 
 vpc = {
   cidr            = "10.0.0.0/16"
@@ -10,17 +15,47 @@ vpc = {
 }
 
 rds = {
-  name     = "AuctionKingsDB"
-  username = "auctionkings"
+  name                    = "AuctionKingsDB"
+  username                = "auctionkings"
+  engine_version          = "16"
+  instance_class          = "db.t4g.micro"
+  allocated_storage       = 20
+  max_allocated_storage   = 100
+  backup_retention_period = 3
 }
 
-jwt = {
-  issuer   = "auction-kings-staging"
-  audience = "auction-kings-staging"
+elasticache = {
+  node_type                = "cache.t4g.micro"
+  engine_version           = "7.1"
+  num_cache_clusters       = 1
+  snapshot_retention_limit = 1
 }
 
 ecs = {
-  api_image     = "ghcr.io/pellizzonicode/auction-kings-api:sha-<commit-sha>"
-  worker_image  = "ghcr.io/pellizzonicode/auction-kings-worker:sha-<commit-sha>"
-  desired_count = 1
+  api_image            = "ghcr.io/pellizzonicode/auction-kings-api:sha-<commit-sha>"
+  worker_image         = "ghcr.io/pellizzonicode/auction-kings-worker:sha-<commit-sha>"
+  api_desired_count    = 1
+  worker_desired_count = 1
+  api_cpu              = 256
+  api_memory           = 512
+  worker_cpu           = 256
+  worker_memory        = 512
+}
+
+jwt = {
+  issuer             = "auction-kings-staging"
+  audience           = "auction-kings-staging"
+  expires_in_minutes = 60
+}
+
+cloudwatch = {
+  log_retention_days = 7
+}
+
+sqs = {
+  bid_events_retention_seconds     = 86400
+  bid_events_dlq_retention_seconds = 1209600
+  visibility_timeout_seconds       = 30
+  receive_wait_time_seconds        = 20
+  max_receive_count                = 5
 }

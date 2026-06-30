@@ -2,8 +2,8 @@ resource "aws_ecs_task_definition" "worker" {
   family                   = "${local.name_prefix}-worker"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = 256
-  memory                   = 512
+  cpu                      = var.ecs.worker_cpu
+  memory                   = var.ecs.worker_memory
   execution_role_arn       = aws_iam_role.ecs_execution.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
 
@@ -41,7 +41,7 @@ resource "aws_ecs_service" "worker" {
   name            = "${local.name_prefix}-worker"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.worker.arn
-  desired_count   = 1
+  desired_count   = var.ecs.worker_desired_count
   launch_type     = "FARGATE"
 
   network_configuration {

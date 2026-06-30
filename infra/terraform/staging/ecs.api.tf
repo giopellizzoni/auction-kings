@@ -26,8 +26,8 @@ resource "aws_ecs_task_definition" "api" {
   family                   = "${local.name_prefix}-api"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = 256 # 0.25 vCPU — adequate for staging
-  memory                   = 512
+  cpu                      = var.ecs.api_cpu
+  memory                   = var.ecs.api_memory
   execution_role_arn       = aws_iam_role.ecs_execution.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
 
@@ -48,7 +48,7 @@ resource "aws_ecs_task_definition" "api" {
         { name = "ConnectionStrings__Redis", value = local.redis_connection_string },
         { name = "Jwt__Issuer", value = var.jwt.issuer },
         { name = "Jwt__Audience", value = var.jwt.audience },
-        { name = "Jwt__ExpiresInMinutes", value = "60" },
+        { name = "Jwt__ExpiresInMinutes", value = tostring(var.jwt.expires_in_minutes) },
         { name = "Sqs__BidQueueUrl", value = aws_sqs_queue.bid_events.url },
         { name = "AWS_DEFAULT_REGION", value = var.aws_region },
       ]
@@ -86,7 +86,7 @@ resource "aws_ecs_service" "api" {
   name            = "${local.name_prefix}-api"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.api.arn
-  desired_count   = var.ecs.desired_count
+  desired_count   = var.ecs.api_desired_count
   launch_type     = "FARGATE"
 
   network_configuration {

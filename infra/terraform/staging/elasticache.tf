@@ -17,11 +17,11 @@ resource "aws_elasticache_subnet_group" "redis" {
 
 resource "aws_elasticache_replication_group" "redis" {
   replication_group_id = "${local.name_prefix}"
-  description          = "Redis for AuctionKings staging - cache + SignalR backplane"
+  description          = "Redis for AuctionKings ${var.environment} - cache + SignalR backplane"
 
-  node_type          = "cache.t4g.micro"
-  num_cache_clusters = 1 # Single node for staging; increase for prod
-  engine_version     = "7.1"
+  node_type          = var.elasticache.node_type
+  num_cache_clusters = var.elasticache.num_cache_clusters
+  engine_version     = var.elasticache.engine_version
   port               = 6379
 
   subnet_group_name  = aws_elasticache_subnet_group.redis.name
@@ -32,8 +32,7 @@ resource "aws_elasticache_replication_group" "redis" {
   transit_encryption_enabled = true
   at_rest_encryption_enabled = true
 
-  # Minimal backup for staging
-  snapshot_retention_limit = 1
+  snapshot_retention_limit = var.elasticache.snapshot_retention_limit
   snapshot_window          = "03:00-04:00"
 
   apply_immediately = true

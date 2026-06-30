@@ -1,5 +1,5 @@
 locals {
-  name_prefix = "auction-kings-staging"
+  name_prefix = "auction-kings-${var.environment}"
 
   # common_tags is intentionally minimal: Project, Environment, and ManagedBy
   # are already applied globally via the provider's default_tags in main.tf.

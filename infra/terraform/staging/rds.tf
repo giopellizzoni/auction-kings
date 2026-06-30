@@ -17,8 +17,8 @@ resource "aws_db_instance" "postgres" {
   identifier = "${local.name_prefix}"
 
   engine         = "postgres"
-  engine_version = "16"
-  instance_class = "db.t4g.micro"
+  engine_version = var.rds.engine_version
+  instance_class = var.rds.instance_class
 
   db_name  = var.rds.name
   username = var.rds.username
@@ -27,18 +27,16 @@ resource "aws_db_instance" "postgres" {
   db_subnet_group_name   = aws_db_subnet_group.postgres.name
   vpc_security_group_ids = [aws_security_group.rds.id]
 
-  # Staging: single-AZ, no Multi-AZ standby, minimal storage
   multi_az              = false
-  allocated_storage     = 20
-  max_allocated_storage = 100
+  allocated_storage     = var.rds.allocated_storage
+  max_allocated_storage = var.rds.max_allocated_storage
   storage_type          = "gp3"
   storage_encrypted     = true
 
-  backup_retention_period = 3
+  backup_retention_period = var.rds.backup_retention_period
   deletion_protection     = false
   skip_final_snapshot     = true
 
-  # Apply updates immediately in staging
   auto_minor_version_upgrade = true
   apply_immediately          = true
 

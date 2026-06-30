@@ -27,7 +27,7 @@ provider "aws" {
   default_tags {
     tags = {
       Project     = "auction-kings"
-      Environment = "staging"
+      Environment = var.environment
       ManagedBy   = "terraform"
     }
   }
