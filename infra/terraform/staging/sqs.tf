@@ -1,21 +1,22 @@
 resource "aws_sqs_queue" "bid_events_dlq" {
-  name                       = "auction-kings-staging-bid-events-dlq"
-  message_retention_seconds  = 1209600  # 14 days
-  tags                       = { Name = "auction-kings-staging-bid-events-dlq" }
+  name                      = "${local.name_prefix}-bid-events-dlq"
+  message_retention_seconds = var.sqs.bid_events_dlq_retention_seconds
+
+  tags = { Name = "${local.name_prefix}-bid-events-dlq" }
 }
 
 resource "aws_sqs_queue" "bid_events" {
-  name                       = "auction-kings-staging-bid-events"
-  message_retention_seconds  = 86400    # 1 day
-  visibility_timeout_seconds = 30
-  receive_wait_time_seconds  = 20       # Long polling
+  name                       = "${local.name_prefix}-bid-events"
+  message_retention_seconds  = var.sqs.bid_events_retention_seconds
+  visibility_timeout_seconds = var.sqs.visibility_timeout_seconds
+  receive_wait_time_seconds  = var.sqs.receive_wait_time_seconds
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.bid_events_dlq.arn
-    maxReceiveCount     = 5
+    maxReceiveCount     = var.sqs.max_receive_count
   })
 
-  tags = { Name = "auction-kings-staging-bid-events" }
+  tags = { Name = "${local.name_prefix}-bid-events" }
 }
 
 # Allow ECS task role to send/receive/delete from both queues

@@ -1,5 +1,5 @@
 resource "aws_lb" "api" {
-  name               = "auction-kings-staging"
+  name               = "${local.name_prefix}"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
@@ -8,15 +8,17 @@ resource "aws_lb" "api" {
   # Staging: access logs optional (costs S3); enable for prod
   enable_deletion_protection = false
 
-  tags = { Name = "auction-kings-staging-alb" }
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-alb"
+  })
 }
 
 resource "aws_lb_target_group" "api" {
-  name        = "auction-kings-staging-api"
+  name        = "${local.name_prefix}-api"
   port        = 8080
   protocol    = "HTTP"
-  vpc_id      = aws_vpc.main.id
-  target_type = "ip"   # Required for Fargate
+  vpc_id      = aws_vpc.this.id
+  target_type = "ip" # Required for Fargate
 
   health_check {
     path                = "/health/live"
@@ -29,7 +31,9 @@ resource "aws_lb_target_group" "api" {
 
   deregistration_delay = 30
 
-  tags = { Name = "auction-kings-staging-api-tg" }
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-api-tg"
+  })
 }
 
 resource "aws_lb_listener" "http" {

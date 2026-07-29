@@ -1,14 +1,14 @@
 resource "random_password" "jwt_secret" {
   length  = 64
-  special = false   # JWT HS256 secret — alphanumeric is fine
+  special = false
 }
 
 # ----- DB password -----
 
 resource "aws_secretsmanager_secret" "db_password" {
-  name                    = "/auction-kings/staging/db-password"
-  recovery_window_in_days = 0   # Immediate delete in staging
-  tags                    = { Name = "auction-kings-staging-db-password" }
+  name                    = "/auction-kings/${var.environment}/db-password"
+  recovery_window_in_days = 0
+  tags                    = { Name = "${local.name_prefix}-db-password" }
 }
 
 resource "aws_secretsmanager_secret_version" "db_password" {
@@ -19,9 +19,9 @@ resource "aws_secretsmanager_secret_version" "db_password" {
 # ----- Redis AUTH token -----
 
 resource "aws_secretsmanager_secret" "redis_auth" {
-  name                    = "/auction-kings/staging/redis-auth"
+  name                    = "/auction-kings/${var.environment}/redis-auth"
   recovery_window_in_days = 0
-  tags                    = { Name = "auction-kings-staging-redis-auth" }
+  tags                    = { Name = "${local.name_prefix}-redis-auth" }
 }
 
 resource "aws_secretsmanager_secret_version" "redis_auth" {
@@ -32,9 +32,9 @@ resource "aws_secretsmanager_secret_version" "redis_auth" {
 # ----- JWT secret -----
 
 resource "aws_secretsmanager_secret" "jwt_secret" {
-  name                    = "/auction-kings/staging/jwt-secret"
+  name                    = "/auction-kings/${var.environment}/jwt-secret"
   recovery_window_in_days = 0
-  tags                    = { Name = "auction-kings-staging-jwt-secret" }
+  tags                    = { Name = "${local.name_prefix}-jwt-secret" }
 }
 
 resource "aws_secretsmanager_secret_version" "jwt_secret" {

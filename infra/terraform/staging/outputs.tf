@@ -1,10 +1,10 @@
 output "alb_dns_name" {
-  description = "Public DNS of the Application Load Balancer — staging endpoint."
+  description = "Public DNS of the Application Load Balancer."
   value       = aws_lb.api.dns_name
 }
 
 output "alb_url" {
-  description = "Full HTTP URL for the staging API."
+  description = "Full HTTP URL for the API."
   value       = "http://${aws_lb.api.dns_name}"
 }
 

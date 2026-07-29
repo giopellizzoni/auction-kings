@@ -1,6 +1,6 @@
 resource "aws_cloudwatch_log_group" "worker" {
-  name              = "/ecs/auction-kings-staging-worker"
-  retention_in_days = 7
+  name              = "/ecs/${local.name_prefix}-worker"
+  retention_in_days = var.cloudwatch.log_retention_days
 
-  tags = { Name = "auction-kings-staging-worker-logs" }
+  tags = { Name = "${local.name_prefix}-worker-logs" }
 }
