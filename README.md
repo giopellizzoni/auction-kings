@@ -22,12 +22,21 @@ A real-time auction platform built with ASP.NET Core 10, featuring WebSocket-bas
 
 ### Option A — Full Docker Stack (recommended)
 
-Starts API, background workers, PostgreSQL, Redis, LocalStack, Prometheus, and Grafana in one command:
+Starts API, background workers, PostgreSQL, Redis, LocalStack, Prometheus, and Grafana in one command.
+
+The `api`/`worker` containers (unlike the infra-only containers) read `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, and `JWT_SECRET` as plain environment variables — `docker compose` does **not** auto-load `.env.local`, so you must pass it explicitly with `--env-file`:
 
 ```bash
 cd docker
-docker compose up
+cp .env .env.local
+# Edit .env.local — set POSTGRES_PASSWORD/REDIS_PASSWORD to match
+# secrets/postgres_password.txt and secrets/redis_password.txt, and set
+# JWT_SECRET (e.g. `openssl rand -base64 48 | tr -d '\n'`).
+
+docker compose --env-file .env.local up -d
 ```
+
+If you forget `--env-file .env.local`, those three variables interpolate to empty strings — the API will crash on startup with a JWT `IDX10703: key length is zero` error and fail to authenticate with Redis (`NOAUTH`).
 
 Services available after startup (~15 seconds):
 
@@ -120,7 +129,10 @@ cp .env .env.local
 # Edit .env.local — passwords are in docker/secrets/
 ```
 
-`.env` is committed and documents every required variable. `.env.local` is git-ignored and holds real values. It is loaded automatically at startup; no extra step is needed when using `dotnet run`.
+`.env` is committed and documents every required variable. `.env.local` is git-ignored and holds real values.
+
+- `dotnet run` loads `.env.local` automatically (via `DotNetEnv` in `Program.cs`) — no extra step needed.
+- `docker compose` does **not** auto-load `.env.local` (only `.env`). Pass it explicitly: `docker compose --env-file .env.local up -d`.
 
 ### Database
 

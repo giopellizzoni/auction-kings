@@ -41,7 +41,9 @@ Clean Architecture: `API → Application → Domain ← Infrastructure`
 
 **SignalR note:** `SignalRNotificationService` lives in the API layer (not Infrastructure) to avoid circular dependency.
 
-**Infrastructure:** PostgreSQL 16 (port 5432), Redis 7 (port 6379), LocalStack 4.3 (port 4566), Moto 5.1.4 (port 5555), Prometheus (port 9090), Grafana (port 3000, admin/admin). Secrets in `/docker/secrets/` (not committed). DB: `AuctionKingsDB`, user: `dev`.
+**Infrastructure:** PostgreSQL 16 (port 5432), Redis 7 (port 6379), LocalStack 4.3 (port 4566), Moto 5.1.4 (port 5555), Prometheus (port 9090), Grafana (port 3000, admin/admin). Secrets in `/docker/secrets/` (not committed) — `postgres_password.txt` and `redis_password.txt` must be created locally (they're git-ignored placeholders, not generated automatically). DB: `AuctionKingsDB`, user: `dev`.
+
+**Full Docker stack (`docker compose up`, not just the infra file):** the `api`/`worker` containers need `POSTGRES_PASSWORD`, `REDIS_PASSWORD` (same values as the files above), and `JWT_SECRET` as plain env vars. `docker compose` does not auto-load `.env.local` — run `docker compose --env-file .env.local up -d`, or the app crashes on startup (JWT `IDX10703` / Redis `NOAUTH`). See `docker/.env` for the template and README.md → Configuration for details.
 
 **Health endpoints:** `/health/live` (liveness), `/health/ready` (DB + Redis + Outbox), `/health/db` (database only).
 
