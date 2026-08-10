@@ -58,6 +58,39 @@ public sealed class PlaceBidConcurrencyTests
         Assert.Equal(1, successCount);
     }
 
+    [Fact]
+    public async Task PlaceBid_SequentialBidsOnSameAuction_AllSucceed()
+    {
+        // Regression test: AuctionRepository.UpdateAsync used to fail to distinguish a newly
+        // added Bid from an already-tracked one once the auction had at least one prior bid,
+        // because Entry(existingBid) triggered an implicit DetectChanges() that auto-attached
+        // the new Bid as Unchanged before the explicit Detached check ran. EF then issued a
+        // phantom UPDATE for a bid row that didn't exist yet, which always affected 0 rows and
+        // threw DbUpdateConcurrencyException — every second-or-later bid on an auction failed
+        // with Auction.ConcurrencyConflict even with no concurrent writers at all.
+        var auctionId = await SeedActiveAuctionAsync(startingPrice: 100m);
+        var sp = BuildServiceProvider();
+
+        await using var scope1 = sp.CreateAsyncScope();
+        var result1 = await scope1.ServiceProvider.GetRequiredService<ISender>().Send(
+            new PlaceBidCommand(auctionId, Guid.NewGuid(), 110m, "USD", Guid.NewGuid().ToString())
+        );
+
+        await using var scope2 = sp.CreateAsyncScope();
+        var result2 = await scope2.ServiceProvider.GetRequiredService<ISender>().Send(
+            new PlaceBidCommand(auctionId, Guid.NewGuid(), 120m, "USD", Guid.NewGuid().ToString())
+        );
+
+        await using var scope3 = sp.CreateAsyncScope();
+        var result3 = await scope3.ServiceProvider.GetRequiredService<ISender>().Send(
+            new PlaceBidCommand(auctionId, Guid.NewGuid(), 130m, "USD", Guid.NewGuid().ToString())
+        );
+
+        Assert.True(result1.IsSuccess, result1.IsFailure ? result1.Error.Message : null);
+        Assert.True(result2.IsSuccess, result2.IsFailure ? result2.Error.Message : null);
+        Assert.True(result3.IsSuccess, result3.IsFailure ? result3.Error.Message : null);
+    }
+
     private async Task<Guid> SeedActiveAuctionAsync(decimal startingPrice)
     {
         await using var context = _fixture.CreateDbContext();

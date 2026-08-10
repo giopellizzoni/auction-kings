@@ -52,12 +52,31 @@ internal sealed class AuctionRepository : IAuctionRepository
         // Instead, rely on snapshot change tracking for scalar property changes (Version, CurrentPrice, etc.)
         // and explicitly register any new Bid entities — EF Core cannot distinguish new (Added)
         // from existing (Modified) for entities with client-generated Guid keys discovered via navigation.
-        foreach (var bid in auction.Bids)
+        //
+        // AutoDetectChangesEnabled must be off for this loop: Entry(...) triggers an implicit
+        // DetectChanges() pass, and on an auction with an existing (already-tracked) bid, that
+        // pass discovers any newly-added Bid reachable from the Bids navigation and auto-attaches
+        // it as Unchanged (a client-generated Guid key looks "permanent" to EF) *before* this
+        // loop's own Detached check ever reaches it. The result: the new bid never gets Added,
+        // EF emits an UPDATE for a bid row that doesn't exist yet, and that phantom UPDATE
+        // (0 rows affected) always throws DbUpdateConcurrencyException — i.e. every bid after
+        // the first one on a given auction was failing with a 409, with no real concurrent writer.
+        var changeTracker = _context.ChangeTracker;
+        var autoDetectChangesEnabled = changeTracker.AutoDetectChangesEnabled;
+        changeTracker.AutoDetectChangesEnabled = false;
+        try
         {
-            if (_context.Entry(bid).State == EntityState.Detached)
+            foreach (var bid in auction.Bids)
             {
-                _context.Bids.Add(bid);
+                if (_context.Entry(bid).State == EntityState.Detached)
+                {
+                    _context.Bids.Add(bid);
+                }
             }
+        }
+        finally
+        {
+            changeTracker.AutoDetectChangesEnabled = autoDetectChangesEnabled;
         }
 
         return Task.CompletedTask;
