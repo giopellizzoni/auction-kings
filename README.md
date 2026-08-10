@@ -20,19 +20,23 @@ A real-time auction platform built with ASP.NET Core 10, featuring WebSocket-bas
 
 ## Running the Project
 
-### Option A — Full Docker Stack (recommended)
+Both options below start from the same first step:
+
+```bash
+# Generates docker/secrets/postgres_password.txt + redis_password.txt (if missing),
+# and writes .env.local (repo root) + docker/.env.local from them. Idempotent — safe to
+# re-run, never overwrites a file that already exists.
+./scripts/setup-local-env.sh
+```
+
+### Option A — Full Docker Stack
 
 Starts API, background workers, PostgreSQL, Redis, LocalStack, Prometheus, and Grafana in one command.
 
-The `api`/`worker` containers (unlike the infra-only containers) read `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, and `JWT_SECRET` as plain environment variables — `docker compose` does **not** auto-load `.env.local`, so you must pass it explicitly with `--env-file`:
+The `api`/`worker` containers (unlike the infra-only containers) read `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, and `JWT_SECRET` as plain environment variables, from `docker/.env.local` — `docker compose` does **not** auto-load it, so you must pass it explicitly with `--env-file`:
 
 ```bash
 cd docker
-cp .env .env.local
-# Edit .env.local — set POSTGRES_PASSWORD/REDIS_PASSWORD to match
-# secrets/postgres_password.txt and secrets/redis_password.txt, and set
-# JWT_SECRET (e.g. `openssl rand -base64 48 | tr -d '\n'`).
-
 docker compose --env-file .env.local up -d
 ```
 
@@ -48,25 +52,26 @@ Services available after startup (~15 seconds):
 | Prometheus | <http://localhost:9090>                 |
 | LocalStack | <http://localhost:4566>                 |
 
-### Option B — Local Development (dotnet run)
+### Option B — Local Development (dotnet run, recommended for iterating)
 
 ```bash
-# 0. Copy env template and fill in secrets
-cp .env .env.local
-# Edit .env.local — passwords are in docker/secrets/
-
 # 1. Start infrastructure (PostgreSQL, Redis, LocalStack, Prometheus, Grafana)
 cd docker && docker compose -f docker-compose.infra.yml up -d && cd ..
 
 # 2. Restore and build
 dotnet restore && dotnet build
 
-# 3. Run the API (http://localhost:5081)
+# 3. Run the API (http://localhost:5081) — applies EF Core migrations automatically in Development
 dotnet run --project src/services/AuctionKings.API/AuctionKings.API.csproj
 
-# 4. (Optional) Run background workers in a separate terminal
+# 4. Run background workers in a separate terminal (needed for outbox dispatch and auction auto-close)
 dotnet run --project src/workers/AuctionKings.BackgroundWorkers/AuctionKings.BackgroundWorkers.csproj
 ```
+
+Do **not** manually copy `.env` to `.env.local` and fill in `Jwt__Secret` for this path —
+`appsettings.Development.json` already provides a valid dev JWT signing key, and an empty
+`Jwt__Secret` env var overrides it, crashing auth on the first request. `setup-local-env.sh`
+generates a `.env.local` that leaves JWT alone for exactly this reason.
 
 ### Verify the stack is healthy
 
@@ -122,14 +127,18 @@ auction-kings/
 
 ## Configuration
 
-Copy the env template and fill in your secrets before running locally:
+Run the bootstrap script once per checkout — it generates secrets and both `.env.local` files for you:
 
 ```bash
-cp .env .env.local
-# Edit .env.local — passwords are in docker/secrets/
+./scripts/setup-local-env.sh
 ```
 
-`.env` is committed and documents every required variable. `.env.local` is git-ignored and holds real values.
+`.env` (repo root) is committed and documents every variable `dotnet run` reads; `docker/.env`
+documents what `docker compose` interpolates. Both `.env.local` files are git-ignored and hold
+real generated values. If you prefer to edit them by hand instead of using the script, `.env`
+and `docker/.env` are the templates — but leave `Jwt__Secret`/`Issuer`/`Audience` out of the
+root `.env.local`: `appsettings.Development.json` already provides a valid dev key, and setting
+an empty one there overrides it and crashes auth on the first request.
 
 - `dotnet run` loads `.env.local` automatically (via `DotNetEnv` in `Program.cs`) — no extra step needed.
 - `docker compose` does **not** auto-load `.env.local` (only `.env`). Pass it explicitly: `docker compose --env-file .env.local up -d`.
