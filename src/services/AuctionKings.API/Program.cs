@@ -9,8 +9,10 @@ using AuctionKings.Application;
 using AuctionKings.Application.Abstractions;
 using AuctionKings.Infrastructure;
 using AuctionKings.Infrastructure.HealthChecks;
+using AuctionKings.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Prometheus;
@@ -97,6 +99,13 @@ builder.Services.AddSingleton<JwtTokenGenerator>();
 builder.Services.AddHealthChecks().AddInfrastructureHealthChecks();
 
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    using var migrationScope = app.Services.CreateScope();
+    var dbContext = migrationScope.ServiceProvider.GetRequiredService<AuctionDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
