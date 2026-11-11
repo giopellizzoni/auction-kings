@@ -6,8 +6,6 @@ namespace AuctionKings.Application.Mappings;
 
 internal sealed class AuctionMappingConfig : IRegister
 {
-    private const int TopBidsCount = 10;
-
     public void Register(TypeAdapterConfig config)
     {
         config.NewConfig<Bid, BidDto>()
@@ -39,11 +37,6 @@ internal sealed class AuctionMappingConfig : IRegister
                 src.StartTime,
                 src.EndTime,
                 src.Status,
-                src.Bids.Count,
-                src.Bids
-                    .OrderByDescending(b => b.Amount.Amount)
-                    .Take(TopBidsCount)
-                    .Select(b => b.Adapt<BidDto>())
-                    .ToList()));
+                src.Bids.Count));
     }
 }

@@ -160,8 +160,7 @@ curl -s "$API_URL/api/v1/auctions/$AUCTION_ID" | jq .
   "startTime": "2026-04-15T12:00:00Z",
   "endTime": "2026-04-15T12:10:00Z",
   "status": 1,
-  "bidCount": 0,
-  "topBids": []
+  "bidCount": 0
 }
 ```
 
@@ -234,16 +233,21 @@ amount — returns a different 409: an RFC7807 `ProblemDetails` body with
 
 ### Step 6: Inspect Bids
 
-List all bids placed on the auction (`GET /bids` returns a paged envelope, not a bare array):
+List the bids placed on the auction (`GET /bids` returns a paged envelope, not a bare array).
+Bidding is never public: the call needs a token, and bidders stay anonymous — each bid only carries
+`isOwnBid`, which is `true` for the caller's own bids. The anonymous call is a 401.
 
 ```bash
-echo "=== All Bids on Auction ==="
-curl -s "$API_URL/api/v1/auctions/$AUCTION_ID/bids" | \
-  jq '.items[] | {id, bidderId, amount, placedAt, status}'
+echo "=== Without a token (expect HTTP 401) ==="
+curl -s -o /dev/null -w "HTTP %{http_code}\n" "$API_URL/api/v1/auctions/$AUCTION_ID/bids"
+
+echo "=== All Bids on Auction, as bidder 1 ==="
+curl -s -H "Authorization: Bearer $TOKEN_1" "$API_URL/api/v1/auctions/$AUCTION_ID/bids" | \
+  jq '.items[] | {id, amount, placedAt, status, isOwnBid}'
 
 echo ""
 echo "=== Total Bids Count ==="
-curl -s "$API_URL/api/v1/auctions/$AUCTION_ID/bids" | jq '.totalCount'
+curl -s -H "Authorization: Bearer $TOKEN_1" "$API_URL/api/v1/auctions/$AUCTION_ID/bids" | jq '.totalCount'
 ```
 
 ---

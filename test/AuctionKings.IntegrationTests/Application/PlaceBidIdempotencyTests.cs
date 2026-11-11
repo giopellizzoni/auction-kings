@@ -112,7 +112,6 @@ public sealed class PlaceBidIdempotencyTests
         public Task NotifyBidPlacedAsync(
             Guid auctionId,
             Guid bidId,
-            Guid bidderId,
             decimal amount,
             string currency,
             CancellationToken cancellationToken = default

@@ -12,7 +12,6 @@ internal sealed partial class SignalRNotificationService(
     public async Task NotifyBidPlacedAsync(
         Guid auctionId,
         Guid bidId,
-        Guid bidderId,
         decimal amount,
         string currency,
         CancellationToken cancellationToken = default)
@@ -23,7 +22,7 @@ internal sealed partial class SignalRNotificationService(
                 .Group($"auction-{auctionId}")
                 .SendAsync(
                     "BidPlaced",
-                    new BidPlacedNotificationDto(auctionId, bidId, bidderId, amount, currency),
+                    new BidPlacedNotificationDto(auctionId, bidId, amount, currency),
                     cancellationToken);
         }
         catch (Exception ex)

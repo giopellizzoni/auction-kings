@@ -7,6 +7,7 @@ using AuctionKings.Domain.Enums;
 using AuctionKings.Domain.Errors;
 using AuctionKings.Shared.Common;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
@@ -94,10 +95,10 @@ public sealed class BidsControllerTests
     public async Task BidsController_GetBids_ShouldReturnPaginatedList()
     {
         var auctionId = Guid.NewGuid();
-        var pagedResult = new PagedResult<BidDto>(
-            new List<BidDto>
+        var pagedResult = new PagedResult<AuctionBidDto>(
+            new List<AuctionBidDto>
             {
-                new(Guid.NewGuid(), _callerId, 100m, "USD", DateTime.UtcNow, BidStatus.Active),
+                new(Guid.NewGuid(), 100m, "USD", DateTime.UtcNow, BidStatus.Active, IsOwnBid: true),
             },
             totalCount: 1,
             page: 1,
@@ -111,7 +112,32 @@ public sealed class BidsControllerTests
         var actionResult = await _controller.GetBids(auctionId, 1, 20, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(actionResult);
-        var returned = Assert.IsType<PagedResult<BidDto>>(okResult.Value);
+        var returned = Assert.IsType<PagedResult<AuctionBidDto>>(okResult.Value);
         Assert.Equal(1, returned.TotalCount);
+        await _sender.Received(1).Send(
+            Arg.Is<GetAuctionBidsQuery>(q => q.AuctionId == auctionId && q.RequesterId == _callerId),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task BidsController_GetBids_WithoutUserId_ShouldReturn401()
+    {
+        var anonymous = new BidsController(_sender)
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
+        };
+
+        var actionResult = await anonymous.GetBids(Guid.NewGuid(), 1, 20, CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(actionResult);
+        await _sender.DidNotReceive().Send(Arg.Any<GetAuctionBidsQuery>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public void BidsController_GetBids_ShouldRequireAuthentication()
+    {
+        var method = typeof(BidsController).GetMethod(nameof(BidsController.GetBids))!;
+
+        Assert.NotEmpty(method.GetCustomAttributes(typeof(AuthorizeAttribute), inherit: true));
     }
 }

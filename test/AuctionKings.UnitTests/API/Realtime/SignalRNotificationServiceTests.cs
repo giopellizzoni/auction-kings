@@ -25,10 +25,19 @@ public sealed class SignalRNotificationServiceTests
     {
         var auctionId = Guid.NewGuid();
 
-        await _service.NotifyBidPlacedAsync(auctionId, Guid.NewGuid(), Guid.NewGuid(), 150m, "USD");
+        await _service.NotifyBidPlacedAsync(auctionId, Guid.NewGuid(), 150m, "USD");
 
         _clients.Received(1).Group($"auction-{auctionId}");
         await _groupProxy.Received(1).SendCoreAsync("BidPlaced", Arg.Any<object?[]>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public void BidPlacedNotificationDto_ShouldNotExposeBidderIdentity()
+    {
+        // The event is broadcast to every watcher of the auction; bidding is never public.
+        Assert.DoesNotContain(
+            "BidderId",
+            typeof(AuctionKings.Application.DTOs.BidPlacedNotificationDto).GetProperties().Select(p => p.Name));
     }
 
     [Fact]

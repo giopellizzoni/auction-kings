@@ -72,7 +72,6 @@ public sealed class PlaceBidCommandHandler : IRequestHandler<PlaceBidCommand, Re
             await _notificationService.NotifyBidPlacedAsync(
                 auction.Id,
                 bid.Id,
-                bid.BidderId,
                 bid.Amount.Amount,
                 bid.Amount.Currency,
                 CancellationToken.None);
