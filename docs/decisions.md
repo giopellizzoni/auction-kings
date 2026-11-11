@@ -81,3 +81,36 @@ Use the Transactional Outbox Pattern:
 - **No horizontal scale testing**: the Redis backplane and SKIP LOCKED have been designed for multi-instance, but load tests run against a single API instance.
 - **No circuit breaker**: SQS publish failures cause outbox message retry accumulation; no automatic back-pressure or circuit breaker pattern.
 - **No audit trail for failed bids**: bids rejected by domain validation are not persisted; post-mortem analysis relies on structured logs.
+
+---
+
+## ADR-004: Explicit CORS Origin Allowlist
+
+### Context
+
+The API had no CORS configuration (security audit finding H-1, issue #100). Without CORS headers browsers
+already block cross-origin reads, and authentication is a bearer token (header, or `access_token` query
+parameter for `/hubs/*`) rather than a cookie, so a foreign site cannot ride a user's session. The gap was
+the absence of a deliberate, reviewable policy — which the planned Blazor WASM frontend (served from a
+different origin via CloudFront) will need anyway.
+
+### Decision
+
+- A single default policy (`API/Cors/CorsExtensions.cs`) built from `Cors:AllowedOrigins`:
+  - origins: exact allowlist only, with `AllowCredentials()` (required by the SignalR browser client);
+  - methods: `GET`, `POST`, `PUT`, `DELETE`;
+  - request headers: `Authorization`, `Content-Type`, `X-Request-Id`, `X-Correlation-Id`, `X-Requested-With`, `X-SignalR-User-Agent`;
+  - exposed headers: `X-Correlation-Id`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `Retry-After`;
+  - preflight cache: 10 minutes.
+- `CorsSettingsValidator` fails startup on wildcards or anything that is not an exact `scheme://host[:port]` origin.
+- The same list feeds `WebSocketOptions.AllowedOrigins`, because CORS does not apply to WebSocket upgrades.
+- `UseApiCors()` runs before `UseHttpsRedirection()` (browsers reject redirected preflights) and before authentication.
+- The default list is empty in every environment until a browser frontend exists.
+
+### Limitations
+
+- With an empty list the WebSocket middleware performs no origin check (framework behavior). Cross-origin
+  `negotiate` is still blocked by CORS and hub access still requires a valid JWT.
+- Once origins are configured, browser WebSocket connections from any unlisted origin — including the API's
+  own origin — get `403`. The API serves no browser UI that uses the hubs today.
+- Staging Terraform does not set origins yet; add a `cors.allowed_origins` input when the frontend lands.

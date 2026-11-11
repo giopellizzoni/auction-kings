@@ -153,6 +153,20 @@ an empty one there overrides it and crashes auth on the first request.
 - Host: `localhost:6379`
 - Password: `docker/secrets/redis_password.txt`
 
+### CORS
+
+Browser origins allowed to call the REST API and SignalR hubs are listed in `Cors:AllowedOrigins`
+(empty by default, meaning no cross-origin browser access). Entries must be exact origins — `https://host[:port]`,
+no path, trailing slash, or wildcard — or the API refuses to start.
+
+```jsonc
+// appsettings.{Environment}.json
+"Cors": { "AllowedOrigins": ["http://localhost:5173"] }
+```
+
+As environment variables: `Cors__AllowedOrigins__0=https://app.example.com`, `Cors__AllowedOrigins__1=...`.
+Non-browser clients (the .NET SignalR client, k6 load tests, curl) are not affected. See ADR-004 in `docs/decisions.md`.
+
 ## Stopping Services
 
 ```bash
