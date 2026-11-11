@@ -59,7 +59,6 @@ public sealed class GetAuctionDetailsQueryHandlerTests
         Assert.Equal(150m, result.Value.CurrentPrice);
         Assert.Equal("USD", result.Value.Currency);
         Assert.Equal(1, result.Value.BidCount);
-        Assert.Single(result.Value.TopBids);
     }
 
     [Fact]
@@ -92,8 +91,7 @@ public sealed class GetAuctionDetailsQueryHandlerTests
             Now,
             Now.AddDays(1),
             auction.Status,
-            0,
-            []
+            0
         );
 
         _cacheService

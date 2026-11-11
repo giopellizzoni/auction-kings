@@ -2,6 +2,7 @@ using AuctionKings.Application.Abstractions;
 using AuctionKings.Application.Auctions.Queries.GetAuctionBids;
 using AuctionKings.Application.DTOs;
 using AuctionKings.Domain.Aggregates;
+using AuctionKings.Domain.Enums;
 using AuctionKings.Domain.ValueObjects;
 using AuctionKings.Shared.Common;
 using NSubstitute;
@@ -56,7 +57,7 @@ public sealed class GetAuctionBidsQueryHandlerTests
             .GetByAuctionIdPagedAsync(auction.Id, 1, 10, Arg.Any<CancellationToken>())
             .Returns(((IReadOnlyList<Bid>)sortedBids, sortedBids.Count));
 
-        var query = new GetAuctionBidsQuery(auction.Id, Page: 1, PageSize: 10);
+        var query = new GetAuctionBidsQuery(auction.Id, Page: 1, PageSize: 10, RequesterId: Guid.NewGuid());
         var result = await _handler.Handle(query, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -69,13 +70,78 @@ public sealed class GetAuctionBidsQueryHandlerTests
     }
 
     [Fact]
+    public async Task GetAuctionBidsQueryHandler_ShouldFlagOnlyCallersOwnBids()
+    {
+        var caller = Guid.NewGuid();
+        var other = Guid.NewGuid();
+        var auction = CreateActiveAuction();
+        auction.PlaceBid(other, new Money(110m, "USD"), Now);
+        auction.PlaceBid(caller, new Money(150m, "USD"), Now);
+        auction.PlaceBid(other, new Money(200m, "USD"), Now);
+
+        var sortedBids = auction.Bids.OrderByDescending(b => b.Amount.Amount).ToList();
+        _bidRepository
+            .GetByAuctionIdPagedAsync(auction.Id, 1, 10, Arg.Any<CancellationToken>())
+            .Returns(((IReadOnlyList<Bid>)sortedBids, sortedBids.Count));
+
+        var result = await _handler.Handle(
+            new GetAuctionBidsQuery(auction.Id, Page: 1, PageSize: 10, RequesterId: caller),
+            CancellationToken.None);
+
+        var items = result.Value.Items.ToList();
+        Assert.False(items[0].IsOwnBid); // 200 — other
+        Assert.True(items[1].IsOwnBid); // 150 — caller
+        Assert.False(items[2].IsOwnBid); // 110 — other
+    }
+
+    [Fact]
+    public async Task GetAuctionBidsQueryHandler_CachedPage_ShouldBeProjectedPerCaller()
+    {
+        // The cache is shared, so one caller's view must never leak into another's.
+        var caller = Guid.NewGuid();
+        var other = Guid.NewGuid();
+        var cachedPage = new PagedResult<BidDto>(
+            [
+                new BidDto(Guid.NewGuid(), caller, 150m, "USD", Now, BidStatus.Active),
+                new BidDto(Guid.NewGuid(), other, 120m, "USD", Now, BidStatus.Active),
+            ],
+            totalCount: 2,
+            page: 1,
+            pageSize: 10);
+        _cacheService
+            .GetAsync<PagedResult<BidDto>>(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(cachedPage);
+        var auctionId = Guid.NewGuid();
+
+        var asCaller = await _handler.Handle(
+            new GetAuctionBidsQuery(auctionId, 1, 10, caller), CancellationToken.None);
+        var asOther = await _handler.Handle(
+            new GetAuctionBidsQuery(auctionId, 1, 10, other), CancellationToken.None);
+
+        Assert.Equal([true, false], asCaller.Value.Items.Select(i => i.IsOwnBid));
+        Assert.Equal([false, true], asOther.Value.Items.Select(i => i.IsOwnBid));
+        await _bidRepository.DidNotReceiveWithAnyArgs()
+            .GetByAuctionIdPagedAsync(default, default, default, default);
+    }
+
+    [Fact]
+    public void AuctionBidDto_ShouldNotExposeBidderIdentity()
+    {
+        var properties = typeof(AuctionBidDto).GetProperties().Select(p => p.Name);
+
+        Assert.DoesNotContain("BidderId", properties);
+        Assert.DoesNotContain("BidderId", typeof(AuctionDetailDto).GetProperties().Select(p => p.Name));
+        Assert.DoesNotContain("TopBids", typeof(AuctionDetailDto).GetProperties().Select(p => p.Name));
+    }
+
+    [Fact]
     public async Task GetAuctionBidsQueryHandler_NoBids_ShouldReturnEmptyPage()
     {
         _bidRepository
             .GetByAuctionIdPagedAsync(Arg.Any<Guid>(), 1, 10, Arg.Any<CancellationToken>())
             .Returns(((IReadOnlyList<Bid>)[], 0));
 
-        var query = new GetAuctionBidsQuery(Guid.NewGuid(), Page: 1, PageSize: 10);
+        var query = new GetAuctionBidsQuery(Guid.NewGuid(), Page: 1, PageSize: 10, RequesterId: Guid.NewGuid());
         var result = await _handler.Handle(query, CancellationToken.None);
 
         Assert.True(result.IsSuccess);

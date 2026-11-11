@@ -73,7 +73,9 @@ public sealed class BidsController : ApiControllerBase
     }
 
     [HttpGet]
-    [ProducesResponseType(typeof(PagedResult<BidDto>), StatusCodes.Status200OK)]
+    [Authorize]
+    [ProducesResponseType(typeof(PagedResult<AuctionBidDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetBids(
         [FromRoute] Guid auctionId,
         [FromQuery] int page = 1,
@@ -81,6 +83,14 @@ public sealed class BidsController : ApiControllerBase
         CancellationToken cancellationToken = default
     )
     {
+        // Bidding is never public: login is required and other bidders' identities are never
+        // returned, only which bids belong to the caller.
+        var callerId = User.GetUserId();
+        if (callerId is null)
+        {
+            return Unauthorized();
+        }
+
         if (page < 1)
         {
             page = 1;
@@ -88,7 +98,7 @@ public sealed class BidsController : ApiControllerBase
 
         pageSize = Math.Clamp(pageSize, 1, 50);
 
-        var query = new GetAuctionBidsQuery(auctionId, page, pageSize);
+        var query = new GetAuctionBidsQuery(auctionId, page, pageSize, callerId.Value);
         var result = await _sender.Send(query, cancellationToken);
 
         if (result.IsFailure)

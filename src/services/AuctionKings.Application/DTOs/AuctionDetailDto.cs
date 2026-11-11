@@ -11,5 +11,4 @@ public sealed record AuctionDetailDto(
     DateTime StartTime,
     DateTime EndTime,
     AuctionStatus Status,
-    int BidCount,
-    IReadOnlyList<BidDto> TopBids);
+    int BidCount);

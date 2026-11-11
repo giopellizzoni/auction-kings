@@ -17,7 +17,6 @@ internal sealed class NoOpRealtimeNotificationService : IRealtimeNotificationSer
     public Task NotifyBidPlacedAsync(
         Guid auctionId,
         Guid bidId,
-        Guid bidderId,
         decimal amount,
         string currency,
         CancellationToken cancellationToken = default) => Task.CompletedTask;

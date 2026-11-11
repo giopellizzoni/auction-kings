@@ -95,7 +95,6 @@ public sealed class PlaceBidCommandHandlerTests
             .NotifyBidPlacedAsync(
                 auction.Id,
                 Arg.Any<Guid>(),
-                bidderId,
                 110m,
                 "USD",
                 Arg.Any<CancellationToken>()

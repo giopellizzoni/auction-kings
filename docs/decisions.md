@@ -114,3 +114,27 @@ different origin via CloudFront) will need anyway.
 - Once origins are configured, browser WebSocket connections from any unlisted origin — including the API's
   own origin — get `403`. The API serves no browser UI that uses the hubs today.
 - Staging Terraform does not set origins yet; add a `cors.allowed_origins` input when the frontend lands.
+
+---
+
+## ADR-005: Bidding Is Never Public
+
+### Context
+
+Audit finding H-3 (issue #102): `GET /auctions/{id}/bids` was anonymous and returned every bid with its `BidderId`, letting anyone map user activity and bidding strategy. Auditing the neighbouring surfaces showed the same identity leaking through the anonymous `GET /auctions/{id}` (`TopBids`), the hub's join payload, and the realtime `BidPlaced` event.
+
+### Decision
+
+- Bid data requires authentication; there is no anonymous bid view.
+- A bidder never sees another bidder's identity, in any state of the auction (including after it closes).
+- `GET /auctions/{id}/bids` requires login and returns `AuctionBidDto` — amount, currency, time, status, and `IsOwnBid` — with no `BidderId`. The caller's own bids are the only ones identified, via the flag.
+- The query handler caches the full page (including `BidderId`) because the cache is shared across callers, and projects it per caller on every response. The cache entry is never returned directly.
+- `AuctionDetailDto` no longer carries `TopBids`; the public auction view shows only the current price and `BidCount`. Bids are read from the authenticated endpoint.
+- The realtime `BidPlaced` event no longer carries `bidderId`; clients get `auctionId`, `bidId`, `amount`, `currency`.
+- `GET /users/{id}/bids` is unchanged: it returns `BidDto` (with `BidderId`) but only to that user or an Admin (#157).
+
+### Limitations
+
+- `AuctionClosed` still broadcasts `winnerId` to the auction group. Whether the winner is revealed at close is a product decision not covered here.
+- Admins get no extra view of other bidders on the per-auction list; moderation tooling would need its own endpoint.
+- Other participants can still see that bids exist (amounts and counts) once authenticated; only identities are hidden.

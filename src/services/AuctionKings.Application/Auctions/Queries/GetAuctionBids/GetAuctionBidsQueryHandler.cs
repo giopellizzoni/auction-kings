@@ -7,7 +7,7 @@ using MediatR;
 namespace AuctionKings.Application.Auctions.Queries.GetAuctionBids;
 
 public sealed class GetAuctionBidsQueryHandler
-    : IRequestHandler<GetAuctionBidsQuery, Result<PagedResult<BidDto>>>
+    : IRequestHandler<GetAuctionBidsQuery, Result<PagedResult<AuctionBidDto>>>
 {
     private static readonly TimeSpan CacheExpiry = TimeSpan.FromMinutes(2);
 
@@ -20,30 +20,42 @@ public sealed class GetAuctionBidsQueryHandler
         _cacheService = cacheService;
     }
 
-    public async Task<Result<PagedResult<BidDto>>> Handle(
+    public async Task<Result<PagedResult<AuctionBidDto>>> Handle(
         GetAuctionBidsQuery request,
         CancellationToken cancellationToken)
     {
+        // The cache is shared across callers, so it holds the full page (with BidderId) and is
+        // never returned directly; every response is projected per caller below.
         var cacheKey = $"auction:{request.AuctionId}:bids:{request.Page}:{request.PageSize}";
 
-        var cached = await _cacheService.GetAsync<PagedResult<BidDto>>(cacheKey, cancellationToken);
-        if (cached is not null)
+        var page = await _cacheService.GetAsync<PagedResult<BidDto>>(cacheKey, cancellationToken);
+        if (page is null)
         {
-            return Result.Success(cached);
+            var (bids, totalCount) = await _bidRepository.GetByAuctionIdPagedAsync(
+                request.AuctionId,
+                request.Page,
+                request.PageSize,
+                cancellationToken);
+
+            page = new PagedResult<BidDto>(
+                bids.Adapt<List<BidDto>>(),
+                totalCount,
+                request.Page,
+                request.PageSize);
+
+            await _cacheService.SetAsync(cacheKey, page, CacheExpiry, cancellationToken);
         }
 
-        var (bids, totalCount) = await _bidRepository.GetByAuctionIdPagedAsync(
-            request.AuctionId,
-            request.Page,
-            request.PageSize,
-            cancellationToken);
+        var items = page.Items
+            .Select(b => new AuctionBidDto(
+                b.Id,
+                b.Amount,
+                b.Currency,
+                b.PlacedAt,
+                b.Status,
+                IsOwnBid: b.BidderId == request.RequesterId))
+            .ToList();
 
-        var items = bids.Adapt<List<BidDto>>();
-
-        var result = new PagedResult<BidDto>(items, totalCount, request.Page, request.PageSize);
-
-        await _cacheService.SetAsync(cacheKey, result, CacheExpiry, cancellationToken);
-
-        return Result.Success(result);
+        return Result.Success(new PagedResult<AuctionBidDto>(items, page.TotalCount, page.Page, page.PageSize));
     }
 }

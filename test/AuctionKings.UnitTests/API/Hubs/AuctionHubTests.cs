@@ -170,6 +170,5 @@ public sealed class AuctionHubTests : IDisposable
             DateTime.UtcNow,
             DateTime.UtcNow.AddDays(1),
             AuctionStatus.Active,
-            0,
-            []);
+            0);
 }
