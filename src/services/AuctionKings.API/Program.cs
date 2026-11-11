@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Prometheus;
 using Scalar.AspNetCore;
@@ -67,6 +68,7 @@ builder.Services.AddOpenApi(
 );
 
 // JWT Authentication
+builder.Services.AddSingleton<IValidateOptions<JwtOptions>, JwtOptionsValidator>();
 builder
     .Services.AddOptions<JwtOptions>()
     .BindConfiguration(JwtOptions.SectionName)
@@ -77,6 +79,18 @@ var jwtOptions =
     ?? throw new InvalidOperationException(
         $"'{JwtOptions.SectionName}' configuration section is missing."
     );
+
+// Validate eagerly: the signing key is built below, and a bad secret should fail here with an
+// actionable message rather than as IDX10703 on the first request.
+var jwtValidation = new JwtOptionsValidator().Validate(null, jwtOptions);
+if (jwtValidation.Failed)
+{
+    throw new OptionsValidationException(
+        Options.DefaultName,
+        typeof(JwtOptions),
+        jwtValidation.Failures!
+    );
+}
 
 builder
     .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
