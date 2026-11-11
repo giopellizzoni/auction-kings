@@ -41,7 +41,7 @@ Clean Architecture: `API → Application → Domain ← Infrastructure`
 - `src/workers/AuctionKings.BackgroundWorkers` — OutboxProcessor (polls every 5s), AuctionCloseWorker (polls every 10s), CleanupExpiredDataWorker (hourly purge)
 - `test/` — UnitTests, IntegrationTests, ArchitectureTests, LoadTests
 
-**Key patterns:** CQRS, Outbox Pattern (with SKIP LOCKED batch processing), two SignalR hubs (`AuctionHub`, `NotificationHub`), Redis backplane, optimistic concurrency via an app-level `Auction.Version` int column (**not** PostgreSQL `xmin` — Npgsql 10 doesn't reliably read `xid` system columns back via `RETURNING`, see the comment in `AuctionConfiguration.cs`), idempotency via `X-Request-Id` header (required on every `POST`/`PUT`, not just bids — enforced globally by `IdempotencyFilter`), Mapster DTOs, FluentValidation pipeline behaviors.
+**Key patterns:** CQRS, Outbox Pattern (with SKIP LOCKED batch processing), two SignalR hubs (`AuctionHub`, `NotificationHub`), Redis backplane, optimistic concurrency via an app-level `Auction.Version` int column (**not** PostgreSQL `xmin` — Npgsql 10 doesn't reliably read `xid` system columns back via `RETURNING`, see the comment in `AuctionConfiguration.cs`), idempotency via `X-Request-Id` GUID header (required only on actions marked `[Idempotent]` — currently `BidsController.PlaceBid` — enforced by the globally registered `IdempotencyFilter`), CORS via an explicit origin allowlist (`Cors:AllowedOrigins`, see `API/Cors/` and ADR-004), Mapster DTOs, FluentValidation pipeline behaviors.
 
 **SignalR note:** `SignalRNotificationService` lives in the API layer (not Infrastructure) to avoid circular dependency.
 

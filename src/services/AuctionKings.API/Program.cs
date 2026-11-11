@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using AuctionKings.API.Auth;
+using AuctionKings.API.Cors;
 using AuctionKings.API.Filters;
 using AuctionKings.API.Hubs;
 using AuctionKings.API.Middleware;
@@ -41,6 +42,8 @@ var redisConnectionString =
 
 builder.Services.AddSignalR().AddStackExchangeRedis(redisConnectionString);
 builder.Services.AddSingleton<IRealtimeNotificationService, SignalRNotificationService>();
+
+builder.Services.AddApiCors();
 
 builder.Services.AddControllers(options =>
 {
@@ -142,6 +145,10 @@ if (app.Environment.IsDevelopment())
         }
     );
 }
+
+// CORS before HTTPS redirection (browsers reject redirected preflights) and before
+// authentication (preflight requests carry no bearer token).
+app.UseApiCors();
 
 app.UseHttpsRedirection();
 
