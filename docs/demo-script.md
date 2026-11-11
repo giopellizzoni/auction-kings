@@ -390,7 +390,7 @@ docker compose down -v
 **Token generation / auction creation fails with `{"code":"Idempotency.MissingKey", ...}`:**
 - Every `POST`/`PUT` needs an `X-Request-Id` header, not just bid placement.
 
-**API crashes on startup with `IDX10703` or Redis `NOAUTH`:**
+**API refuses to start (`'Jwt:Secret' is not configured`) or Redis `NOAUTH`:**
 - Run `./scripts/setup-local-env.sh` first, and for Option A pass
   `docker compose --env-file .env.local up -d` (not plain `docker compose up`).
 
