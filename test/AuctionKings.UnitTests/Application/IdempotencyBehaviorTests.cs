@@ -2,6 +2,7 @@ using System.Text.Json;
 using AuctionKings.Application.Abstractions;
 using AuctionKings.Application.Behaviors;
 using AuctionKings.Application.Exceptions;
+using AuctionKings.Shared.Common;
 using MediatR;
 using NSubstitute;
 
@@ -14,6 +15,10 @@ public sealed class IdempotencyBehaviorTests
             IIdempotentCommand;
 
     private sealed record RegularTestCommand(string Value) : IRequest<string>;
+
+    private sealed record IdempotentResultCommand(string IdempotencyKey)
+        : IRequest<Result<Guid>>,
+            IIdempotentCommand;
 
     private readonly IIdempotencyService _idempotencyService =
         Substitute.For<IIdempotencyService>();
@@ -114,6 +119,59 @@ public sealed class IdempotencyBehaviorTests
             .ReleaseAsync("key-fail", Arg.Any<CancellationToken>());
         await _idempotencyService.DidNotReceive()
             .CompleteAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task IdempotencyBehavior_ResultOfTSuccess_ShouldRoundTripThroughStoredResponse()
+    {
+        // Regression: Result<T> serialization threw ArgumentException (generic arity mismatch)
+        // because the converter was nested inside the generic behavior type.
+        var behavior = new IdempotencyBehavior<IdempotentResultCommand, Result<Guid>>(_idempotencyService);
+        var value = Guid.NewGuid();
+
+        var replayed = await StoreThenReplayAsync(behavior, "key-result-ok", Result.Success(value));
+
+        Assert.True(replayed.IsSuccess);
+        Assert.Equal(value, replayed.Value);
+    }
+
+    [Fact]
+    public async Task IdempotencyBehavior_ResultOfTFailure_ShouldRoundTripThroughStoredResponse()
+    {
+        var behavior = new IdempotencyBehavior<IdempotentResultCommand, Result<Guid>>(_idempotencyService);
+        var error = new Error("Bid.TooLow", "Bid must exceed the current price", ErrorType.Validation);
+
+        var replayed = await StoreThenReplayAsync(behavior, "key-result-fail", Result.Failure<Guid>(error));
+
+        Assert.True(replayed.IsFailure);
+        Assert.Equal(error, replayed.Error);
+    }
+
+    private async Task<Result<Guid>> StoreThenReplayAsync(
+        IdempotencyBehavior<IdempotentResultCommand, Result<Guid>> behavior,
+        string key,
+        Result<Guid> handlerResult
+    )
+    {
+        string? storedJson = null;
+        _idempotencyService.GetCachedResponseAsync(key, Arg.Any<CancellationToken>()).Returns((string?)null);
+        _idempotencyService.TryReserveAsync(key, Arg.Any<CancellationToken>()).Returns(IdempotencyReservation.Reserved);
+        _idempotencyService
+            .CompleteAsync(key, Arg.Do<string>(json => storedJson = json), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+
+        await behavior.Handle(new IdempotentResultCommand(key), _ => Task.FromResult(handlerResult), CancellationToken.None);
+
+        Assert.NotNull(storedJson);
+        _idempotencyService
+            .TryReserveAsync(key, Arg.Any<CancellationToken>())
+            .Returns(IdempotencyReservation.Completed(storedJson));
+
+        return await behavior.Handle(
+            new IdempotentResultCommand(key),
+            _ => throw new InvalidOperationException("handler must not run on replay"),
+            CancellationToken.None
+        );
     }
 
     [Fact]

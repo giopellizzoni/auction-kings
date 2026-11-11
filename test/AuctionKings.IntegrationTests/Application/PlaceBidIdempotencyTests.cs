@@ -23,28 +23,51 @@ public sealed class PlaceBidIdempotencyTests
     public PlaceBidIdempotencyTests(PostgreSqlFixture fixture) => _fixture = fixture;
 
     [Fact]
-    public async Task PlaceBid_SameIdempotencyKey_SecondCallThrows()
+    public async Task PlaceBid_SameIdempotencyKey_AfterCompletion_ReplaysFirstResult()
     {
-        // Arrange
+        // ADR-03: a completed duplicate replays the stored response instead of re-executing.
         var auctionId = await SeedActiveAuctionAsync();
         var idempotencyKey = Guid.NewGuid().ToString();
         var bidderId = Guid.NewGuid();
+        var command = new PlaceBidCommand(auctionId, bidderId, 200m, "USD", idempotencyKey);
 
-        var sp = BuildServiceProvider();
+        await using var sp = BuildServiceProvider();
 
-        // Act: first call succeeds
         await using var scope1 = sp.CreateAsyncScope();
-        var sender1 = scope1.ServiceProvider.GetRequiredService<ISender>();
-        var first = await sender1.Send(
-            new PlaceBidCommand(auctionId, bidderId, 200m, "USD", idempotencyKey)
-        );
+        var first = await scope1.ServiceProvider.GetRequiredService<ISender>().Send(command);
         Assert.True(first.IsSuccess);
 
-        // Act: second call with the same idempotency key throws
         await using var scope2 = sp.CreateAsyncScope();
-        var sender2 = scope2.ServiceProvider.GetRequiredService<ISender>();
+        var second = await scope2.ServiceProvider.GetRequiredService<ISender>().Send(command);
+
+        Assert.True(second.IsSuccess);
+        Assert.Equal(first.Value, second.Value);
+
+        await using var context = _fixture.CreateDbContext();
+        Assert.Equal(1, await context.Bids.CountAsync(b => b.AuctionId == auctionId));
+    }
+
+    [Fact]
+    public async Task PlaceBid_SameIdempotencyKey_WhileInFlight_Throws()
+    {
+        var auctionId = await SeedActiveAuctionAsync();
+        var idempotencyKey = Guid.NewGuid().ToString();
+
+        await using var sp = BuildServiceProvider();
+
+        // Simulate a first request that reserved the key but has not completed yet.
+        await using (var reserveScope = sp.CreateAsyncScope())
+        {
+            var reservation = await reserveScope
+                .ServiceProvider.GetRequiredService<IIdempotencyService>()
+                .TryReserveAsync(idempotencyKey);
+            Assert.Equal(IdempotencyReservationOutcome.Reserved, reservation.Outcome);
+        }
+
+        await using var scope = sp.CreateAsyncScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
         await Assert.ThrowsAsync<DuplicateCommandException>(() =>
-            sender2.Send(new PlaceBidCommand(auctionId, bidderId, 200m, "USD", idempotencyKey))
+            sender.Send(new PlaceBidCommand(auctionId, Guid.NewGuid(), 200m, "USD", idempotencyKey))
         );
     }
 
@@ -80,6 +103,7 @@ public sealed class PlaceBidIdempotencyTests
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
         services.AddSingleton<IRealtimeNotificationService, NoOpNotificationService>();
         services.AddSingleton<ICacheInvalidationService, NoOpCacheInvalidationService>();
+        services.AddSingleton<ICacheService, NoOpCacheService>();
         return services.BuildServiceProvider();
     }
 

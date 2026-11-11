@@ -123,6 +123,7 @@ public sealed class PlaceBidConcurrencyTests
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
         services.AddSingleton<IRealtimeNotificationService, NoOpNotificationService>();
         services.AddSingleton<ICacheInvalidationService, NoOpCacheInvalidationService>();
+        services.AddSingleton<ICacheService, NoOpCacheService>();
         return services.BuildServiceProvider();
     }
 
