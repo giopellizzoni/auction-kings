@@ -12,17 +12,22 @@ services:
       dockerfile: src/services/AuctionKings.API/Dockerfile
     restart: unless-stopped
     environment:
-      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-AuctionKingsDB};Username=${POSTGRES_USER:-dev};Password=${POSTGRES_PASSWORD:-}"
       ConnectionStrings__Redis: "redis:6379,password=${REDIS_PASSWORD:-}"
       Jwt__Secret: "${JWT_SECRET}"
       Jwt__Issuer: "auction-kings-dev"
       Jwt__Audience: "auction-kings-dev"
       Jwt__ExpiresInMinutes: "60"
+      AWS__Region: "us-east-1"
+      AWS__SQS__ServiceURL: "http://localstack:4566"
+      AWS__SQS__BidQueueUrl: "http://localstack:4566/000000000000/auction-bids-queue"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      localstack:
         condition: service_healthy
     networks:
       - backend
@@ -34,3 +39,29 @@ services:
       start_period: 30s
     ports:
       - "5081:8080"
+
+  worker:
+    image: auction-kings-worker:local
+    container_name: auction-kings-worker
+    build:
+      context: ..
+      dockerfile: src/workers/AuctionKings.BackgroundWorkers/Dockerfile
+    restart: unless-stopped
+    environment:
+      DOTNET_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-AuctionKingsDB};Username=${POSTGRES_USER:-dev};Password=${POSTGRES_PASSWORD:-}"
+      ConnectionStrings__Redis: "redis:6379,password=${REDIS_PASSWORD:-}"
+      AWS__Region: "us-east-1"
+      AWS__SQS__ServiceURL: "http://localstack:4566"
+      AWS__SQS__BidQueueUrl: "http://localstack:4566/000000000000/auction-bids-queue"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    networks:
+      - backend

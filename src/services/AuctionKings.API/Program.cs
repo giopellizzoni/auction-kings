@@ -9,8 +9,10 @@ using AuctionKings.Application;
 using AuctionKings.Application.Abstractions;
 using AuctionKings.Infrastructure;
 using AuctionKings.Infrastructure.HealthChecks;
+using AuctionKings.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
@@ -115,14 +117,6 @@ builder.Services.AddSingleton<JwtTokenGenerator>();
 builder.Services.AddHealthChecks().AddInfrastructureHealthChecks();
 
 var app = builder.Build();
-
-// Must be first so that RemoteIpAddress and Request.Scheme are correct behind the ALB.
-// KnownNetworks/KnownProxies are cleared so that X-Forwarded-For is trusted from any source;
-// the ALB is the only entry point in staging/production so all requests come through it.
-app.UseForwardedHeaders(new ForwardedHeadersOptions
-{
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
-});
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();

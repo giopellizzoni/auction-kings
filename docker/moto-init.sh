@@ -48,33 +48,61 @@ echo "=== Provisioning Moto resources ==="
 # -----------------------------------------------
 # Cognito
 # -----------------------------------------------
-echo "Creating Cognito User Pool..."
-# I1: Use --query/--output text instead of python3
-USER_POOL_ID=$(aws cognito-idp create-user-pool \
-  --pool-name AuctionKingsDevPool \
-  --auto-verified-attributes email \
-  --schema \
-    Name=email,Required=true,Mutable=true \
-    Name=custom:reputation,AttributeDataType=Number,Mutable=true \
-    Name=custom:is_verified,AttributeDataType=String,Mutable=true \
-    Name=custom:total_bids,AttributeDataType=Number,Mutable=true \
-  --query 'UserPool.Id' \
+echo "Looking for existing Cognito User Pool..."
+# I4: Reuse an existing pool instead of erroring on re-runs against a moto
+# container that already has state (moto has no persistent volume, but the
+# container isn't always recreated between `docker compose up` invocations).
+USER_POOL_ID=$(aws cognito-idp list-user-pools \
+  --max-results 60 \
+  --query "UserPools[?Name=='AuctionKingsDevPool'].Id | [0]" \
   --output text \
   --endpoint-url "$MOTO_ENDPOINT" \
   --region "$REGION")
+
+if [ -z "$USER_POOL_ID" ] || [ "$USER_POOL_ID" = "None" ]; then
+  echo "Creating Cognito User Pool..."
+  # I1: Use --query/--output text instead of python3
+  USER_POOL_ID=$(aws cognito-idp create-user-pool \
+    --pool-name AuctionKingsDevPool \
+    --auto-verified-attributes email \
+    --schema \
+      Name=email,Required=true,Mutable=true \
+      Name=custom:reputation,AttributeDataType=Number,Mutable=true \
+      Name=custom:is_verified,AttributeDataType=String,Mutable=true \
+      Name=custom:total_bids,AttributeDataType=Number,Mutable=true \
+    --query 'UserPool.Id' \
+    --output text \
+    --endpoint-url "$MOTO_ENDPOINT" \
+    --region "$REGION")
+else
+  echo "User Pool already exists, reusing it."
+fi
 echo "User Pool ID: $USER_POOL_ID"
 
-echo "Creating App Client..."
-# I1: Use --query/--output text instead of python3
-APP_CLIENT_ID=$(aws cognito-idp create-user-pool-client \
+echo "Looking for existing App Client..."
+# I4: same reuse pattern as the user pool above
+APP_CLIENT_ID=$(aws cognito-idp list-user-pool-clients \
   --user-pool-id "$USER_POOL_ID" \
-  --client-name AuctionKingsDevClient \
-  --no-generate-secret \
-  --explicit-auth-flows ALLOW_USER_PASSWORD_AUTH ALLOW_REFRESH_TOKEN_AUTH \
-  --query 'UserPoolClient.ClientId' \
+  --query "UserPoolClients[?ClientName=='AuctionKingsDevClient'].ClientId | [0]" \
   --output text \
   --endpoint-url "$MOTO_ENDPOINT" \
   --region "$REGION")
+
+if [ -z "$APP_CLIENT_ID" ] || [ "$APP_CLIENT_ID" = "None" ]; then
+  echo "Creating App Client..."
+  # I1: Use --query/--output text instead of python3
+  APP_CLIENT_ID=$(aws cognito-idp create-user-pool-client \
+    --user-pool-id "$USER_POOL_ID" \
+    --client-name AuctionKingsDevClient \
+    --no-generate-secret \
+    --explicit-auth-flows ALLOW_USER_PASSWORD_AUTH ALLOW_REFRESH_TOKEN_AUTH \
+    --query 'UserPoolClient.ClientId' \
+    --output text \
+    --endpoint-url "$MOTO_ENDPOINT" \
+    --region "$REGION")
+else
+  echo "App Client already exists, reusing it."
+fi
 echo "App Client ID: $APP_CLIENT_ID"
 
 # Write Cognito IDs to secret files
@@ -102,9 +130,14 @@ aws secretsmanager describe-secret \
     --endpoint-url "$LOCALSTACK_ENDPOINT" \
     --region "$REGION"
 
-# Create groups
+# Create groups — idempotent: skip creation if the group already exists
 echo "Creating Cognito groups..."
 for GROUP in Sellers Admins Buyers; do
+  aws cognito-idp get-group \
+    --user-pool-id "$USER_POOL_ID" \
+    --group-name "$GROUP" \
+    --endpoint-url "$MOTO_ENDPOINT" \
+    --region "$REGION" > /dev/null 2>&1 || \
   aws cognito-idp create-group \
     --user-pool-id "$USER_POOL_ID" \
     --group-name "$GROUP" \
@@ -123,22 +156,32 @@ declare -A USERS=(
 for EMAIL in "${!USERS[@]}"; do
   GROUP="${USERS[$EMAIL]}"
 
-  aws cognito-idp admin-create-user \
+  # Idempotent: only create + set password if the user doesn't already exist
+  if aws cognito-idp admin-get-user \
     --user-pool-id "$USER_POOL_ID" \
     --username "$EMAIL" \
-    --user-attributes Name=email,Value="$EMAIL" Name=email_verified,Value=true \
-    --temporary-password "Test1234!" \
     --endpoint-url "$MOTO_ENDPOINT" \
-    --region "$REGION"
+    --region "$REGION" > /dev/null 2>&1; then
+    echo "  User $EMAIL already exists, skipping creation"
+  else
+    aws cognito-idp admin-create-user \
+      --user-pool-id "$USER_POOL_ID" \
+      --username "$EMAIL" \
+      --user-attributes Name=email,Value="$EMAIL" Name=email_verified,Value=true \
+      --temporary-password "Test1234!" \
+      --endpoint-url "$MOTO_ENDPOINT" \
+      --region "$REGION"
 
-  aws cognito-idp admin-set-user-password \
-    --user-pool-id "$USER_POOL_ID" \
-    --username "$EMAIL" \
-    --password "Test1234!" \
-    --permanent \
-    --endpoint-url "$MOTO_ENDPOINT" \
-    --region "$REGION"
+    aws cognito-idp admin-set-user-password \
+      --user-pool-id "$USER_POOL_ID" \
+      --username "$EMAIL" \
+      --password "Test1234!" \
+      --permanent \
+      --endpoint-url "$MOTO_ENDPOINT" \
+      --region "$REGION"
+  fi
 
+  # admin-add-user-to-group is itself idempotent — safe to call unconditionally
   aws cognito-idp admin-add-user-to-group \
     --user-pool-id "$USER_POOL_ID" \
     --username "$EMAIL" \
@@ -146,7 +189,7 @@ for EMAIL in "${!USERS[@]}"; do
     --endpoint-url "$MOTO_ENDPOINT" \
     --region "$REGION"
 
-  echo "  Created user $EMAIL in group $GROUP"
+  echo "  Ensured user $EMAIL is in group $GROUP"
 done
 
 # -----------------------------------------------
@@ -227,6 +270,11 @@ set -e
 # EventBridge
 # -----------------------------------------------
 echo "Creating EventBridge resources..."
+# Idempotent: skip creation if the bus already exists
+aws events describe-event-bus \
+  --name auction-events \
+  --endpoint-url "$MOTO_ENDPOINT" \
+  --region "$REGION" > /dev/null 2>&1 || \
 aws events create-event-bus \
   --name auction-events \
   --endpoint-url "$MOTO_ENDPOINT" \

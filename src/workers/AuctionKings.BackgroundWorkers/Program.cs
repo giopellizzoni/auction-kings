@@ -1,4 +1,5 @@
 using AuctionKings.Application;
+using AuctionKings.Application.Abstractions;
 using AuctionKings.BackgroundWorkers;
 using AuctionKings.BackgroundWorkers.Workers;
 using AuctionKings.Infrastructure;
@@ -23,6 +24,8 @@ builder.Services.Configure<AuctionActivationWorkerOptions>(
     builder.Configuration.GetSection(AuctionActivationWorkerOptions.SectionName));
 builder.Services.Configure<CleanupWorkerOptions>(
     builder.Configuration.GetSection(CleanupWorkerOptions.SectionName));
+
+builder.Services.AddSingleton<IRealtimeNotificationService, NoOpRealtimeNotificationService>();
 
 builder.Services.AddHostedService<OutboxProcessor>();
 builder.Services.AddHostedService<AuctionCloseWorker>();
