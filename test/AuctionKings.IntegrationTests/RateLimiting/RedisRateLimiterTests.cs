@@ -94,6 +94,50 @@ public sealed class RedisRateLimiterTests
     }
 
     [Fact]
+    public async Task RedisRateLimiter_PerCallLimit_ShouldOverrideTheGlobalLimit()
+    {
+        var sut = CreateSut(maxRequests: 100); // generous global limit
+        var key = $"rate:test:{Guid.NewGuid()}";
+
+        var first = await sut.IsAllowedAsync(key, limit: 2, window: TimeSpan.FromSeconds(10));
+        var second = await sut.IsAllowedAsync(key, limit: 2, window: TimeSpan.FromSeconds(10));
+        var third = await sut.IsAllowedAsync(key, limit: 2, window: TimeSpan.FromSeconds(10));
+
+        Assert.True(first.IsAllowed);
+        Assert.True(second.IsAllowed);
+        Assert.False(third.IsAllowed);
+        Assert.False(third.IsError);
+    }
+
+    [Fact]
+    public async Task RedisRateLimiter_PerCallWindow_ShouldOverrideTheGlobalWindow()
+    {
+        var sut = CreateSut(maxRequests: 1, windowSeconds: 60); // global window far longer than the call's
+        var key = $"rate:test:{Guid.NewGuid()}";
+        var window = TimeSpan.FromSeconds(1);
+
+        Assert.True((await sut.IsAllowedAsync(key, limit: 1, window)).IsAllowed);
+        Assert.False((await sut.IsAllowedAsync(key, limit: 1, window)).IsAllowed);
+
+        await Task.Delay(TimeSpan.FromSeconds(1.2));
+
+        Assert.True((await sut.IsAllowedAsync(key, limit: 1, window)).IsAllowed);
+    }
+
+    [Theory]
+    [InlineData(0, 10)]
+    [InlineData(-1, 10)]
+    [InlineData(5, 0)]
+    [InlineData(5, -10)]
+    public async Task RedisRateLimiter_PerCallOverload_ShouldRejectInvalidArguments(int limit, int windowSeconds)
+    {
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            sut.IsAllowedAsync($"rate:test:{Guid.NewGuid()}", limit, TimeSpan.FromSeconds(windowSeconds)));
+    }
+
+    [Fact]
     public async Task RedisRateLimiter_DifferentKeys_ShouldBeIsolated()
     {
         var sut = CreateSut(maxRequests: 1);

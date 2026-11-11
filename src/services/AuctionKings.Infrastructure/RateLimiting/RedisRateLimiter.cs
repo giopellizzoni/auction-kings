@@ -48,13 +48,24 @@ internal sealed partial class RedisRateLimiter : IRateLimiter
         _logger = logger;
     }
 
-    public async Task<RateLimitResult> IsAllowedAsync(string key, CancellationToken cancellationToken = default)
+    public Task<RateLimitResult> IsAllowedAsync(string key, CancellationToken cancellationToken = default) =>
+        IsAllowedAsync(key, _options.MaxRequests, _options.Window, cancellationToken);
+
+    public async Task<RateLimitResult> IsAllowedAsync(
+        string key,
+        int limit,
+        TimeSpan window,
+        CancellationToken cancellationToken = default
+    )
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(window, TimeSpan.Zero);
+
         try
         {
             var db = _multiplexer.GetDatabase();
             var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var windowMs = (long)_options.Window.TotalMilliseconds;
+            var windowMs = (long)window.TotalMilliseconds;
 
             var result = (RedisResult[]?)await db.ScriptEvaluateAsync(
                 SlidingWindowScript,
@@ -63,7 +74,7 @@ internal sealed partial class RedisRateLimiter : IRateLimiter
                 [
                     new RedisValue(now.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                     new RedisValue(windowMs.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-                    new RedisValue(_options.MaxRequests.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                    new RedisValue(limit.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                 ]
             );
 

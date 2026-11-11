@@ -138,3 +138,28 @@ Audit finding H-3 (issue #102): `GET /auctions/{id}/bids` was anonymous and retu
 - `AuctionClosed` still broadcasts `winnerId` to the auction group. Whether the winner is revealed at close is a product decision not covered here.
 - Admins get no extra view of other bidders on the per-auction list; moderation tooling would need its own endpoint.
 - Other participants can still see that bids exist (amounts and counts) once authenticated; only identities are hidden.
+
+---
+
+## ADR-007: SignalR Throttling
+
+### Context
+
+Audit finding H-7 (issue #106): hub methods accepted unlimited calls, so an authenticated user could flood `JoinAuctionAsync` / `RequestStateSyncAsync` and open any number of connections. `JoinAuctionAsync` also added the connection to the group *before* checking the auction existed, so a single connection could collect an unbounded number of groups by joining random GUIDs, and every unknown GUID cost a database query because failed lookups are not cached.
+
+### Decision
+
+- One global `HubThrottlingFilter` (`IHubFilter`) registered through `HubOptions`, rather than checks at the top of each method, so every current and future hub method is covered and both hubs are covered.
+- **Invocations** are limited per *user* (`rate:hub:{userId}`), not per connection, so extra connections do not buy extra calls. It uses the existing Redis sliding-window limiter through a new per-call overload `IsAllowedAsync(key, limit, window)`; the REST limiter and its global limit are unchanged. Over the limit the call throws `HubException` and the connection stays open.
+- **Connections** are capped per user after the hub has registered the connection with `IConnectionTracker`; an over-cap connection is aborted and then untracked by `OnDisconnectedAsync`. `AuctionHub` and `NotificationHub` share the tracker's per-user count, so the default of 10 allows about five tabs with both hubs open.
+- **Groups**: `JoinAuctionAsync` rejects once a connection is at its group cap, validates the auction exists, and only then joins the group. An unknown auction throws `HubException` and uses no slot. The joined set lives in `Context.Items` and is freed by `LeaveAuctionAsync`.
+- `MaximumReceiveMessageSize` is 8 KB (hub arguments are a GUID) and `MaximumParallelInvocationsPerClient` is pinned to 1, which also keeps the per-connection group set safe without locking.
+- All limits live in the validated `HubThrottling` section (every value must be greater than zero).
+- **Fails open** when Redis is unreachable: hub methods only read cached data, and with Redis down the SignalR backplane is down as well. REST bid placement remains fail-closed.
+
+### Limitations
+
+- The connection cap is approximate: `ConnectionTracker` adds a connection and sets the key's expiry in two separate calls and the count is read afterwards, so simultaneous connects can briefly exceed the cap. Making the tracker atomic is issue #127 (M-21).
+- The invocation limiter costs one Redis round trip per hub call, and a rejected call still reaches the server. It bounds work done per user, not raw message volume; the message-size limit and the reverse proxy remain the first defence against raw floods.
+- `RequestStateSyncAsync` is limited but not tied to joined auctions, so a user can still request state for any auction ID within their call budget (the REST auction endpoint is public anyway).
+- Limits are per user. An attacker with many accounts is outside this control; account creation controls and WAF rate limiting apply.
