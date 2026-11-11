@@ -1,6 +1,6 @@
 resource "aws_cloudwatch_log_group" "api" {
-  name              = "/ecs/auction-kings-staging-api"
-  retention_in_days = 7   # Short retention for staging cost control
+  name              = "/ecs/${local.name_prefix}-api"
+  retention_in_days = var.cloudwatch.log_retention_days
 
-  tags = { Name = "auction-kings-staging-api-logs" }
+  tags = { Name = "${local.name_prefix}-api-logs" }
 }

@@ -29,6 +29,7 @@ sequenceDiagram
 ```
 
 **Key files:**
+
 - [`src/services/AuctionKings.API/Auth/JwtOptions.cs`](../src/services/AuctionKings.API/Auth/JwtOptions.cs) — `Jwt:Secret`, `Jwt:Issuer`, `Jwt:Audience`
 - [`src/services/AuctionKings.API/Auth/JwtTokenGenerator.cs`](../src/services/AuctionKings.API/Auth/JwtTokenGenerator.cs) — local HS256 token generator (dev only)
 - [`src/services/AuctionKings.API/Auth/Policies.cs`](../src/services/AuctionKings.API/Auth/Policies.cs) — `Bidder` / `Admin` policy constants
@@ -62,15 +63,15 @@ Cognito issues **RS256** JWTs. The API validates them against the User Pool's pu
 
 ## AWS Cognito Concepts
 
-| Concept | Description |
-|---|---|
-| **User Pool** | Directory of users. Manages sign-up, sign-in, MFA, password policies. |
-| **App Client** | Credential set that allows an application to interact with the User Pool. Controls OAuth flows and token scopes. |
-| **Identity Pool** | (Not used here) Maps authenticated users to AWS IAM roles for direct AWS resource access. |
+| Concept           | Description                                                                                                                        |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **User Pool**     | Directory of users. Manages sign-up, sign-in, MFA, password policies.                                                              |
+| **App Client**    | Credential set that allows an application to interact with the User Pool. Controls OAuth flows and token scopes.                   |
+| **Identity Pool** | (Not used here) Maps authenticated users to AWS IAM roles for direct AWS resource access.                                          |
 | **JWKS endpoint** | `https://cognito-idp.<region>.amazonaws.com/<userPoolId>/.well-known/jwks.json` — public RSA keys used to verify token signatures. |
-| **Access Token** | Short-lived JWT (default 1h) used to authorize API calls. Contains `sub`, `cognito:groups`, custom attributes. |
-| **ID Token** | Contains user profile claims. Use the access token for API authorization — not the ID token. |
-| **Groups** | Map to roles. A user in the `Admin` group gets `cognito:groups: ["Admin"]`. |
+| **Access Token**  | Short-lived JWT (default 1h) used to authorize API calls. Contains `sub`, `cognito:groups`, custom attributes.                     |
+| **ID Token**      | Contains user profile claims. Use the access token for API authorization — not the ID token.                                       |
+| **Groups**        | Map to roles. A user in the `Admin` group gets `cognito:groups: ["Admin"]`.                                                        |
 
 ---
 
@@ -198,12 +199,14 @@ public sealed class CognitoOptions
 Cognito puts group membership in the `cognito:groups` claim (not `ClaimTypes.Role`). Update `Program.cs`:
 
 **Before:**
+
 ```csharp
 options.AddPolicy(Policies.Bidder, policy => policy.RequireRole(Policies.Bidder));
 options.AddPolicy(Policies.Admin,  policy => policy.RequireRole(Policies.Admin));
 ```
 
 **After:**
+
 ```csharp
 options.AddPolicy(Policies.Bidder, policy =>
     policy.RequireClaim("cognito:groups", Policies.Bidder));
@@ -251,14 +254,17 @@ To verify the integration without full prod deployment:
 
 ## Security Considerations
 
-| Topic | Local JWT | Cognito |
-|---|---|---|
-| Key type | HS256 (shared secret) | RS256 (asymmetric, private key never leaves Cognito) |
-| Token issuance | API itself (`DevController`) | Cognito (separate service) |
-| Key rotation | Manual | Automatic (Cognito rotates keys; JWKS discovery handles it) |
-| User management | None (tokens for any GUID) | Full user lifecycle, MFA, password reset |
-| Token revocation | Not supported | Supported via global sign-out |
-| Secrets in config | Yes (`Jwt:Secret`) | No (only public UserPoolId + ClientId) |
+| Topic             | Local JWT                    | Cognito                                                     |
+| ----------------- | ---------------------------- | ----------------------------------------------------------- |
+| Key type          | HS256 (shared secret)        | RS256 (asymmetric, private key never leaves Cognito)        |
+| Token issuance    | API itself (`DevController`) | Cognito (separate service)                                  |
+| Key rotation      | Manual                       | Automatic (Cognito rotates keys; JWKS discovery handles it) |
+| User management   | None (tokens for any GUID)   | Full user lifecycle, MFA, password reset                    |
+| Token revocation  | Not supported                | Supported via global sign-out                               |
+| Secrets in config | Yes (`Jwt:Secret`)           | No (only public UserPoolId + ClientId) it)                  |
+| User management   | None (tokens for any GUID)   | Full user lifecycle, MFA, password reset                    |
+| Token revocation  | Not supported                | Supported via global sign-out                               |
+| Secrets in config | Yes (`Jwt:Secret`)           | No (only public UserPoolId + ClientId)                      |
 
 ---
 

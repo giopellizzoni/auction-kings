@@ -1,0 +1,1 @@
+- [Project: Terraform Conventions Refactor](project_terraform_conventions_refactor.md) — vpc.tf split into 12 files, object variables, locals.tf consolidated, staging 2026-06
