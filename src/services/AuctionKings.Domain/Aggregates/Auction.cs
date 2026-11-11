@@ -48,6 +48,10 @@ public sealed class Auction : AggregateRoot
 
         var endTime = duration.GetEndTime(startTime);
 
+        // Auctions whose StartTime is in the past (or now) become Active immediately;
+        // future-dated auctions start as Pending and are activated by AuctionActivationWorker.
+        var status = startTime <= DateTime.UtcNow ? AuctionStatus.Active : AuctionStatus.Pending;
+
         var auction = new Auction
         {
             Title = title,
@@ -56,7 +60,7 @@ public sealed class Auction : AggregateRoot
             CurrentPrice = startingPrice,
             StartTime = startTime,
             EndTime = endTime,
-            Status = AuctionStatus.Pending,
+            Status = status,
             SellerId = sellerId,
             Version = 0,
         };
@@ -72,14 +76,29 @@ public sealed class Auction : AggregateRoot
         return auction;
     }
 
-    public void Activate(DateTime now)
+    public Result Activate(DateTime now)
     {
+        if (Status == AuctionStatus.Active)
+        {
+            return Result.Success();
+        }
+
         if (Status != AuctionStatus.Pending)
         {
-            return;
+            return Result.Failure(DomainErrors.Auction.NotActive);
+        }
+
+        if (now < StartTime)
+        {
+            return Result.Success();
         }
 
         Status = AuctionStatus.Active;
+        Version++;
+
+        AddDomainEvent(new AuctionActivatedEvent(Id, now));
+
+        return Result.Success();
     }
 
     public Result<Bid> PlaceBid(Guid bidderId, Money amount, DateTime now)
@@ -89,9 +108,26 @@ public sealed class Auction : AggregateRoot
             return Result.Failure<Bid>(DomainErrors.Auction.NotActive);
         }
 
+        if (now >= EndTime)
+        {
+            return Result.Failure<Bid>(DomainErrors.Auction.Ended);
+        }
+
         if (bidderId == SellerId)
         {
             return Result.Failure<Bid>(DomainErrors.Auction.CannotBidOnOwnAuction);
+        }
+
+        if (!string.Equals(amount.Currency, CurrentPrice.Currency, StringComparison.OrdinalIgnoreCase))
+        {
+            return Result.Failure<Bid>(DomainErrors.Bid.CurrencyMismatch);
+        }
+
+        var currentWinningBid = _bids.FirstOrDefault(b => b.Status == BidStatus.Winning);
+
+        if (currentWinningBid?.BidderId == bidderId)
+        {
+            return Result.Failure<Bid>(DomainErrors.Auction.CannotOutbidSelf);
         }
 
         var minimumBid = BidIncrement.GetMinimumBid(CurrentPrice);
@@ -100,8 +136,6 @@ public sealed class Auction : AggregateRoot
             return Result.Failure<Bid>(DomainErrors.Auction.BidTooLow);
         }
 
-        // Mark current winning bid as outbid
-        var currentWinningBid = _bids.FirstOrDefault(b => b.Status == BidStatus.Winning);
         currentWinningBid?.MarkAsOutbid();
 
         var bid = Bid.Create(Id, bidderId, amount, now);
@@ -113,7 +147,6 @@ public sealed class Auction : AggregateRoot
 
         AddDomainEvent(new BidPlacedEvent(Id, bid.Id, bidderId, amount, now));
 
-        // Anti-sniping: extend if bid placed within threshold of end time
         var timeRemaining = EndTime - now;
         if (timeRemaining < AntiSnipingThreshold)
         {
@@ -162,6 +195,11 @@ public sealed class Auction : AggregateRoot
         if (Status == AuctionStatus.Closed)
         {
             return Result.Failure(DomainErrors.Auction.AlreadyClosed);
+        }
+
+        if (Status == AuctionStatus.Cancelled)
+        {
+            return Result.Failure(DomainErrors.Auction.AlreadyCancelled);
         }
 
         Status = AuctionStatus.Cancelled;

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace AuctionKings.API.Filters;
@@ -6,16 +7,17 @@ namespace AuctionKings.API.Filters;
 public sealed class IdempotencyFilter : IAsyncActionFilter
 {
     private const string HeaderName = "X-Request-Id";
-    private const string ItemsKey = "IdempotencyKey";
+    internal const string ItemsKey = "IdempotencyKey";
 
     public async Task OnActionExecutionAsync(
         ActionExecutingContext context,
         ActionExecutionDelegate next
     )
     {
-        var method = context.HttpContext.Request.Method;
+        var hasIdempotentAttribute = context.ActionDescriptor is ControllerActionDescriptor cad
+            && cad.MethodInfo.GetCustomAttributes(typeof(IdempotentAttribute), false).Length > 0;
 
-        if (!HttpMethods.IsPost(method) && !HttpMethods.IsPut(method))
+        if (!hasIdempotentAttribute)
         {
             await next();
             return;
@@ -32,7 +34,16 @@ public sealed class IdempotencyFilter : IAsyncActionFilter
             return;
         }
 
-        context.HttpContext.Items[ItemsKey] = values.ToString();
+        var rawValue = values.ToString();
+        if (!Guid.TryParse(rawValue, out _))
+        {
+            context.Result = new BadRequestObjectResult(
+                new { code = "Idempotency.InvalidKey", message = "X-Request-Id must be a valid GUID" }
+            );
+            return;
+        }
+
+        context.HttpContext.Items[ItemsKey] = rawValue;
 
         await next();
     }

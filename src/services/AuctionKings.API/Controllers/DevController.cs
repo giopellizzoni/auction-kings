@@ -11,12 +11,12 @@ public sealed record TokenResponse(string Token);
 public sealed class DevController : ControllerBase
 {
     private readonly JwtTokenGenerator _generator;
-    private readonly IHostEnvironment _env;
+    private readonly IConfiguration _config;
 
-    public DevController(JwtTokenGenerator generator, IHostEnvironment env)
+    public DevController(JwtTokenGenerator generator, IConfiguration config)
     {
         _generator = generator;
-        _env = env;
+        _config = config;
     }
 
     [HttpPost("token")]
@@ -24,7 +24,7 @@ public sealed class DevController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult GenerateToken([FromBody] TokenRequest request)
     {
-        if (_env.IsProduction())
+        if (!_config.GetValue<bool>("Features:EnableDevTokenEndpoint"))
         {
             return NotFound();
         }

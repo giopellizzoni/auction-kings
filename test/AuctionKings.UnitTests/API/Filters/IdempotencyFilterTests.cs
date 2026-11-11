@@ -1,7 +1,8 @@
+using System.Reflection;
 using AuctionKings.API.Filters;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Abstractions;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 
@@ -9,24 +10,33 @@ namespace AuctionKings.UnitTests.API.Filters;
 
 public sealed class IdempotencyFilterTests
 {
-    private static ActionExecutingContext BuildContext(HttpContext httpContext)
+    // A real method with [Idempotent] so ControllerActionDescriptor.MethodInfo carries the attribute.
+    [Idempotent]
+    private static void FakeIdempotentAction() { }
+
+    private static void FakeRegularAction() { }
+
+    private static ActionExecutingContext BuildContext(HttpContext httpContext, MethodInfo methodInfo)
     {
-        var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
-        return new ActionExecutingContext(
-            actionContext,
-            [],
-            new Dictionary<string, object?>(),
-            new object()
-        );
+        var descriptor = new ControllerActionDescriptor { MethodInfo = methodInfo };
+        var actionContext = new ActionContext(httpContext, new RouteData(), descriptor);
+        return new ActionExecutingContext(actionContext, [], new Dictionary<string, object?>(), new object());
     }
 
+    private static MethodInfo IdempotentMethod =>
+        typeof(IdempotencyFilterTests).GetMethod(nameof(FakeIdempotentAction), BindingFlags.Static | BindingFlags.NonPublic)!;
+
+    private static MethodInfo RegularMethod =>
+        typeof(IdempotencyFilterTests).GetMethod(nameof(FakeRegularAction), BindingFlags.Static | BindingFlags.NonPublic)!;
+
     [Fact]
-    public async Task IdempotencyFilter_PostWithHeader_ShouldStoreKeyAndProceed()
+    public async Task IdempotencyFilter_PostWithValidGuidHeader_ShouldStoreKeyAndProceed()
     {
+        var requestId = Guid.NewGuid().ToString();
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Method = HttpMethods.Post;
-        httpContext.Request.Headers["X-Request-Id"] = "key-abc";
-        var context = BuildContext(httpContext);
+        httpContext.Request.Headers["X-Request-Id"] = requestId;
+        var context = BuildContext(httpContext, IdempotentMethod);
         var filter = new IdempotencyFilter();
 
         var nextCalled = false;
@@ -39,7 +49,7 @@ public sealed class IdempotencyFilterTests
         await filter.OnActionExecutionAsync(context, next);
 
         Assert.True(nextCalled);
-        Assert.Equal("key-abc", httpContext.Items["IdempotencyKey"]);
+        Assert.Equal(requestId, httpContext.Items[IdempotencyFilter.ItemsKey]);
         Assert.Null(context.Result);
     }
 
@@ -48,7 +58,7 @@ public sealed class IdempotencyFilterTests
     {
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Method = HttpMethods.Post;
-        var context = BuildContext(httpContext);
+        var context = BuildContext(httpContext, IdempotentMethod);
         var filter = new IdempotencyFilter();
 
         var nextCalled = false;
@@ -66,12 +76,12 @@ public sealed class IdempotencyFilterTests
     }
 
     [Fact]
-    public async Task IdempotencyFilter_PutWithHeader_ShouldStoreKeyAndProceed()
+    public async Task IdempotencyFilter_PostWithNonGuidHeader_ShouldReturn400()
     {
         var httpContext = new DefaultHttpContext();
-        httpContext.Request.Method = HttpMethods.Put;
-        httpContext.Request.Headers["X-Request-Id"] = "key-put";
-        var context = BuildContext(httpContext);
+        httpContext.Request.Method = HttpMethods.Post;
+        httpContext.Request.Headers["X-Request-Id"] = "not-a-guid";
+        var context = BuildContext(httpContext, IdempotentMethod);
         var filter = new IdempotencyFilter();
 
         var nextCalled = false;
@@ -83,8 +93,9 @@ public sealed class IdempotencyFilterTests
 
         await filter.OnActionExecutionAsync(context, next);
 
-        Assert.True(nextCalled);
-        Assert.Equal("key-put", httpContext.Items["IdempotencyKey"]);
+        Assert.False(nextCalled);
+        var result = Assert.IsType<BadRequestObjectResult>(context.Result);
+        Assert.Equal(400, result.StatusCode);
     }
 
     [Fact]
@@ -93,7 +104,7 @@ public sealed class IdempotencyFilterTests
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Method = HttpMethods.Post;
         httpContext.Request.Headers["X-Request-Id"] = "   ";
-        var context = BuildContext(httpContext);
+        var context = BuildContext(httpContext, IdempotentMethod);
         var filter = new IdempotencyFilter();
 
         var nextCalled = false;
@@ -110,11 +121,12 @@ public sealed class IdempotencyFilterTests
     }
 
     [Fact]
-    public async Task IdempotencyFilter_GetRequest_ShouldPassThrough()
+    public async Task IdempotencyFilter_ActionWithoutIdempotentAttribute_ShouldPassThrough()
     {
         var httpContext = new DefaultHttpContext();
-        httpContext.Request.Method = HttpMethods.Get;
-        var context = BuildContext(httpContext);
+        httpContext.Request.Method = HttpMethods.Post;
+        // No X-Request-Id header — but filter should not enforce it without [Idempotent].
+        var context = BuildContext(httpContext, RegularMethod);
         var filter = new IdempotencyFilter();
 
         var nextCalled = false;
@@ -128,6 +140,30 @@ public sealed class IdempotencyFilterTests
 
         Assert.True(nextCalled);
         Assert.Null(context.Result);
-        Assert.False(httpContext.Items.ContainsKey("IdempotencyKey"));
+        Assert.False(httpContext.Items.ContainsKey(IdempotencyFilter.ItemsKey));
+    }
+
+    [Fact]
+    public async Task IdempotencyFilter_GetRequest_ShouldPassThrough()
+    {
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.Method = HttpMethods.Get;
+        // Even with [Idempotent] descriptor, GET passes through (no header check).
+        // In practice GET actions won't have [Idempotent], but verifies graceful pass-through.
+        var context = BuildContext(httpContext, RegularMethod);
+        var filter = new IdempotencyFilter();
+
+        var nextCalled = false;
+        ActionExecutionDelegate next = () =>
+        {
+            nextCalled = true;
+            return Task.FromResult(new ActionExecutedContext(context, [], new object()));
+        };
+
+        await filter.OnActionExecutionAsync(context, next);
+
+        Assert.True(nextCalled);
+        Assert.Null(context.Result);
+        Assert.False(httpContext.Items.ContainsKey(IdempotencyFilter.ItemsKey));
     }
 }

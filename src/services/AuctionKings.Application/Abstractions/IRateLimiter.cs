@@ -1,6 +1,8 @@
 namespace AuctionKings.Application.Abstractions;
 
+public sealed record RateLimitResult(bool IsAllowed, int CurrentCount, bool IsError = false);
+
 public interface IRateLimiter
 {
-    Task<bool> IsAllowedAsync(string key, CancellationToken cancellationToken = default);
+    Task<RateLimitResult> IsAllowedAsync(string key, CancellationToken cancellationToken = default);
 }

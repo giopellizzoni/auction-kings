@@ -93,4 +93,16 @@ internal sealed class AuctionRepository : IAuctionRepository
             .Take(batchSize)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<Auction>> GetPendingAuctionsToActivateAsync(
+        DateTime now,
+        int batchSize,
+        CancellationToken cancellationToken = default)
+    {
+        return await _context.Auctions
+            .Where(a => a.Status == AuctionStatus.Pending && a.StartTime <= now)
+            .OrderBy(a => a.StartTime)
+            .Take(batchSize)
+            .ToListAsync(cancellationToken);
+    }
 }

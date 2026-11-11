@@ -1,4 +1,5 @@
 using AuctionKings.API.Auth;
+using AuctionKings.API.Filters;
 using AuctionKings.Application.Auctions.Commands.PlaceBid;
 using AuctionKings.Application.Auctions.Queries.GetAuctionBids;
 using AuctionKings.Application.DTOs;
@@ -10,11 +11,10 @@ using Prometheus;
 
 namespace AuctionKings.API.Controllers;
 
-public sealed record PlaceBidRequest(Guid BidderId, decimal Amount, string Currency);
+public sealed record PlaceBidRequest(decimal Amount, string Currency);
 
 [Route("api/v1/auctions/{auctionId:guid}/bids")]
-[ApiController]
-public sealed class BidsController : ControllerBase
+public sealed class BidsController : ApiControllerBase
 {
     private static readonly Counter BidsPlaced = Metrics.CreateCounter(
         "auction_kings_bids_placed_total",
@@ -27,6 +27,8 @@ public sealed class BidsController : ControllerBase
 
     [HttpPost]
     [Authorize(Policy = Policies.Bidder)]
+    [Idempotent]
+    [RateLimit(policy: "place-bid", failOpen: false)]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -38,14 +40,23 @@ public sealed class BidsController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        var idempotencyKey =
-            HttpContext.Items["IdempotencyKey"] as string
+        var bidderId = User.GetUserId();
+        if (bidderId is null)
+        {
+            return Unauthorized();
+        }
+
+        var requestId =
+            HttpContext.Items[IdempotencyFilter.ItemsKey] as string
             ?? throw new InvalidOperationException(
                 "IdempotencyKey was not set by IdempotencyFilter."
             );
+
+        // Derived key prevents one user from replaying another user's request.
+        var idempotencyKey = $"{bidderId.Value}:{auctionId}:{requestId}";
         var command = new PlaceBidCommand(
             auctionId,
-            request.BidderId,
+            bidderId.Value,
             request.Amount,
             request.Currency,
             idempotencyKey
@@ -88,15 +99,4 @@ public sealed class BidsController : ControllerBase
         return Ok(result.Value);
     }
 
-    private ObjectResult MapError(Error error) =>
-        error.Type switch
-        {
-            ErrorType.NotFound => NotFound(new { error.Code, error.Message }),
-            ErrorType.Conflict => Conflict(new { error.Code, error.Message }),
-            ErrorType.Unexpected => StatusCode(
-                StatusCodes.Status500InternalServerError,
-                new { error.Code, error.Message }
-            ),
-            _ => BadRequest(new { error.Code, error.Message }),
-        };
 }

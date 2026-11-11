@@ -1,6 +1,6 @@
 namespace AuctionKings.Infrastructure.RateLimiting;
 
-internal sealed class RateLimitOptions
+public sealed class RateLimitOptions
 {
     public const string SectionName = "RateLimit";
 

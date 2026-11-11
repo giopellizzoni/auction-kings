@@ -36,7 +36,15 @@ public sealed partial class AuctionCloseWorker : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            await CloseExpiredAuctionsAsync(stoppingToken);
+            try
+            {
+                await CloseExpiredAuctionsAsync(stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                LogUnexpectedLoopError(_logger, ex);
+            }
+
             await Task.Delay(TimeSpan.FromSeconds(_options.PollingIntervalSeconds), stoppingToken);
         }
     }
@@ -91,4 +99,7 @@ public sealed partial class AuctionCloseWorker : BackgroundService
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Unexpected error closing auction {Id}. Continuing.")]
     private static partial void LogUnexpectedError(ILogger logger, Exception ex, Guid id);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Unexpected error in auction-close worker loop. Continuing after delay.")]
+    private static partial void LogUnexpectedLoopError(ILogger logger, Exception ex);
 }

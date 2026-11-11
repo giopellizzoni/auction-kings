@@ -29,6 +29,12 @@ public static class DomainErrors
 
         public static readonly Error ConcurrencyConflict =
             Error.Conflict("Auction.ConcurrencyConflict", "The bid could not be placed due to a concurrent update. Please try again.");
+
+        public static readonly Error Ended =
+            Error.Validation("Auction.Ended", "The auction has already ended.");
+
+        public static readonly Error CannotOutbidSelf =
+            Error.Validation("Auction.CannotOutbidSelf", "You are already the highest bidder.");
     }
 
     public static class Bid
@@ -38,5 +44,8 @@ public static class DomainErrors
 
         public static readonly Error NotFound =
             Error.NotFound("Bid.NotFound", "Bid not found.");
+
+        public static readonly Error CurrencyMismatch =
+            Error.Validation("Bid.CurrencyMismatch", "The bid currency does not match the auction currency.");
     }
 }

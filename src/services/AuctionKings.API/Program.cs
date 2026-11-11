@@ -13,6 +13,7 @@ using AuctionKings.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Prometheus;
@@ -88,6 +89,23 @@ builder
             ValidAudience = jwtOptions.Audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Secret)),
         };
+        // SignalR WebSocket connections cannot send Authorization headers, so the JWT
+        // is passed as the access_token query parameter instead.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                if (context.Request.Path.StartsWithSegments("/hubs"))
+                {
+                    var token = context.Request.Query["access_token"].ToString();
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        context.Token = token;
+                    }
+                }
+                return Task.CompletedTask;
+            },
+        };
     });
 builder.Services.AddAuthorization(options =>
 {
@@ -99,13 +117,6 @@ builder.Services.AddSingleton<JwtTokenGenerator>();
 builder.Services.AddHealthChecks().AddInfrastructureHealthChecks();
 
 var app = builder.Build();
-
-if (app.Environment.IsDevelopment())
-{
-    using var migrationScope = app.Services.CreateScope();
-    var dbContext = migrationScope.ServiceProvider.GetRequiredService<AuctionDbContext>();
-    await dbContext.Database.MigrateAsync();
-}
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
