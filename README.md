@@ -40,7 +40,7 @@ cd docker
 docker compose --env-file .env.local up -d
 ```
 
-If you forget `--env-file .env.local`, those three variables interpolate to empty strings — the API will crash on startup with a JWT `IDX10703: key length is zero` error and fail to authenticate with Redis (`NOAUTH`).
+If you forget `--env-file .env.local`, those three variables interpolate to empty strings — the API will refuse to start (`'Jwt:Secret' is not configured`) and fail to authenticate with Redis (`NOAUTH`).
 
 Services available after startup (~15 seconds):
 
@@ -68,10 +68,10 @@ dotnet run --project src/services/AuctionKings.API/AuctionKings.API.csproj
 dotnet run --project src/workers/AuctionKings.BackgroundWorkers/AuctionKings.BackgroundWorkers.csproj
 ```
 
-Do **not** manually copy `.env` to `.env.local` and fill in `Jwt__Secret` for this path —
-`appsettings.Development.json` already provides a valid dev JWT signing key, and an empty
-`Jwt__Secret` env var overrides it, crashing auth on the first request. `setup-local-env.sh`
-generates a `.env.local` that leaves JWT alone for exactly this reason.
+No JWT signing key is committed to the repo. `setup-local-env.sh` generates a random
+`Jwt__Secret` (256 bits) into the git-ignored `.env.local`, and adds one to an existing
+`.env.local` that lacks it. If it is missing, empty, shorter than 32 bytes, or the old
+committed placeholder, the API refuses to start with a message that points back to the script.
 
 ### Verify the stack is healthy
 
@@ -136,9 +136,9 @@ Run the bootstrap script once per checkout — it generates secrets and both `.e
 `.env` (repo root) is committed and documents every variable `dotnet run` reads; `docker/.env`
 documents what `docker compose` interpolates. Both `.env.local` files are git-ignored and hold
 real generated values. If you prefer to edit them by hand instead of using the script, `.env`
-and `docker/.env` are the templates — but leave `Jwt__Secret`/`Issuer`/`Audience` out of the
-root `.env.local`: `appsettings.Development.json` already provides a valid dev key, and setting
-an empty one there overrides it and crashes auth on the first request.
+and `docker/.env` are the templates — but the root `.env.local` must contain a `Jwt__Secret` of at
+least 32 bytes (for example `openssl rand -hex 32`). `Issuer`/`Audience` come from
+`appsettings.Development.json`; leave them out of `.env.local`.
 
 - `dotnet run` loads `.env.local` automatically (via `DotNetEnv` in `Program.cs`) — no extra step needed.
 - `docker compose` does **not** auto-load `.env.local` (only `.env`). Pass it explicitly: `docker compose --env-file .env.local up -d`.

@@ -8,7 +8,9 @@
 # What it creates:
 #   docker/secrets/postgres_password.txt   (if missing)
 #   docker/secrets/redis_password.txt      (if missing)
-#   .env.local                             (repo root, loaded by `dotnet run` via DotNetEnv)
+#   .env.local                             (repo root, loaded by `dotnet run` via DotNetEnv;
+#                                           includes a generated Jwt__Secret, added to an
+#                                           existing file if it is missing one)
 #   docker/.env.local                      (for `docker compose --env-file .env.local up -d`)
 set -euo pipefail
 
@@ -40,6 +42,8 @@ fi
 
 POSTGRES_PASSWORD="$(cat "$SECRETS_DIR/postgres_password.txt")"
 REDIS_PASSWORD="$(cat "$SECRETS_DIR/redis_password.txt")"
+# 256 bits of entropy as 64 hex chars: meets the HS256 minimum and is safe unquoted in a .env file.
+LOCAL_JWT_SECRET="$(openssl rand -hex 32)"
 
 if [ ! -f ".env.local" ]; then
   cat > ".env.local" <<EOF
@@ -54,11 +58,9 @@ ConnectionStrings__DefaultConnection=Host=localhost;Port=5432;Database=AuctionKi
 # Redis
 ConnectionStrings__Redis=localhost:6379,password=${REDIS_PASSWORD}
 
-# JWT: intentionally NOT set here. appsettings.Development.json already
-# provides a valid dev JWT secret; setting Jwt__Secret= (empty) here would
-# override it via env-var config precedence and crash the API on first
-# token validation (IDX10703: key length is zero). Only needed for the
-# docker-compose all-in-one path (see docker/.env.local instead).
+# JWT signing key. Generated per checkout and never committed; the API refuses
+# to start without a secret of at least 32 bytes (see JwtOptionsValidator).
+Jwt__Secret=${LOCAL_JWT_SECRET}
 
 # AWS local endpoints (LocalStack / Moto)
 AWS__SQS__ServiceURL=http://localhost:4566
@@ -68,6 +70,22 @@ EOF
   echo "Created .env.local"
 else
   echo ".env.local already exists, leaving it alone"
+  # Checkouts created before the dev JWT key was removed from source control have no
+  # Jwt__Secret. Add one (and drop an empty one, which would override config and fail
+  # startup) without touching anything else in the file.
+  if ! grep -Eq '^Jwt__Secret=.+' ".env.local"; then
+    sed -i '/^Jwt__Secret=[[:space:]]*$/d' ".env.local"
+    if [ -n "$(tail -c1 ".env.local")" ]; then
+      echo "" >> ".env.local"
+    fi
+    {
+      echo ""
+      echo "# JWT signing key. Generated per checkout and never committed; the API refuses"
+      echo "# to start without a secret of at least 32 bytes (see JwtOptionsValidator)."
+      echo "Jwt__Secret=${LOCAL_JWT_SECRET}"
+    } >> ".env.local"
+    echo "Added Jwt__Secret to .env.local"
+  fi
 fi
 
 if [ ! -f "docker/.env.local" ]; then
