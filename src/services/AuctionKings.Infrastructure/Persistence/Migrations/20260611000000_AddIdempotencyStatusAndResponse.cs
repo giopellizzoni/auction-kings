@@ -23,6 +23,13 @@ namespace AuctionKings.Infrastructure.Persistence.Migrations
                 table: "idempotency_keys",
                 type: "text",
                 nullable: true);
+
+            // Rows that exist before this migration predate the status column and belong to commands
+            // that were already executed. Left as the column default ('Reserved') they would look like
+            // abandoned reservations, and stale-reservation reclaim/cleanup would delete them — letting a
+            // retry with the same key re-execute (e.g. place a duplicate bid) within its 24h window.
+            // As 'Completed' without a stored response they keep answering 409 until they expire.
+            migrationBuilder.Sql("UPDATE idempotency_keys SET status = 'Completed';");
         }
 
         /// <inheritdoc />

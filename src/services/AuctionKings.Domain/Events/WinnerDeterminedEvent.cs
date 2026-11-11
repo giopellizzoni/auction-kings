@@ -8,6 +8,6 @@ public sealed record WinnerDeterminedEvent(
     Guid WinnerId,
     Money WinningAmount) : IDomainEvent
 {
-    public Guid EventId { get; } = Guid.NewGuid();
-    public DateTime OccurredOn { get; } = DateTime.UtcNow;
+    public Guid EventId { get; init; } = Guid.NewGuid();
+    public DateTime OccurredOn { get; init; } = DateTime.UtcNow;
 }

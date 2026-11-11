@@ -9,6 +9,12 @@ internal sealed partial class IdempotencyService : IIdempotencyService
 {
     private static readonly TimeSpan Ttl = TimeSpan.FromHours(24);
 
+    /// <summary>
+    /// A request holding a reservation longer than this is presumed dead. Must comfortably exceed the
+    /// slowest legitimate PlaceBid execution (3 optimistic-concurrency attempts + DB retries).
+    /// </summary>
+    internal static readonly TimeSpan StaleReservationAge = TimeSpan.FromMinutes(5);
+
     private readonly IDbContextFactory<AuctionDbContext> _contextFactory;
     private readonly ICacheService _cache;
     private readonly ILogger<IdempotencyService> _logger;
@@ -46,6 +52,25 @@ internal sealed partial class IdempotencyService : IIdempotencyService
 
         if (rowsInserted == 1)
         {
+            return IdempotencyReservation.Reserved;
+        }
+
+        // A reservation still "Reserved" after StaleReservationAge was abandoned: the owning request
+        // crashed between TryReserveAsync and Complete/Release. Take it over atomically (the
+        // created_at predicate ensures only one concurrent retry wins) instead of answering "in-flight"
+        // until the cleanup worker's next hourly sweep.
+        var staleCutoff = now - StaleReservationAge;
+        var rowsTakenOver = await context.Database.ExecuteSqlAsync(
+            $"""
+            UPDATE idempotency_keys
+            SET created_at = {now}, expires_at = {expires}
+            WHERE key = {key} AND status = {IdempotencyKey.StatusReserved} AND created_at < {staleCutoff}
+            """,
+            cancellationToken);
+
+        if (rowsTakenOver == 1)
+        {
+            LogStaleReservationReclaimed(_logger, key);
             return IdempotencyReservation.Reserved;
         }
 
@@ -99,6 +124,9 @@ internal sealed partial class IdempotencyService : IIdempotencyService
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Idempotency key '{Key}' is currently in-flight — returning 409.")]
     private static partial void LogInFlight(ILogger logger, string key);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Idempotency key '{Key}' had an abandoned reservation — reclaimed for this request.")]
+    private static partial void LogStaleReservationReclaimed(ILogger logger, string key);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to write idempotency fast-path cache for key '{Key}'. DB replay will still work.")]
     private static partial void LogCacheWriteFailed(ILogger logger, string key, Exception exception);

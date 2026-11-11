@@ -2,6 +2,7 @@ using System.Text.Json;
 using AuctionKings.Application.Abstractions;
 using AuctionKings.Application.Behaviors;
 using AuctionKings.Application.Exceptions;
+using AuctionKings.Shared.Common;
 using MediatR;
 using NSubstitute;
 
@@ -114,6 +115,90 @@ public sealed class IdempotencyBehaviorTests
             .ReleaseAsync("key-fail", Arg.Any<CancellationToken>());
         await _idempotencyService.DidNotReceive()
             .CompleteAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    private sealed record IdempotentResultCommand(string IdempotencyKey)
+        : IRequest<Result<Guid>>,
+            IIdempotentCommand;
+
+    [Fact]
+    public async Task IdempotencyBehavior_FailureResult_ShouldReleaseAndNotCache()
+    {
+        var behavior = new IdempotencyBehavior<IdempotentResultCommand, Result<Guid>>(_idempotencyService);
+        var command = new IdempotentResultCommand("key-conflict");
+
+        _idempotencyService.GetCachedResponseAsync("key-conflict", Arg.Any<CancellationToken>())
+            .Returns((string?)null);
+        _idempotencyService.TryReserveAsync("key-conflict", Arg.Any<CancellationToken>())
+            .Returns(IdempotencyReservation.Reserved);
+
+        RequestHandlerDelegate<Result<Guid>> next =
+            _ => Task.FromResult(Result.Failure<Guid>(Error.Conflict("Auction.ConcurrencyConflict", "conflict")));
+
+        var result = await behavior.Handle(command, next, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        await _idempotencyService.Received(1)
+            .ReleaseAsync("key-conflict", Arg.Any<CancellationToken>());
+        await _idempotencyService.DidNotReceive()
+            .CompleteAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task IdempotencyBehavior_SuccessResult_ShouldComplete()
+    {
+        var behavior = new IdempotencyBehavior<IdempotentResultCommand, Result<Guid>>(_idempotencyService);
+        var command = new IdempotentResultCommand("key-ok");
+
+        _idempotencyService.GetCachedResponseAsync("key-ok", Arg.Any<CancellationToken>())
+            .Returns((string?)null);
+        _idempotencyService.TryReserveAsync("key-ok", Arg.Any<CancellationToken>())
+            .Returns(IdempotencyReservation.Reserved);
+
+        RequestHandlerDelegate<Result<Guid>> next = _ => Task.FromResult(Result.Success(Guid.NewGuid()));
+
+        await behavior.Handle(command, next, CancellationToken.None);
+
+        await _idempotencyService.Received(1)
+            .CompleteAsync("key-ok", Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _idempotencyService.DidNotReceive()
+            .ReleaseAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task IdempotencyBehavior_ResultResponse_ShouldRoundTripThroughReplay()
+    {
+        // Regression: the Result<T> converter used to be nested in the generic behavior, which made
+        // MakeGenericType throw on serialize — every successful idempotent command failed after commit.
+        var behavior = new IdempotencyBehavior<IdempotentResultCommand, Result<Guid>>(_idempotencyService);
+        var bidId = Guid.NewGuid();
+        string? storedJson = null;
+
+        _idempotencyService.GetCachedResponseAsync("key-replay", Arg.Any<CancellationToken>())
+            .Returns((string?)null);
+        _idempotencyService.TryReserveAsync("key-replay", Arg.Any<CancellationToken>())
+            .Returns(IdempotencyReservation.Reserved);
+        await _idempotencyService.CompleteAsync(
+            "key-replay",
+            Arg.Do<string>(json => storedJson = json),
+            Arg.Any<CancellationToken>());
+
+        await behavior.Handle(
+            new IdempotentResultCommand("key-replay"),
+            _ => Task.FromResult(Result.Success(bidId)),
+            CancellationToken.None);
+
+        Assert.NotNull(storedJson);
+        _idempotencyService.TryReserveAsync("key-replay", Arg.Any<CancellationToken>())
+            .Returns(IdempotencyReservation.Completed(storedJson));
+
+        var replayed = await behavior.Handle(
+            new IdempotentResultCommand("key-replay"),
+            _ => throw new InvalidOperationException("handler must not run on replay"),
+            CancellationToken.None);
+
+        Assert.True(replayed.IsSuccess);
+        Assert.Equal(bidId, replayed.Value);
     }
 
     [Fact]

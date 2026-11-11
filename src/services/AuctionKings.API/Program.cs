@@ -41,6 +41,8 @@ var redisConnectionString =
 
 builder.Services.AddSignalR().AddStackExchangeRedis(redisConnectionString);
 builder.Services.AddSingleton<IRealtimeNotificationService, SignalRNotificationService>();
+// Relays notifications raised by the background worker (e.g. scheduled auction closes) to SignalR.
+builder.Services.AddHostedService<RealtimeNotificationRelay>();
 
 builder.Services.AddControllers(options =>
 {
@@ -116,7 +118,38 @@ builder.Services.AddSingleton<JwtTokenGenerator>();
 
 builder.Services.AddHealthChecks().AddInfrastructureHealthChecks();
 
+// Opt-in (ForwardedHeaders:Enabled): only deployments where a trusted proxy is the sole ingress may
+// trust X-Forwarded-*. Staging enables it — tasks sit in private subnets reachable only from the ALB
+// SG, so any proxy address is the ALB. Anywhere the API is reachable directly (local, compose) this
+// must stay off: otherwise a client can spoof X-Forwarded-For and change RemoteIpAddress, which
+// partitions anonymous rate limiting.
+var forwardedHeadersEnabled = builder.Configuration.GetValue<bool>("ForwardedHeaders:Enabled");
+if (forwardedHeadersEnabled)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.KnownIPNetworks.Clear();
+        options.KnownProxies.Clear();
+    });
+}
+
 var app = builder.Build();
+
+// Opt-in: Development sets this in appsettings.Development.json, staging via
+// Database__MigrateOnStartup. EF Core takes a database lock while migrating, so concurrent
+// replicas starting together are serialized rather than racing.
+if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var db = scope.ServiceProvider.GetRequiredService<AuctionDbContext>();
+    await db.Database.MigrateAsync();
+}
+
+if (forwardedHeadersEnabled)
+{
+    app.UseForwardedHeaders();
+}
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
@@ -153,7 +186,10 @@ app.MapMetrics(); // exposes GET /metrics
 app.MapHub<AuctionHub>("/hubs/auction");
 app.MapHub<NotificationHub>("/hubs/notifications");
 
-app.MapHealthChecks("/health/live");
+// Liveness = "the process is up". It must not run dependency checks: the ALB and the ECS
+// container health check both use it, so a DB/Redis blip would otherwise mark every task
+// unhealthy and restart the whole fleet. Dependency health lives on /health/ready.
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
 
 app.MapHealthChecks(
     "/health/ready",

@@ -12,8 +12,13 @@ public sealed class CreateAuctionCommandValidator : AbstractValidator<CreateAuct
             .MinimumLength(3)
             .MaximumLength(200);
 
+        RuleFor(x => x.Description)
+            .MaximumLength(2000);
+
+        // Matches the numeric(18,2) column (see AuctionConfiguration).
         RuleFor(x => x.StartingPrice)
-            .GreaterThan(0);
+            .GreaterThan(0)
+            .PrecisionScale(18, 2, ignoreTrailingZeros: true);
 
         RuleFor(x => x.Currency)
             .NotEmpty()

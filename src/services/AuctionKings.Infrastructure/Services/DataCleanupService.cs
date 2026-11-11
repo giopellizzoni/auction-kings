@@ -15,6 +15,15 @@ internal sealed class DataCleanupService(AuctionDbContext context) : IDataCleanu
             .ConfigureAwait(false);
     }
 
+    public async Task<int> DeleteStaleIdempotencyReservationsAsync(TimeSpan olderThan, CancellationToken cancellationToken = default)
+    {
+        var cutoff = DateTime.UtcNow - olderThan;
+        return await context.IdempotencyKeys
+            .Where(k => k.Status == IdempotencyKey.StatusReserved && k.CreatedAt < cutoff)
+            .ExecuteDeleteAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     public async Task<int> DeleteOldOutboxMessagesAsync(TimeSpan retentionPeriod, CancellationToken cancellationToken = default)
     {
         var cutoff = DateTime.UtcNow - retentionPeriod;

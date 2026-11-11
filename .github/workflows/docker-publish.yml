@@ -16,11 +16,13 @@
 name: Publish Docker Images
 
 on:
-  # Auto-trigger after CI passes on a PR targeting develop.
+  # Auto-trigger after CI passes on a *push* to develop/main of this repository.
+  # CI also runs on pull_request; without the event/head_repository checks below, a fork PR whose
+  # head branch is named "develop" would pass the branch filter and get its code built and pushed.
   workflow_run:
     workflows: ["CI"]
     types: [completed]
-    branches: [develop]
+    branches: [develop, main]
 
   # Keep manual trigger for ad-hoc builds.
   workflow_dispatch:
@@ -45,7 +47,9 @@ jobs:
     name: Build & Push API
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository) ||
       (github.event_name == 'workflow_dispatch' && (inputs.image == 'api' || inputs.image == 'both'))
     permissions:
       contents: read
@@ -87,7 +91,9 @@ jobs:
     name: Build & Push Worker
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository) ||
       (github.event_name == 'workflow_dispatch' && (inputs.image == 'worker' || inputs.image == 'both'))
     permissions:
       contents: read

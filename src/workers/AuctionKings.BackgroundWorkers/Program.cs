@@ -1,5 +1,4 @@
 using AuctionKings.Application;
-using AuctionKings.Application.Abstractions;
 using AuctionKings.BackgroundWorkers;
 using AuctionKings.BackgroundWorkers.Workers;
 using AuctionKings.Infrastructure;
@@ -25,7 +24,9 @@ builder.Services.Configure<AuctionActivationWorkerOptions>(
 builder.Services.Configure<CleanupWorkerOptions>(
     builder.Configuration.GetSection(CleanupWorkerOptions.SectionName));
 
-builder.Services.AddSingleton<IRealtimeNotificationService, NoOpRealtimeNotificationService>();
+// No SignalR in this process: notifications (e.g. scheduled closes) go to a Redis stream that the
+// API relays to clients (see RealtimeNotificationRelay).
+builder.Services.AddRealtimeNotificationPublisher();
 
 builder.Services.AddHostedService<OutboxProcessor>();
 builder.Services.AddHostedService<AuctionCloseWorker>();

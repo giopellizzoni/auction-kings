@@ -11,6 +11,6 @@ public sealed record AuctionCreatedEvent(
     DateTime StartTime,
     DateTime EndTime) : IDomainEvent
 {
-    public Guid EventId { get; } = Guid.NewGuid();
-    public DateTime OccurredOn { get; } = DateTime.UtcNow;
+    public Guid EventId { get; init; } = Guid.NewGuid();
+    public DateTime OccurredOn { get; init; } = DateTime.UtcNow;
 }

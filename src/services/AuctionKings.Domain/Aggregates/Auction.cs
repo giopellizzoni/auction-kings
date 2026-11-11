@@ -157,7 +157,18 @@ public sealed class Auction : AggregateRoot
         return Result.Success(bid);
     }
 
-    public Result Close(DateTime now)
+    /// <summary>
+    /// Closes the auction and determines the winner.
+    /// </summary>
+    /// <param name="now">Current server time.</param>
+    /// <param name="force">
+    /// When <c>false</c> (the scheduled-close path) the auction must have reached its
+    /// <see cref="EndTime"/>. This re-check matters because a last-second bid can extend
+    /// <see cref="EndTime"/> (anti-sniping) between the moment a worker selects the auction as
+    /// expired and the moment it reloads and closes it. Pass <c>true</c> only for an explicit
+    /// administrative early close.
+    /// </param>
+    public Result Close(DateTime now, bool force = false)
     {
         if (Status == AuctionStatus.Closed)
         {
@@ -167,6 +178,11 @@ public sealed class Auction : AggregateRoot
         if (Status == AuctionStatus.Cancelled)
         {
             return Result.Failure(DomainErrors.Auction.AlreadyCancelled);
+        }
+
+        if (!force && now < EndTime)
+        {
+            return Result.Failure(DomainErrors.Auction.NotYetEnded);
         }
 
         Status = AuctionStatus.Closed;

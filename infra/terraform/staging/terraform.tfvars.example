@@ -1,11 +1,17 @@
-# Copy this file to terraform.tfvars and fill in the values.
-# NEVER commit terraform.tfvars — it contains secrets.
+# Template for a local, git-ignored terraform.tfvars (e.g. for a personal sandbox).
+# CI uses the committed terraform.staging.tfvars instead. No values here are secret.
 
 environment = "staging"
 aws_region  = "us-east-1"
 
+# Exact OIDC "sub" claims allowed to assume the deploy role. Wildcards are rejected by validation.
+#   ref:refs/heads/develop  -> plan job + deploy jobs (workflow_run jobs run in the default-branch context)
+#   environment:staging     -> jobs that declare `environment: staging` (the Terraform apply job)
 github = {
-  repo = "repo:PellizzoniCode/auction-kings:*"
+  oidc_subjects = [
+    "repo:giopellizzoni/auction-kings:ref:refs/heads/develop",
+    "repo:giopellizzoni/auction-kings:environment:staging",
+  ]
 }
 
 vpc = {
@@ -32,8 +38,8 @@ elasticache = {
 }
 
 ecs = {
-  api_image            = "ghcr.io/pellizzonicode/auction-kings-api:sha-<commit-sha>"
-  worker_image         = "ghcr.io/pellizzonicode/auction-kings-worker:sha-<commit-sha>"
+  api_image            = "ghcr.io/giopellizzoni/auction-kings-api:latest"
+  worker_image         = "ghcr.io/giopellizzoni/auction-kings-worker:latest"
   api_desired_count    = 1
   worker_desired_count = 1
   api_cpu              = 256

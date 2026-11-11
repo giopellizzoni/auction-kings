@@ -69,14 +69,14 @@ public sealed class AuctionRepositoryTests
         var repoA = new AuctionRepository(contextA);
         var auctionA = await repoA.GetByIdAsync(auction.Id);
         Assert.NotNull(auctionA);
-        auctionA.Close(DateTime.UtcNow); // increments Version
+        auctionA.Close(DateTime.UtcNow, force: true); // increments Version
 
         // Load and update from context B (simulates concurrent transaction)
         await using var contextB = _fixture.CreateDbContext();
         var repoB = new AuctionRepository(contextB);
         var auctionB = await repoB.GetByIdAsync(auction.Id);
         Assert.NotNull(auctionB);
-        auctionB.Close(DateTime.UtcNow); // increments Version
+        auctionB.Close(DateTime.UtcNow, force: true); // increments Version
 
         // Commit B first — B's version goes from 0→1 in DB
         await repoB.UpdateAsync(auctionB);

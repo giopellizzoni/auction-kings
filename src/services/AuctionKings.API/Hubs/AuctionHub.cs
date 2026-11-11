@@ -14,13 +14,15 @@ public sealed class AuctionHub(IConnectionTracker connectionTracker, IMediator m
 
     public async Task JoinAuctionAsync(Guid auctionId)
     {
-        await Groups.AddToGroupAsync(Context.ConnectionId, $"auction-{auctionId}", Context.ConnectionAborted).ConfigureAwait(false);
-
+        // Resolve the auction first so clients cannot create groups for arbitrary/non-existent ids.
         var result = await _mediator.Send(new GetAuctionDetailsQuery(auctionId), Context.ConnectionAborted).ConfigureAwait(false);
-        if (result.IsSuccess)
+        if (result.IsFailure)
         {
-            await Clients.Caller.SendAsync("AuctionState", result.Value, Context.ConnectionAborted).ConfigureAwait(false);
+            throw new HubException("Auction not found.");
         }
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"auction-{auctionId}", Context.ConnectionAborted).ConfigureAwait(false);
+        await Clients.Caller.SendAsync("AuctionState", result.Value, Context.ConnectionAborted).ConfigureAwait(false);
     }
 
     public Task LeaveAuctionAsync(Guid auctionId) =>

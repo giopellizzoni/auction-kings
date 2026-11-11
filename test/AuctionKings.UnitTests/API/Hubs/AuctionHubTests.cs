@@ -107,15 +107,16 @@ public sealed class AuctionHubTests : IDisposable
     }
 
     [Fact]
-    public async Task JoinAuctionAsync_WhenAuctionNotFound_ShouldNotSendState()
+    public async Task JoinAuctionAsync_WhenAuctionNotFound_ShouldThrowAndNotJoinGroup()
     {
         var auctionId = Guid.NewGuid();
         _mediator
             .Send(Arg.Is<GetAuctionDetailsQuery>(q => q.AuctionId == auctionId), Arg.Any<CancellationToken>())
             .Returns(Result.Failure<AuctionDetailDto>(Error.NotFound("Auction.NotFound", "Auction not found")));
 
-        await _hub.JoinAuctionAsync(auctionId);
+        await Assert.ThrowsAsync<HubException>(() => _hub.JoinAuctionAsync(auctionId));
 
+        await _groups.DidNotReceive().AddToGroupAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _caller.DidNotReceive().SendCoreAsync(
             "AuctionState",
             Arg.Any<object[]>(),

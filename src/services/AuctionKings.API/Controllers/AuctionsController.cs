@@ -5,6 +5,7 @@ using AuctionKings.Application.Auctions.Commands.CreateAuction;
 using AuctionKings.Application.Auctions.Queries.GetActiveAuctions;
 using AuctionKings.Application.Auctions.Queries.GetAuctionDetails;
 using AuctionKings.Application.DTOs;
+using AuctionKings.Domain.Errors;
 using AuctionKings.Shared.Common;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -46,6 +47,14 @@ public sealed class AuctionsController : ApiControllerBase
             return Unauthorized();
         }
 
+        // TimeSpan.FromHours throws for NaN/Infinity/out-of-range values before the validator
+        // ever runs, which surfaced as a 500. Range rules (min/max duration) stay in the validator.
+        if (!double.IsFinite(request.DurationInHours)
+            || Math.Abs(request.DurationInHours) >= TimeSpan.MaxValue.TotalHours)
+        {
+            return MapError(DomainErrors.Auction.InvalidDuration);
+        }
+
         var command = new CreateAuctionCommand(
             request.Title,
             request.Description,
@@ -53,7 +62,7 @@ public sealed class AuctionsController : ApiControllerBase
             request.Currency,
             TimeSpan.FromHours(request.DurationInHours),
             sellerId.Value,
-            request.StartTime
+            ToUtc(request.StartTime)
         );
 
         var result = await _sender.Send(command, cancellationToken);
@@ -120,10 +129,12 @@ public sealed class AuctionsController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CloseAuction(
         [FromRoute] Guid id,
-        CancellationToken cancellationToken
+        [FromQuery] bool force = false,
+        CancellationToken cancellationToken = default
     )
     {
-        var command = new CloseAuctionCommand(id);
+        // Without ?force=true an auction can only be closed once it has reached its end time.
+        var command = new CloseAuctionCommand(id, force);
         var result = await _sender.Send(command, cancellationToken);
 
         if (result.IsFailure)
@@ -134,4 +145,17 @@ public sealed class AuctionsController : ApiControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Npgsql only accepts <see cref="DateTimeKind.Utc"/> for <c>timestamptz</c> columns.
+    /// JSON timestamps with an offset bind as Local, timestamps without one as Unspecified;
+    /// the API contract is UTC, so Unspecified is interpreted as UTC.
+    /// </summary>
+    private static DateTime? ToUtc(DateTime? value) =>
+        value switch
+        {
+            null => null,
+            { Kind: DateTimeKind.Utc } utc => utc,
+            { Kind: DateTimeKind.Local } local => local.ToUniversalTime(),
+            { } unspecified => DateTime.SpecifyKind(unspecified, DateTimeKind.Utc),
+        };
 }

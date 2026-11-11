@@ -33,6 +33,9 @@ resource "aws_iam_role_policy" "ecs_execution_secrets" {
         aws_secretsmanager_secret.db_password.arn,
         aws_secretsmanager_secret.redis_auth.arn,
         aws_secretsmanager_secret.jwt_secret.arn,
+        aws_secretsmanager_secret.db_connection_string.arn,
+        aws_secretsmanager_secret.redis_connection_string.arn,
+        aws_secretsmanager_secret.dev_token_secret.arn,
       ]
     }]
   })
@@ -100,11 +103,10 @@ resource "aws_iam_role" "github_actions_deploy" {
       }
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
-        StringLike = {
-          "token.actions.githubusercontent.com:sub" = var.github.repo
-        }
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+          # Exact subjects only (see var.github validation) — no wildcard, no pull_request.
+          "token.actions.githubusercontent.com:sub" = var.github.oidc_subjects
         }
       }
     }]

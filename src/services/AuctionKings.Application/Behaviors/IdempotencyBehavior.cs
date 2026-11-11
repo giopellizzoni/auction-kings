@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using AuctionKings.Application.Abstractions;
 using AuctionKings.Application.Exceptions;
 using AuctionKings.Shared.Common;
@@ -63,7 +62,16 @@ public sealed class IdempotencyBehavior<TRequest, TResponse> : IPipelineBehavior
             throw;
         }
 
-        // 4. Persist response so future duplicates get a replay.
+        // 4. A failed Result has produced no side effects, and some failures are transient
+        //    (e.g. Auction.ConcurrencyConflict). Caching them would make a client retrying with the
+        //    same key receive the stale failure for 24h, so release the key and let it re-execute.
+        if (response is Result { IsFailure: true })
+        {
+            await _idempotencyService.ReleaseAsync(key, CancellationToken.None);
+            return response;
+        }
+
+        // 5. Persist the successful response so future duplicates get a replay.
         var responseJson = JsonSerializer.Serialize(response, SerializerOptions);
         await _idempotencyService.CompleteAsync(key, responseJson, CancellationToken.None);
 
@@ -73,89 +81,7 @@ public sealed class IdempotencyBehavior<TRequest, TResponse> : IPipelineBehavior
     private static JsonSerializerOptions BuildOptions()
     {
         var opts = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-        opts.Converters.Add(new ResultConverterFactory());
+        opts.Converters.Add(new ResultJsonConverterFactory());
         return opts;
-    }
-
-    /// <summary>
-    /// Handles <see cref="Result"/> and <see cref="Result{TValue}"/> which have no public
-    /// constructor and therefore cannot be round-tripped by the default System.Text.Json
-    /// deserializer. Reads public properties and reconstructs via factory methods.
-    /// </summary>
-    private sealed class ResultConverterFactory : JsonConverterFactory
-    {
-        public override bool CanConvert(Type typeToConvert)
-            => typeToConvert == typeof(Result)
-            || (typeToConvert.IsGenericType && typeToConvert.GetGenericTypeDefinition() == typeof(Result<>));
-
-        public override JsonConverter? CreateConverter(Type typeToConvert, JsonSerializerOptions options)
-        {
-            if (typeToConvert == typeof(Result))
-            {
-                return new NonGenericResultConverter();
-            }
-
-            var valueType = typeToConvert.GetGenericArguments()[0];
-            var converterType = typeof(GenericResultConverter<>).MakeGenericType(valueType);
-            return (JsonConverter)Activator.CreateInstance(converterType)!;
-        }
-    }
-
-    private sealed class NonGenericResultConverter : JsonConverter<Result>
-    {
-        public override Result? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            using var doc = JsonDocument.ParseValue(ref reader);
-            var root = doc.RootElement;
-            var isSuccess = root.GetProperty("isSuccess").GetBoolean();
-            if (isSuccess)
-            {
-                return Result.Success();
-            }
-
-            var error = root.GetProperty("error").Deserialize<Error>(options)!;
-            return Result.Failure(error);
-        }
-
-        public override void Write(Utf8JsonWriter writer, Result value, JsonSerializerOptions options)
-        {
-            writer.WriteStartObject();
-            writer.WriteBoolean("isSuccess", value.IsSuccess);
-            writer.WritePropertyName("error");
-            JsonSerializer.Serialize(writer, value.Error, options);
-            writer.WriteEndObject();
-        }
-    }
-
-    private sealed class GenericResultConverter<TValue> : JsonConverter<Result<TValue>>
-    {
-        public override Result<TValue>? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            using var doc = JsonDocument.ParseValue(ref reader);
-            var root = doc.RootElement;
-            var isSuccess = root.GetProperty("isSuccess").GetBoolean();
-            if (isSuccess)
-            {
-                var value = root.GetProperty("value").Deserialize<TValue>(options)!;
-                return Result.Success(value);
-            }
-
-            var error = root.GetProperty("error").Deserialize<Error>(options)!;
-            return Result.Failure<TValue>(error);
-        }
-
-        public override void Write(Utf8JsonWriter writer, Result<TValue> value, JsonSerializerOptions options)
-        {
-            writer.WriteStartObject();
-            writer.WriteBoolean("isSuccess", value.IsSuccess);
-            writer.WritePropertyName("error");
-            JsonSerializer.Serialize(writer, value.Error, options);
-            if (value.IsSuccess)
-            {
-                writer.WritePropertyName("value");
-                JsonSerializer.Serialize(writer, value.Value, options);
-            }
-            writer.WriteEndObject();
-        }
     }
 }

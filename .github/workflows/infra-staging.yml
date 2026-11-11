@@ -43,8 +43,10 @@ permissions:
 env:
   AWS_REGION: us-east-1
   TF_WORKING_DIR: infra/terraform/staging
-  TF_VAR_app_image: "ghcr.io/pellizzonicode/auction-kings-api:latest"
-  TF_VAR_worker_image: "ghcr.io/pellizzonicode/auction-kings-worker:latest"
+  # Committed, non-secret variable values (terraform.tfvars is git-ignored, so CI previously had
+  # no values for any required variable and every plan failed). Not prefixed TF_VAR_: Terraform
+  # would read TF_VAR_<name> as the value of an input variable called <name>.
+  TFVARS_FILE: terraform.staging.tfvars
 
 jobs:
   # ── Plan ──────────────────────────────────────────────────────
@@ -87,7 +89,7 @@ jobs:
         # first bootstrap (requires manual seed — see infra/terraform/staging/iam.tf).
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          terraform apply -input=false -auto-approve \
+          terraform apply -input=false -auto-approve -var-file="$TFVARS_FILE" \
             -target=aws_iam_role.github_actions_deploy \
             -target=aws_iam_role_policy.github_actions_tf_state \
             -target=aws_iam_role_policy.github_actions_networking \
@@ -106,7 +108,7 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           set +e
-          terraform plan -input=false -no-color -detailed-exitcode -out=tfplan
+          terraform plan -input=false -no-color -detailed-exitcode -var-file="$TFVARS_FILE" -out=tfplan
           EXIT_CODE=$?
           set -e
           if [ $EXIT_CODE -eq 1 ]; then
@@ -134,6 +136,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: plan
     if: needs.plan.outputs.has_changes == 'true'
+    # Approval gate: configure required reviewers on the "staging" environment
+    # (Settings → Environments). The job's OIDC subject becomes
+    # repo:OWNER/REPO:environment:staging, which must be listed in github.oidc_subjects.
+    environment: staging
 
     steps:
       - name: Checkout

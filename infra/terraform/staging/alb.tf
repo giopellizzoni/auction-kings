@@ -1,5 +1,5 @@
 resource "aws_lb" "api" {
-  name               = "${local.name_prefix}"
+  name               = local.name_prefix
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]

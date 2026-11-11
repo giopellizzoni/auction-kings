@@ -67,6 +67,36 @@ public sealed class PlaceBidCommandHandlerTests
     }
 
     [Fact]
+    public async Task PlaceBidCommandHandler_BidInAntiSnipingWindow_ShouldNotifyExtension()
+    {
+        var auction = CreateActiveAuction();
+        var originalEndTime = auction.EndTime;
+        _dateTimeProvider.UtcNow.Returns(originalEndTime.AddMinutes(-1));
+        _auctionRepository.GetByIdAsync(auction.Id, Arg.Any<CancellationToken>()).Returns(auction);
+
+        var command = new PlaceBidCommand(auction.Id, Guid.NewGuid(), 110m, "USD", "test-key");
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(auction.EndTime > originalEndTime);
+        await _notificationService.Received(1)
+            .NotifyAuctionExtendedAsync(auction.Id, auction.EndTime, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PlaceBidCommandHandler_BidOutsideAntiSnipingWindow_ShouldNotNotifyExtension()
+    {
+        var auction = CreateActiveAuction();
+        _auctionRepository.GetByIdAsync(auction.Id, Arg.Any<CancellationToken>()).Returns(auction);
+
+        var command = new PlaceBidCommand(auction.Id, Guid.NewGuid(), 110m, "USD", "test-key");
+        await _handler.Handle(command, CancellationToken.None);
+
+        await _notificationService.DidNotReceive()
+            .NotifyAuctionExtendedAsync(Arg.Any<Guid>(), Arg.Any<DateTime>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task PlaceBidCommandHandler_AuctionNotFound_ShouldReturnFailure()
     {
         _auctionRepository

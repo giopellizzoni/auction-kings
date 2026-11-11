@@ -89,4 +89,15 @@ public static class DependencyInjection
 
         return services;
     }
+
+    /// <summary>
+    /// Registers the Redis-stream-backed <see cref="IRealtimeNotificationService"/> for processes
+    /// that do not host SignalR (the background worker). The API consumes the stream and pushes
+    /// the notifications to clients.
+    /// </summary>
+    public static IServiceCollection AddRealtimeNotificationPublisher(this IServiceCollection services)
+    {
+        services.AddSingleton<IRealtimeNotificationService, RedisStreamRealtimeNotificationPublisher>();
+        return services;
+    }
 }

@@ -33,6 +33,9 @@ public static class DomainErrors
         public static readonly Error Ended =
             Error.Validation("Auction.Ended", "The auction has already ended.");
 
+        public static readonly Error NotYetEnded =
+            Error.Validation("Auction.NotYetEnded", "The auction has not reached its end time yet.");
+
         public static readonly Error CannotOutbidSelf =
             Error.Validation("Auction.CannotOutbidSelf", "You are already the highest bidder.");
     }

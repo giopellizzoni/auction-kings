@@ -24,6 +24,10 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
+# AWS RDS CA bundle: lets Npgsql validate the RDS server certificate (SSL Mode=VerifyFull,
+# see infra/terraform/staging/locals.tf). Remote ADD files default to mode 600, so chmod for appuser.
+ADD --chmod=644 https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /app/certs/rds-global-bundle.pem
+
 RUN groupadd --system appgroup \
     && useradd --system --gid appgroup --no-create-home appuser
 

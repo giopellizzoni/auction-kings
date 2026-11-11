@@ -4,7 +4,6 @@ using AuctionKings.Domain.Events;
 using AuctionKings.Infrastructure.Outbox;
 using AuctionKings.Infrastructure.Persistence;
 using AuctionKings.Shared.Common;
-using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -50,38 +49,52 @@ public sealed partial class OutboxProcessor : BackgroundService
     {
         await using var scope = _scopeFactory.CreateAsyncScope();
         var repository = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
-        var publisher = scope.ServiceProvider.GetRequiredService<IPublisher>();
         var eventBus = scope.ServiceProvider.GetRequiredService<IEventBus>();
 
-        // Open a transaction so FOR UPDATE SKIP LOCKED holds row-level locks for
-        // the full batch. Without a transaction the lock is released immediately after
-        // the query, allowing a second worker to pick up the same rows.
-        await repository.BeginTransactionAsync(cancellationToken);
+        // The execution strategy may replay the whole unit after a transient DB failure (e.g. on
+        // SaveAsync, after events were already sent). Remember what this batch already published so a
+        // replay only re-marks those rows instead of re-sending them — otherwise one transient error
+        // would duplicate the entire batch on SQS up to the strategy's retry count.
+        var published = new HashSet<Guid>();
 
-        var messages = await repository.FetchPendingAsync(_options.BatchSize, cancellationToken);
-        OutboxMetrics.SetPending(messages.Count);
+        // The transaction keeps the FOR UPDATE SKIP LOCKED row locks for the full batch, so a
+        // second worker cannot pick up the same rows. It must be opened through the execution
+        // strategy because the DbContext is configured with EnableRetryOnFailure.
+        await repository.ExecuteInTransactionAsync(
+            async ct =>
+            {
+                var messages = await repository.FetchPendingAsync(_options.BatchSize, ct);
+                OutboxMetrics.SetPending(messages.Count);
 
-        if (messages.Count == 0)
-        {
-            return;
-        }
+                if (messages.Count == 0)
+                {
+                    return;
+                }
 
-        foreach (var message in messages)
-        {
-            await ProcessMessageAsync(message, publisher, eventBus, cancellationToken);
-        }
+                foreach (var message in messages)
+                {
+                    await ProcessMessageAsync(message, eventBus, published, ct);
+                }
 
-        await repository.SaveAsync(cancellationToken);
-        await repository.CommitAsync(cancellationToken);
+                await repository.SaveAsync(ct);
+            },
+            cancellationToken);
     }
 
     private async Task ProcessMessageAsync(
         OutboxMessage message,
-        IPublisher publisher,
         IEventBus eventBus,
+        HashSet<Guid> published,
         CancellationToken cancellationToken
     )
     {
+        if (published.Contains(message.Id))
+        {
+            // Sent during an earlier attempt of this batch that was rolled back; only re-mark it.
+            message.MarkAsProcessed(DateTime.UtcNow);
+            return;
+        }
+
         try
         {
             var eventType = DomainEventTypeRegistry.Resolve(message.Type);
@@ -102,9 +115,10 @@ public sealed partial class OutboxProcessor : BackgroundService
                 return;
             }
 
-            await publisher.Publish(domainEvent, cancellationToken);
-
+            // Domain events are not MediatR notifications (IPublisher.Publish(object) would throw)
+            // and there are no in-process handlers, so the outbox only relays to the event bus.
             await eventBus.PublishAsync((IDomainEvent)domainEvent, cancellationToken).ConfigureAwait(false);
+            published.Add(message.Id);
 
             message.MarkAsProcessed(DateTime.UtcNow);
 

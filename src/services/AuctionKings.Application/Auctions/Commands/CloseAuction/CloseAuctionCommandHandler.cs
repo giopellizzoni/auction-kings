@@ -36,7 +36,7 @@ public sealed class CloseAuctionCommandHandler : IRequestHandler<CloseAuctionCom
             return Result.Failure(DomainErrors.Auction.NotFound);
         }
 
-        var result = auction.Close(_dateTimeProvider.UtcNow);
+        var result = auction.Close(_dateTimeProvider.UtcNow, request.Force);
 
         if (result.IsFailure)
         {

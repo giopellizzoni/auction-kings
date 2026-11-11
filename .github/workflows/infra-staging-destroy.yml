@@ -32,8 +32,9 @@ permissions:
 env:
   AWS_REGION: us-east-1
   TF_WORKING_DIR: infra/terraform/staging
-  TF_VAR_app_image: "ghcr.io/pellizzonicode/auction-kings-api:latest"
-  TF_VAR_worker_image: "ghcr.io/pellizzonicode/auction-kings-worker:latest"
+  # Committed, non-secret variable values (terraform.tfvars is git-ignored). Not prefixed TF_VAR_:
+  # Terraform would read TF_VAR_<name> as the value of an input variable called <name>.
+  TFVARS_FILE: terraform.staging.tfvars
 
 jobs:
   destroy:
@@ -59,11 +60,11 @@ jobs:
 
       - name: Terraform Plan (destroy)
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform plan -destroy -input=false -no-color
+        run: terraform plan -destroy -input=false -no-color -var-file="$TFVARS_FILE"
 
       - name: Terraform Destroy
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform destroy -input=false -auto-approve
+        run: terraform destroy -input=false -auto-approve -var-file="$TFVARS_FILE"
 
       - name: Confirm destruction
         run: |

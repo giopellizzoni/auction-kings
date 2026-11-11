@@ -15,7 +15,12 @@ locals {
   github_oidc_provider_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
 
   # Build the PostgreSQL connection string from RDS outputs.
-  db_connection_string = "Host=${aws_db_instance.postgres.address};Port=${aws_db_instance.postgres.port};Database=${var.rds.name};Username=${var.rds.username};Password=${random_password.db.result};SSL Mode=Require;Trust Server Certificate=true"
+  # VerifyFull validates the RDS server certificate chain and host name against the AWS RDS CA
+  # bundle baked into the images (docker/Dockerfile.{api,worker}). SSL Mode=Require alone (or with
+  # Trust Server Certificate=true) encrypts but accepts any certificate, i.e. allows MITM.
+  db_connection_string = "Host=${aws_db_instance.postgres.address};Port=${aws_db_instance.postgres.port};Database=${var.rds.name};Username=${var.rds.username};Password=${random_password.db.result};SSL Mode=VerifyFull;Root Certificate=${local.rds_ca_bundle_path}"
+
+  rds_ca_bundle_path = "/app/certs/rds-global-bundle.pem"
 
   # Redis connection string — TLS required by ElastiCache AUTH token.
   redis_connection_string = "${aws_elasticache_replication_group.redis.primary_endpoint_address}:6379,password=${random_password.redis.result},ssl=true,abortConnect=false"

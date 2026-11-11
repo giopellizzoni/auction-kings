@@ -14,11 +14,16 @@ resource "aws_ecs_task_definition" "worker" {
       essential = true
 
       environment = [
-        { name = "ASPNETCORE_ENVIRONMENT", value = "Production" },
-        { name = "ConnectionStrings__DefaultConnection", value = local.db_connection_string },
-        { name = "ConnectionStrings__Redis", value = local.redis_connection_string },
-        { name = "Sqs__BidQueueUrl", value = aws_sqs_queue.bid_events.url },
+        # Host.CreateApplicationBuilder reads DOTNET_ENVIRONMENT; ASPNETCORE_ENVIRONMENT is ignored here.
+        { name = "DOTNET_ENVIRONMENT", value = "Staging" },
+        # Bound from the "AWS:SQS" configuration section (SqsOptions) — "Sqs__…" is never read.
+        { name = "AWS__SQS__BidQueueUrl", value = aws_sqs_queue.bid_events.url },
         { name = "AWS_DEFAULT_REGION", value = var.aws_region },
+      ]
+
+      secrets = [
+        { name = "ConnectionStrings__DefaultConnection", valueFrom = aws_secretsmanager_secret.db_connection_string.arn },
+        { name = "ConnectionStrings__Redis", valueFrom = aws_secretsmanager_secret.redis_connection_string.arn },
       ]
 
       logConfiguration = {

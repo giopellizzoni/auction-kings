@@ -11,10 +11,22 @@ variable "aws_region" {
 }
 
 variable "github" {
-  description = "GitHub OIDC configuration for the deploy role trust policy."
+  description = "GitHub OIDC configuration for the deploy role trust policy. oidc_subjects are the exact token 'sub' claims allowed to assume the role (e.g. repo:OWNER/REPO:ref:refs/heads/develop, repo:OWNER/REPO:environment:staging)."
   type = object({
-    repo = string
+    oidc_subjects = list(string)
   })
+
+  validation {
+    condition     = length(var.github.oidc_subjects) > 0
+    error_message = "github.oidc_subjects must contain at least one subject."
+  }
+
+  validation {
+    # A trailing wildcard (repo:OWNER/REPO:*) lets ANY ref — including pull_request runs and
+    # arbitrary branches — assume a role that can modify IAM, RDS and ECS.
+    condition     = alltrue([for s in var.github.oidc_subjects : !endswith(s, ":*") && !strcontains(s, "pull_request")])
+    error_message = "github.oidc_subjects must name specific refs/environments; wildcard (':*') and pull_request subjects are not allowed."
+  }
 }
 
 variable "vpc" {

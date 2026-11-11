@@ -1,5 +1,5 @@
 resource "aws_ecs_cluster" "main" {
-  name = "${local.name_prefix}"
+  name = local.name_prefix
 
   setting {
     name  = "containerInsights"
@@ -42,21 +42,31 @@ resource "aws_ecs_task_definition" "api" {
       ]
 
       environment = [
-        { name = "ASPNETCORE_ENVIRONMENT",              value = "Staging" },
-        { name = "ASPNETCORE_URLS",                     value = "http://+:8080" },
-        { name = "Features__EnableDevTokenEndpoint",    value = "true" },
-        { name = "ConnectionStrings__DefaultConnection", value = local.db_connection_string },
-        { name = "ConnectionStrings__Redis", value = local.redis_connection_string },
+        { name = "ASPNETCORE_ENVIRONMENT", value = "Staging" },
+        { name = "ASPNETCORE_URLS", value = "http://+:8080" },
+        # /dev/token is the only token issuer until Cognito. Outside Development it requires the
+        # X-Dev-Token-Secret header to match Features__DevTokenSecret (injected below), so it is not
+        # an anonymous admin-token mint behind the public ALB.
+        { name = "Features__EnableDevTokenEndpoint", value = "true" },
+        # Tasks are only reachable through the ALB (private subnets + ALB-only SG ingress), so
+        # X-Forwarded-For/Proto can be trusted here — and only here.
+        { name = "ForwardedHeaders__Enabled", value = "true" },
+        # Applies EF Core migrations at startup (EF takes a DB lock, so replicas serialize).
+        { name = "Database__MigrateOnStartup", value = "true" },
         { name = "Jwt__Issuer", value = var.jwt.issuer },
         { name = "Jwt__Audience", value = var.jwt.audience },
         { name = "Jwt__ExpiresInMinutes", value = tostring(var.jwt.expires_in_minutes) },
-        { name = "Sqs__BidQueueUrl", value = aws_sqs_queue.bid_events.url },
+        # Bound from the "AWS:SQS" configuration section (SqsOptions) — "Sqs__…" is never read.
+        { name = "AWS__SQS__BidQueueUrl", value = aws_sqs_queue.bid_events.url },
         { name = "AWS_DEFAULT_REGION", value = var.aws_region },
       ]
 
       # Secrets injected at task start by the execution role — never appear in plain-text env vars in the console.
       secrets = [
         { name = "Jwt__Secret", valueFrom = aws_secretsmanager_secret.jwt_secret.arn },
+        { name = "ConnectionStrings__DefaultConnection", valueFrom = aws_secretsmanager_secret.db_connection_string.arn },
+        { name = "ConnectionStrings__Redis", valueFrom = aws_secretsmanager_secret.redis_connection_string.arn },
+        { name = "Features__DevTokenSecret", valueFrom = aws_secretsmanager_secret.dev_token_secret.arn },
       ]
 
       logConfiguration = {

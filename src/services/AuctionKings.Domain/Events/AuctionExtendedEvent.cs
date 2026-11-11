@@ -7,6 +7,6 @@ public sealed record AuctionExtendedEvent(
     DateTime NewEndTime,
     TimeSpan ExtendedBy) : IDomainEvent
 {
-    public Guid EventId { get; } = Guid.NewGuid();
-    public DateTime OccurredOn { get; } = DateTime.UtcNow;
+    public Guid EventId { get; init; } = Guid.NewGuid();
+    public DateTime OccurredOn { get; init; } = DateTime.UtcNow;
 }

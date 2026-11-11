@@ -23,7 +23,7 @@ public sealed class PlaceBidIdempotencyTests
     public PlaceBidIdempotencyTests(PostgreSqlFixture fixture) => _fixture = fixture;
 
     [Fact]
-    public async Task PlaceBid_SameIdempotencyKey_SecondCallThrows()
+    public async Task PlaceBid_SameIdempotencyKey_SecondCallReplaysFirstResult()
     {
         // Arrange
         var auctionId = await SeedActiveAuctionAsync();
@@ -32,7 +32,7 @@ public sealed class PlaceBidIdempotencyTests
 
         var sp = BuildServiceProvider();
 
-        // Act: first call succeeds
+        // Act: first call executes the command
         await using var scope1 = sp.CreateAsyncScope();
         var sender1 = scope1.ServiceProvider.GetRequiredService<ISender>();
         var first = await sender1.Send(
@@ -40,11 +40,73 @@ public sealed class PlaceBidIdempotencyTests
         );
         Assert.True(first.IsSuccess);
 
-        // Act: second call with the same idempotency key throws
+        // Act: a duplicate with the same key gets the stored response replayed, not a second bid
         await using var scope2 = sp.CreateAsyncScope();
         var sender2 = scope2.ServiceProvider.GetRequiredService<ISender>();
+        var second = await sender2.Send(
+            new PlaceBidCommand(auctionId, bidderId, 200m, "USD", idempotencyKey)
+        );
+
+        // Assert
+        Assert.True(second.IsSuccess);
+        Assert.Equal(first.Value, second.Value);
+
+        await using var context = _fixture.CreateDbContext();
+        Assert.Equal(1, await context.Bids.CountAsync(b => b.AuctionId == auctionId));
+    }
+
+    [Fact]
+    public async Task PlaceBid_AbandonedReservation_IsReclaimedByRetry()
+    {
+        // Arrange: a reservation left behind by a request that crashed mid-flight
+        var auctionId = await SeedActiveAuctionAsync();
+        var idempotencyKey = Guid.NewGuid().ToString();
+        var abandonedAt = DateTime.UtcNow - IdempotencyService.StaleReservationAge - TimeSpan.FromMinutes(1);
+        await using (var context = _fixture.CreateDbContext())
+        {
+            await context.Database.ExecuteSqlAsync(
+                $"""
+                INSERT INTO idempotency_keys (key, status, response, created_at, expires_at)
+                VALUES ({idempotencyKey}, {IdempotencyKey.StatusReserved}, NULL, {abandonedAt}, {abandonedAt.AddHours(24)})
+                """);
+        }
+
+        var sp = BuildServiceProvider();
+
+        // Act: the client retries with the same key
+        await using var scope = sp.CreateAsyncScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+        var result = await sender.Send(
+            new PlaceBidCommand(auctionId, Guid.NewGuid(), 200m, "USD", idempotencyKey)
+        );
+
+        // Assert: the stale reservation was taken over and the command executed
+        Assert.True(result.IsSuccess);
+    }
+
+    [Fact]
+    public async Task PlaceBid_FreshInFlightReservation_IsStillRejected()
+    {
+        // Arrange: a reservation held by a request that is (presumably) still running
+        var auctionId = await SeedActiveAuctionAsync();
+        var idempotencyKey = Guid.NewGuid().ToString();
+        var now = DateTime.UtcNow;
+        await using (var context = _fixture.CreateDbContext())
+        {
+            await context.Database.ExecuteSqlAsync(
+                $"""
+                INSERT INTO idempotency_keys (key, status, response, created_at, expires_at)
+                VALUES ({idempotencyKey}, {IdempotencyKey.StatusReserved}, NULL, {now}, {now.AddHours(24)})
+                """);
+        }
+
+        var sp = BuildServiceProvider();
+
+        // Act + Assert
+        await using var scope = sp.CreateAsyncScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
         await Assert.ThrowsAsync<DuplicateCommandException>(() =>
-            sender2.Send(new PlaceBidCommand(auctionId, bidderId, 200m, "USD", idempotencyKey))
+            sender.Send(new PlaceBidCommand(auctionId, Guid.NewGuid(), 200m, "USD", idempotencyKey))
         );
     }
 
@@ -80,6 +142,9 @@ public sealed class PlaceBidIdempotencyTests
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
         services.AddSingleton<IRealtimeNotificationService, NoOpNotificationService>();
         services.AddSingleton<ICacheInvalidationService, NoOpCacheInvalidationService>();
+        // IdempotencyService needs ICacheService (Redis fast path); a miss-only cache keeps this
+        // test on the Postgres path it is meant to exercise.
+        services.AddSingleton<ICacheService, MissOnlyCacheService>();
         return services.BuildServiceProvider();
     }
 
@@ -121,5 +186,25 @@ public sealed class PlaceBidIdempotencyTests
             Guid userId,
             CancellationToken cancellationToken = default
         ) => Task.CompletedTask;
+    }
+
+    private sealed class MissOnlyCacheService : ICacheService
+    {
+        public Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default)
+            where T : class => Task.FromResult<T?>(null);
+
+        public Task SetAsync<T>(string key, T value, TimeSpan? expiry = null, CancellationToken cancellationToken = default)
+            where T : class => Task.CompletedTask;
+
+        public Task RemoveAsync(string key, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task RemoveByPrefixAsync(string prefix, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public async Task<T> GetOrSetAsync<T>(
+            string key,
+            Func<CancellationToken, Task<T>> factory,
+            TimeSpan? expiry = null,
+            CancellationToken cancellationToken = default)
+            where T : class => await factory(cancellationToken);
     }
 }

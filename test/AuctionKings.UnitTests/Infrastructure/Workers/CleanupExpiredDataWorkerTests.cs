@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 
 namespace AuctionKings.UnitTests.Infrastructure.Workers;
 
@@ -56,5 +57,33 @@ public sealed class CleanupExpiredDataWorkerTests : IDisposable
             Arg.Is<TimeSpan>(t => t == TimeSpan.FromDays(_options.OutboxRetentionDays)),
             Arg.Any<CancellationToken>()
         );
+    }
+
+    [Fact]
+    public async Task CleanupAsync_ShouldDeleteStaleReservations_WithConfiguredAge()
+    {
+        await _worker.CleanupAsync(CancellationToken.None);
+
+        await _cleanupService.Received(1).DeleteStaleIdempotencyReservationsAsync(
+            Arg.Is<TimeSpan>(t => t == TimeSpan.FromMinutes(_options.StaleReservationMinutes)),
+            Arg.Any<CancellationToken>()
+        );
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenCleanupThrows_ShouldKeepRunning()
+    {
+        _cleanupService
+            .DeleteExpiredIdempotencyKeysAsync(Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("transient DB failure"));
+
+        await _worker.StartAsync(CancellationToken.None);
+        await Task.Delay(200);
+
+        Assert.NotNull(_worker.ExecuteTask);
+        Assert.False(_worker.ExecuteTask.IsFaulted);
+        await _cleanupService.Received(1).DeleteExpiredIdempotencyKeysAsync(Arg.Any<CancellationToken>());
+
+        await _worker.StopAsync(CancellationToken.None);
     }
 }

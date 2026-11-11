@@ -43,6 +43,7 @@ public sealed class PlaceBidCommandHandler : IRequestHandler<PlaceBidCommand, Re
             }
 
             var amount = new Money(request.Amount, request.Currency);
+            var endTimeBeforeBid = auction.EndTime;
             var result = auction.PlaceBid(request.BidderId, amount, _dateTimeProvider.UtcNow);
 
             if (result.IsFailure)
@@ -76,6 +77,15 @@ public sealed class PlaceBidCommandHandler : IRequestHandler<PlaceBidCommand, Re
                 bid.Amount.Amount,
                 bid.Amount.Currency,
                 CancellationToken.None);
+
+            // Anti-sniping: clients must learn the new end time or their countdown is wrong.
+            if (auction.EndTime > endTimeBeforeBid)
+            {
+                await _notificationService.NotifyAuctionExtendedAsync(
+                    auction.Id,
+                    auction.EndTime,
+                    CancellationToken.None);
+            }
 
             await _cacheInvalidation.InvalidateAuctionAsync(auction.Id, CancellationToken.None);
             await _cacheInvalidation.InvalidateActiveListingsAsync(CancellationToken.None);

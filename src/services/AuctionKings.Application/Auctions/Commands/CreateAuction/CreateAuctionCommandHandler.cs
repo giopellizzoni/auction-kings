@@ -45,10 +45,8 @@ public sealed class CreateAuctionCommandHandler
             duration,
             request.SellerId
         );
-
-        // Auctions have no scheduled-start concept today (Duration is relative to "now"),
-        // so every auction is activated immediately on creation rather than staying Pending.
-        auction.Activate(now);
+        // Auction.Create already decides the initial status: StartTime <= now → Active,
+        // future StartTime → Pending (activated later by AuctionActivationWorker).
 
         await _auctionRepository.AddAsync(auction, cancellationToken);
         await _unitOfWork.CommitAsync(cancellationToken);

@@ -1,22 +1,33 @@
 using AuctionKings.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace AuctionKings.Infrastructure.Outbox;
 
 internal sealed class OutboxRepository : IOutboxRepository
 {
     private readonly AuctionDbContext _context;
-    private IDbContextTransaction? _transaction;
 
     public OutboxRepository(AuctionDbContext context)
     {
         _context = context;
     }
 
-    public async Task BeginTransactionAsync(CancellationToken cancellationToken)
+    public Task ExecuteInTransactionAsync(
+        Func<CancellationToken, Task> work,
+        CancellationToken cancellationToken
+    )
     {
-        _transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        var strategy = _context.Database.CreateExecutionStrategy();
+
+        return strategy.ExecuteAsync(async () =>
+        {
+            // A replayed attempt must not see entities tracked (and mutated) by the failed one.
+            _context.ChangeTracker.Clear();
+
+            await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+            await work(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        });
     }
 
     public async Task<IReadOnlyList<OutboxMessage>> FetchPendingAsync(
@@ -41,15 +52,5 @@ internal sealed class OutboxRepository : IOutboxRepository
     public Task SaveAsync(CancellationToken cancellationToken)
     {
         return _context.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task CommitAsync(CancellationToken cancellationToken)
-    {
-        if (_transaction is not null)
-        {
-            await _transaction.CommitAsync(cancellationToken);
-            await _transaction.DisposeAsync();
-            _transaction = null;
-        }
     }
 }

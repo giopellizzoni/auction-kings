@@ -9,11 +9,23 @@ public sealed partial class GlobalExceptionFilter(
     IHostEnvironment environment
 ) : IExceptionFilter
 {
+    // De-facto (nginx) status for "client closed request"; never actually reaches the client.
+    private const int StatusCodeClientClosedRequest = 499;
+
     [LoggerMessage(Level = LogLevel.Error, Message = "Unhandled exception [{StatusCode}]")]
     private static partial void LogUnhandledException(ILogger logger, int statusCode, Exception exception);
 
     public void OnException(ExceptionContext context)
     {
+        // The client disconnected / aborted the request: not a server error, nothing to log at Error.
+        if (context.Exception is OperationCanceledException
+            && context.HttpContext.RequestAborted.IsCancellationRequested)
+        {
+            context.Result = new StatusCodeResult(StatusCodeClientClosedRequest);
+            context.ExceptionHandled = true;
+            return;
+        }
+
         var (statusCode, problem) = context.Exception switch
         {
             ValidationException ve => (StatusCodes.Status400BadRequest, new ProblemDetails

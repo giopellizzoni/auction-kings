@@ -88,7 +88,7 @@ public sealed class AuctionTests
     public void Auction_PlaceBid_OnClosedAuction_ShouldFail()
     {
         var auction = CreateActiveAuction();
-        auction.Close(Now);
+        auction.Close(auction.EndTime);
         auction.ClearDomainEvents();
 
         var result = auction.PlaceBid(Guid.NewGuid(), new Money(200m, "USD"), Now);
@@ -147,7 +147,7 @@ public sealed class AuctionTests
         auction.PlaceBid(bidderId, new Money(110m, "USD"), Now);
         auction.ClearDomainEvents();
 
-        auction.Close(Now);
+        auction.Close(auction.EndTime);
 
         Assert.Equal(AuctionStatus.Closed, auction.Status);
         Assert.Equal(bidderId, auction.WinnerId);
@@ -161,7 +161,7 @@ public sealed class AuctionTests
     public void Auction_Close_NoBids_ShouldCloseWithoutWinner()
     {
         var auction = CreateActiveAuction();
-        auction.Close(Now);
+        auction.Close(auction.EndTime);
 
         Assert.Equal(AuctionStatus.Closed, auction.Status);
         Assert.Null(auction.WinnerId);
@@ -175,13 +175,53 @@ public sealed class AuctionTests
     public void Auction_Close_AlreadyClosed_ShouldFail()
     {
         var auction = CreateActiveAuction();
-        auction.Close(Now);
+        auction.Close(auction.EndTime);
         auction.ClearDomainEvents();
 
-        var result = auction.Close(Now);
+        var result = auction.Close(auction.EndTime);
 
         Assert.True(result.IsFailure);
         Assert.Equal("Auction.AlreadyClosed", result.Error.Code);
+    }
+
+    [Fact]
+    public void Auction_Close_BeforeEndTime_ShouldFail()
+    {
+        var auction = CreateActiveAuction();
+
+        var result = auction.Close(auction.EndTime.AddSeconds(-1));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("Auction.NotYetEnded", result.Error.Code);
+        Assert.Equal(AuctionStatus.Active, auction.Status);
+    }
+
+    [Fact]
+    public void Auction_Close_BeforeEndTime_WithForce_ShouldClose()
+    {
+        var auction = CreateActiveAuction();
+
+        var result = auction.Close(Now, force: true);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(AuctionStatus.Closed, auction.Status);
+    }
+
+    [Fact]
+    public void Auction_Close_AfterAntiSnipingExtension_ShouldNotCloseAtOriginalEndTime()
+    {
+        // Scenario: the close worker selects the auction as expired, then a last-second bid
+        // extends it before the worker reloads and closes it.
+        var auction = CreateActiveAuction();
+        var originalEndTime = auction.EndTime;
+        auction.PlaceBid(Guid.NewGuid(), new Money(110m, "USD"), originalEndTime.AddSeconds(-1));
+        Assert.True(auction.EndTime > originalEndTime);
+
+        var result = auction.Close(originalEndTime);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("Auction.NotYetEnded", result.Error.Code);
+        Assert.Equal(AuctionStatus.Active, auction.Status);
     }
 
     [Fact]

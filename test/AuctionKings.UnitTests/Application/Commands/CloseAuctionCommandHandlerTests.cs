@@ -53,6 +53,7 @@ public sealed class CloseAuctionCommandHandlerTests
     public async Task CloseAuctionCommandHandler_ActiveAuction_ShouldClose()
     {
         var auction = CreateActiveAuction();
+        _dateTimeProvider.UtcNow.Returns(auction.EndTime);
         _auctionRepository.GetByIdAsync(auction.Id, Arg.Any<CancellationToken>()).Returns(auction);
 
         var command = new CloseAuctionCommand(auction.Id);
@@ -68,7 +69,7 @@ public sealed class CloseAuctionCommandHandlerTests
     public async Task CloseAuctionCommandHandler_AlreadyClosed_ShouldReturnFailure()
     {
         var auction = CreateActiveAuction();
-        auction.Close(Now);
+        auction.Close(Now, force: true);
         _auctionRepository.GetByIdAsync(auction.Id, Arg.Any<CancellationToken>()).Returns(auction);
 
         var command = new CloseAuctionCommand(auction.Id);
@@ -76,5 +77,33 @@ public sealed class CloseAuctionCommandHandlerTests
 
         Assert.True(result.IsFailure);
         Assert.Equal("Auction.AlreadyClosed", result.Error.Code);
+    }
+
+    [Fact]
+    public async Task CloseAuctionCommandHandler_NotYetEnded_ShouldNotClose()
+    {
+        var auction = CreateActiveAuction();
+        _auctionRepository.GetByIdAsync(auction.Id, Arg.Any<CancellationToken>()).Returns(auction);
+
+        var result = await _handler.Handle(new CloseAuctionCommand(auction.Id), CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("Auction.NotYetEnded", result.Error.Code);
+        Assert.Equal(AuctionStatus.Active, auction.Status);
+        await _unitOfWork.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
+        await _notificationService.DidNotReceive()
+            .NotifyAuctionClosedAsync(Arg.Any<Guid>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CloseAuctionCommandHandler_Force_ShouldCloseBeforeEndTime()
+    {
+        var auction = CreateActiveAuction();
+        _auctionRepository.GetByIdAsync(auction.Id, Arg.Any<CancellationToken>()).Returns(auction);
+
+        var result = await _handler.Handle(new CloseAuctionCommand(auction.Id, Force: true), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(AuctionStatus.Closed, auction.Status);
     }
 }
