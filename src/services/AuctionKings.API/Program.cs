@@ -40,6 +40,7 @@ var redisConnectionString =
     ?? throw new InvalidOperationException("Connection string 'Redis' not found.");
 
 builder.Services.AddSignalR().AddStackExchangeRedis(redisConnectionString);
+builder.Services.AddHubThrottling();
 builder.Services.AddSingleton<IRealtimeNotificationService, SignalRNotificationService>();
 
 builder.Services.AddApiCors();

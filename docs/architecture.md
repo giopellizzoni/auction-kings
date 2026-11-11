@@ -198,6 +198,19 @@ All hub instances share the Redis backplane (`StackExchangeRedis` provider). Gro
 
 When a client calls `JoinAuction`, the hub sends the full current `AuctionStateDto` (price, winner, bid count, last 10 bids, server time, version). If the client version is behind after a reconnect, `RequestStateSync` triggers a full refresh.
 
+### Throttling and abuse limits
+
+Both hubs share one global `HubThrottlingFilter` (an `IHubFilter`), configured by the `HubThrottling` section:
+
+| Limit | Default | Behaviour when exceeded |
+|---|---|---|
+| Hub method invocations per user | 20 per 10 s, across all connections and hubs | the call throws `HubException("Rate limit exceeded…")`; the connection stays open |
+| Concurrent connections per user | 10 (both hubs share one count) | the new connection is aborted |
+| Auctions joined per connection | 20 | `JoinAuction` throws `HubException` |
+| Client message size | 8 KB | SignalR closes the connection |
+
+Invocations are counted per user in Redis (sliding window, same limiter as REST) and fail open if Redis is unreachable. `JoinAuction` validates that the auction exists before adding the connection to its group, and SignalR runs one invocation at a time per connection (`MaximumParallelInvocationsPerClient = 1`). See ADR-007.
+
 ### SignalR placement note
 
 `SignalRNotificationService` (which uses `IHubContext<AuctionHub>`) lives in the **API project**, not Infrastructure. This avoids a circular project dependency (Infrastructure → API). It is registered as `IRealtimeNotificationService` and consumed by Application-layer event handlers.

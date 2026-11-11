@@ -167,6 +167,23 @@ no path, trailing slash, or wildcard — or the API refuses to start.
 As environment variables: `Cors__AllowedOrigins__0=https://app.example.com`, `Cors__AllowedOrigins__1=...`.
 Non-browser clients (the .NET SignalR client, k6 load tests, curl) are not affected. See ADR-004 in `docs/decisions.md`.
 
+### SignalR throttling
+
+The hubs limit abuse through the `HubThrottling` section of `appsettings.json` (defaults shown):
+
+```jsonc
+"HubThrottling": {
+  "MaxInvocations": 20,          // hub method calls per user per window, across all connections
+  "Window": "00:00:10",
+  "MaxConnectionsPerUser": 10,   // AuctionHub and NotificationHub share one count
+  "MaxGroupsPerConnection": 20,  // auctions one connection may be joined to
+  "MaxMessageSizeBytes": 8192
+}
+```
+
+Every value must be greater than zero or the API refuses to start. Override per environment with
+`HubThrottling__MaxInvocations=40` etc. Clients over the call limit get a `HubException`; see ADR-007 in `docs/decisions.md`.
+
 ## Stopping Services
 
 ```bash

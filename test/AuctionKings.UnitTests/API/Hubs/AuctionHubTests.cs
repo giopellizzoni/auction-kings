@@ -7,12 +7,15 @@ using AuctionKings.Domain.Enums;
 using AuctionKings.Shared.Common;
 using MediatR;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 
 namespace AuctionKings.UnitTests.API.Hubs;
 
 public sealed class AuctionHubTests : IDisposable
 {
+    private const int MaxGroups = 2;
+
     private readonly IConnectionTracker _connectionTracker = Substitute.For<IConnectionTracker>();
     private readonly IMediator _mediator = Substitute.For<IMediator>();
     private readonly IGroupManager _groups = Substitute.For<IGroupManager>();
@@ -24,8 +27,9 @@ public sealed class AuctionHubTests : IDisposable
     public AuctionHubTests()
     {
         _context.ConnectionId.Returns("conn-1");
+        _context.Items.Returns(new Dictionary<object, object?>());
         _clients.Caller.Returns(_caller);
-        _hub = new AuctionHub(_connectionTracker, _mediator)
+        _hub = new AuctionHub(_connectionTracker, _mediator, Options.Create(new HubThrottlingOptions { MaxGroupsPerConnection = MaxGroups }))
         {
             Groups = _groups,
             Context = _context,
@@ -107,19 +111,84 @@ public sealed class AuctionHubTests : IDisposable
     }
 
     [Fact]
-    public async Task JoinAuctionAsync_WhenAuctionNotFound_ShouldNotSendState()
+    public async Task JoinAuctionAsync_WhenAuctionNotFound_ShouldThrow_AndNotJoinGroupOrSendState()
     {
         var auctionId = Guid.NewGuid();
         _mediator
             .Send(Arg.Is<GetAuctionDetailsQuery>(q => q.AuctionId == auctionId), Arg.Any<CancellationToken>())
             .Returns(Result.Failure<AuctionDetailDto>(Error.NotFound("Auction.NotFound", "Auction not found")));
 
-        await _hub.JoinAuctionAsync(auctionId);
+        var ex = await Assert.ThrowsAsync<HubException>(() => _hub.JoinAuctionAsync(auctionId));
 
+        Assert.Equal("Auction not found", ex.Message);
+        await _groups.DidNotReceive().AddToGroupAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _caller.DidNotReceive().SendCoreAsync(
             "AuctionState",
             Arg.Any<object[]>(),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task JoinAuctionAsync_WhenAtGroupCap_ShouldThrow_WithoutQueryingOrJoining()
+    {
+        await JoinOkAsync(Guid.NewGuid());
+        await JoinOkAsync(Guid.NewGuid());
+        _mediator.ClearReceivedCalls();
+        _groups.ClearReceivedCalls();
+
+        await Assert.ThrowsAsync<HubException>(() => _hub.JoinAuctionAsync(Guid.NewGuid()));
+
+        await _mediator.DidNotReceiveWithAnyArgs().Send(default(GetAuctionDetailsQuery)!, default);
+        await _groups.DidNotReceive().AddToGroupAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task JoinAuctionAsync_RejoiningSameAuction_ShouldNotUseAnotherSlot()
+    {
+        var first = Guid.NewGuid();
+        await JoinOkAsync(first);
+        await JoinOkAsync(first);
+        await JoinOkAsync(first);
+
+        await JoinOkAsync(Guid.NewGuid()); // the second distinct auction still fits under the cap of 2
+
+        await Assert.ThrowsAsync<HubException>(() => _hub.JoinAuctionAsync(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task LeaveAuctionAsync_ShouldFreeAGroupSlot()
+    {
+        var first = Guid.NewGuid();
+        await JoinOkAsync(first);
+        await JoinOkAsync(Guid.NewGuid());
+
+        await _hub.LeaveAuctionAsync(first);
+
+        await JoinOkAsync(Guid.NewGuid()); // would have thrown at the cap before leaving
+    }
+
+    [Fact]
+    public async Task JoinAuctionAsync_FailedJoin_ShouldNotConsumeASlot()
+    {
+        var missing = Guid.NewGuid();
+        _mediator
+            .Send(Arg.Is<GetAuctionDetailsQuery>(q => q.AuctionId == missing), Arg.Any<CancellationToken>())
+            .Returns(Result.Failure<AuctionDetailDto>(Error.NotFound("Auction.NotFound", "Auction not found")));
+        for (var i = 0; i < MaxGroups + 3; i++)
+        {
+            await Assert.ThrowsAsync<HubException>(() => _hub.JoinAuctionAsync(missing));
+        }
+
+        await JoinOkAsync(Guid.NewGuid());
+    }
+
+    private async Task JoinOkAsync(Guid auctionId)
+    {
+        _mediator
+            .Send(Arg.Is<GetAuctionDetailsQuery>(q => q.AuctionId == auctionId), Arg.Any<CancellationToken>())
+            .Returns(Result.Success(BuildAuctionDetailDto(auctionId)));
+
+        await _hub.JoinAuctionAsync(auctionId);
     }
 
     [Fact]
