@@ -185,7 +185,26 @@ Audit finding H-7 (issue #106): hub methods accepted unlimited calls, so an auth
 
 ### Limitations
 
-- The connection cap is approximate: `ConnectionTracker` adds a connection and sets the key's expiry in two separate calls and the count is read afterwards, so simultaneous connects can briefly exceed the cap. Making the tracker atomic is issue #127 (M-21).
+- The connection cap is approximate: a connection is added by the hub and counted afterwards by the filter, as separate steps, so simultaneous connects can briefly be over-admitted or over-rejected. Making `ConnectionTracker` atomic (ADR-008) fixes the key-expiry leak but does not by itself make the cap exact; that needs an atomic "add and return the count".
 - The invocation limiter costs one Redis round trip per hub call, and a rejected call still reaches the server. It bounds work done per user, not raw message volume; the message-size limit and the reverse proxy remain the first defence against raw floods.
 - `RequestStateSyncAsync` is limited but not tied to joined auctions, so a user can still request state for any auction ID within their call budget (the REST auction endpoint is public anyway).
 - Limits are per user. An attacker with many accounts is outside this control; account creation controls and WAF rate limiting apply.
+
+---
+
+## ADR-008: Atomic Connection Tracking
+
+### Context
+
+Audit finding M-21 (issue #127): `ConnectionTracker` created a user's connection set with `SADD` and then gave it a TTL with a separate `EXPIRE`. A process crash between the two commands left the key behind with no expiry, so it would leak memory indefinitely. `UntrackAsync` had the same shape (`SREM`, `SCARD`, `EXPIRE`).
+
+### Decision
+
+- `TrackAsync` and `UntrackAsync` are each a single Lua script, which Redis runs atomically: track is `SADD` + `PEXPIRE`; untrack is `SREM`, then `PEXPIRE` only while other connections remain (Redis deletes the set when its last member is removed). A key can no longer exist without its TTL.
+- One key per script, in the same plain-`EVAL` style as `RedisRateLimiter`, so it is also safe on Redis Cluster. `IConnectionTracker` and `GetConnectionsAsync` are unchanged.
+- The mock-based unit tests, which asserted that two separate commands were issued, are replaced by Testcontainers Redis tests that assert behaviour: TTL set and refreshed, last connection deletes the key, concurrent tracks, and a regression probe that takes atomic `EXISTS` + `PTTL` snapshots from a second connection while keys are created and fails if it ever sees a key without a TTL. The probe fails against the previous implementation.
+
+### Limitations
+
+- A connection that dies without `OnDisconnectedAsync` running (for example a crashed container) leaves its ID in the set. The TTL is refreshed on every `TrackAsync`, so for an active user those IDs do not expire on their own, and enough of them would eventually count against the per-user connection cap from ADR-007. Per-connection expiry (a sorted set scored by deadline, under a new key name) would fix this and is not part of this change.
+- The cap check still adds and counts as separate steps (see ADR-007).
