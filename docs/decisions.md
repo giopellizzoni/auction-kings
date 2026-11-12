@@ -208,3 +208,37 @@ Audit finding M-21 (issue #127): `ConnectionTracker` created a user's connection
 
 - A connection that dies without `OnDisconnectedAsync` running (for example a crashed container) leaves its ID in the set. The TTL is refreshed on every `TrackAsync`, so for an active user those IDs do not expire on their own, and enough of them would eventually count against the per-user connection cap from ADR-007. Per-connection expiry (a sorted set scored by deadline, under a new key name) would fix this and is not part of this change.
 - The cap check still adds and counts as separate steps (see ADR-007).
+
+---
+
+## ADR-009: Versioned Cache Scopes
+
+### Context
+
+Audit finding M-8 (issue #114): `RemoveByPrefixAsync` found keys with `SCAN` and deleted them with one multi-key `DEL`.
+
+- `SCAN` walks the whole keyspace, which also holds rate-limit counters, idempotency keys and connection sets, and it ran three times for every bid (`PlaceBid` invalidates the auction, the active listings and the bidder's history), and again on close, create and activate.
+- On Redis Cluster it scanned one arbitrary node, and a multi-key `DEL` across slots is rejected with `CROSSSLOT`, so invalidation would not have worked even with a correct scan.
+- Read-through caching was racy: a reader could load old data, a bid could commit and invalidate, and the reader could then write its old data back, to be served for up to the entry's TTL (5 minutes for auction details).
+
+### Decision
+
+Replace prefix invalidation with **versioned scopes** in `ICacheService`:
+
+- Entries belong to a scope (`CacheScopes.Auction(id)`, `CacheScopes.ActiveListings`, `CacheScopes.UserBids(userId)`). `GetOrSetAsync` / `GetOrSetIfFoundAsync` read and write scoped entries; `InvalidateScopeAsync` invalidates a scope. `RemoveByPrefixAsync` and the unscoped `GetOrSetAsync` are removed so scanning cannot come back. Plain `GetAsync` / `SetAsync` / `RemoveAsync` remain for data that is never invalidated by scope (stored idempotency responses).
+- A scope's version lives in `cachever:{scope}` and is a random GUID; an absent marker reads as `0`. Entries are stored as `{version}|{json}`. A read fetches the marker and the entry back to back (one round trip) and is a hit only if the versions match. Invalidation is a single atomic `SET` of a new random version with a one-hour TTL.
+- The version is read before the factory runs and the result is stored under that version. If the scope is invalidated while the factory loads, the result is stored under a dead version and is never served. Callers must therefore invalidate after the change commits, which every command handler already does.
+- Entry lifetimes are clamped to the marker's one-hour lifetime. Because versions are random and never repeat, a marker that expires and is recreated cannot make an old entry valid again.
+- Everything fails open: if Redis is unreachable a read is a miss and nothing is written; a failed invalidation is logged and entries expire normally.
+- Unknown auctions are not cached (`GetOrSetIfFoundAsync`), as before.
+
+### Why not tag sets
+
+Tracking each scope's live keys in a Redis set would have kept the code change smaller, but it needs pruning to stay bounded (the public listing accepts any page number, so an attacker can create unlimited entries), costs work proportional to the number of live entries on every invalidation, adds a second write per cache write, and leaves the stale re-cache race in place.
+
+### Limitations
+
+- Entries from before an invalidation are not deleted; they hold memory until their TTL expires (at most 5 minutes).
+- Each cache read is two `GET`s instead of one (sent together, so no extra round trip), and each scope that has been invalidated keeps a small marker key for an hour.
+- Entries written by the previous code have no version and are treated as misses, so a rolling deploy simply re-warms the cache.
+- Page numbers are still unbounded, so a flood of distinct pages can still fill the cache until TTLs reclaim it. That is unchanged by this decision; it is no longer amplified by invalidation, which does not depend on how many entries exist.

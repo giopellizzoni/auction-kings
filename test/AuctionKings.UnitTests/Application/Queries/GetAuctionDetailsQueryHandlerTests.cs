@@ -3,6 +3,7 @@ using AuctionKings.Application.Auctions.Queries.GetAuctionDetails;
 using AuctionKings.Application.DTOs;
 using AuctionKings.Domain.Aggregates;
 using AuctionKings.Domain.ValueObjects;
+using AuctionKings.UnitTests.Helpers;
 using NSubstitute;
 
 namespace AuctionKings.UnitTests.Application.Queries;
@@ -14,7 +15,7 @@ public sealed class GetAuctionDetailsQueryHandlerTests
     private static readonly Guid SellerId = Guid.NewGuid();
 
     private readonly IAuctionRepository _auctionRepository = Substitute.For<IAuctionRepository>();
-    private readonly ICacheService _cacheService = Substitute.For<ICacheService>();
+    private readonly InMemoryScopedCache _cacheService = new();
     private readonly GetAuctionDetailsQueryHandler _handler;
 
     public GetAuctionDetailsQueryHandlerTests()
@@ -44,9 +45,6 @@ public sealed class GetAuctionDetailsQueryHandlerTests
         var bidderId = Guid.NewGuid();
         auction.PlaceBid(bidderId, new Money(150m, "USD"), Now);
 
-        _cacheService
-            .GetAsync<AuctionDetailDto>(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns((AuctionDetailDto?)null);
         _auctionRepository.GetByIdAsync(auction.Id, Arg.Any<CancellationToken>()).Returns(auction);
 
         var query = new GetAuctionDetailsQuery(auction.Id);
@@ -64,9 +62,6 @@ public sealed class GetAuctionDetailsQueryHandlerTests
     [Fact]
     public async Task GetAuctionDetailsQueryHandler_NonExistent_ShouldReturnFailure()
     {
-        _cacheService
-            .GetAsync<AuctionDetailDto>(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns((AuctionDetailDto?)null);
         _auctionRepository
             .GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((Auction?)null);
@@ -94,9 +89,7 @@ public sealed class GetAuctionDetailsQueryHandlerTests
             0
         );
 
-        _cacheService
-            .GetAsync<AuctionDetailDto>(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(cachedDto);
+        _cacheService.Seed(CacheScopes.Auction(auction.Id), $"auction:{auction.Id}", cachedDto);
 
         var query = new GetAuctionDetailsQuery(auction.Id);
         var result = await _handler.Handle(query, CancellationToken.None);
@@ -106,5 +99,37 @@ public sealed class GetAuctionDetailsQueryHandlerTests
         await _auctionRepository
             .DidNotReceive()
             .GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetAuctionDetailsQueryHandler_NonExistent_ShouldNotBeCached()
+    {
+        var id = Guid.NewGuid();
+        _auctionRepository.GetByIdAsync(id, Arg.Any<CancellationToken>()).Returns((Auction?)null);
+
+        await _handler.Handle(new GetAuctionDetailsQuery(id), CancellationToken.None);
+        await _handler.Handle(new GetAuctionDetailsQuery(id), CancellationToken.None);
+
+        // A missing auction is looked up every time, so it is never remembered after it is created.
+        Assert.Equal(2, _cacheService.FactoryCalls);
+        Assert.False(_cacheService.Contains(CacheScopes.Auction(id), $"auction:{id}"));
+    }
+
+    [Fact]
+    public async Task GetAuctionDetailsQueryHandler_ShouldCacheInTheAuctionScope_AndReloadAfterInvalidation()
+    {
+        var auction = CreateActiveAuction();
+        _auctionRepository.GetByIdAsync(auction.Id, Arg.Any<CancellationToken>()).Returns(auction);
+        var query = new GetAuctionDetailsQuery(auction.Id);
+
+        await _handler.Handle(query, CancellationToken.None);
+        await _handler.Handle(query, CancellationToken.None);
+        Assert.Equal(1, _cacheService.FactoryCalls);
+        Assert.True(_cacheService.Contains(CacheScopes.Auction(auction.Id), $"auction:{auction.Id}"));
+
+        await _cacheService.InvalidateScopeAsync(CacheScopes.Auction(auction.Id));
+        await _handler.Handle(query, CancellationToken.None);
+
+        Assert.Equal(2, _cacheService.FactoryCalls);
     }
 }
