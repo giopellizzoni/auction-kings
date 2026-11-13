@@ -347,6 +347,65 @@ public sealed class AuctionTests
     }
 
     [Fact]
+    public void Auction_Activate_PendingAfterEndTime_ShouldFailWithEndedAndChangeNothing()
+    {
+        var start = DateTime.UtcNow.AddHours(2);
+        var auction = CreatePendingAuction(start);
+        var version = auction.Version;
+
+        var result = auction.Activate(auction.EndTime.AddSeconds(1));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(DomainErrors.Auction.Ended, result.Error);
+        Assert.Equal(AuctionStatus.Pending, auction.Status);
+        Assert.Empty(auction.GetDomainEvents());
+        Assert.Equal(version, auction.Version);
+    }
+
+    [Fact]
+    public void Auction_Activate_PendingExactlyAtEndTime_ShouldFailWithEnded()
+    {
+        var auction = CreatePendingAuction(DateTime.UtcNow.AddHours(2));
+        var version = auction.Version;
+
+        var result = auction.Activate(auction.EndTime);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(DomainErrors.Auction.Ended, result.Error);
+        Assert.Equal(AuctionStatus.Pending, auction.Status);
+        Assert.Empty(auction.GetDomainEvents());
+        Assert.Equal(version, auction.Version);
+    }
+
+    [Fact]
+    public void Auction_Activate_PendingJustBeforeEndTime_ShouldSucceedAndIncrementVersion()
+    {
+        var auction = CreatePendingAuction(DateTime.UtcNow.AddHours(2));
+        var version = auction.Version;
+
+        var result = auction.Activate(auction.EndTime.AddTicks(-1));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(AuctionStatus.Active, auction.Status);
+        Assert.Equal(version + 1, auction.Version);
+        Assert.Single(auction.GetDomainEvents(), e => e is AuctionActivatedEvent);
+    }
+
+    [Fact]
+    public void Auction_Activate_AlreadyActiveAndPastEndTime_ShouldStayIdempotentSuccess()
+    {
+        var auction = CreateActiveAuction();
+        var version = auction.Version;
+
+        var result = auction.Activate(auction.EndTime.AddHours(1));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(AuctionStatus.Active, auction.Status);
+        Assert.Equal(version, auction.Version);
+        Assert.Empty(auction.GetDomainEvents());
+    }
+
+    [Fact]
     public void Auction_Activate_AlreadyActive_ShouldBeIdempotent()
     {
         var auction = CreateActiveAuction();

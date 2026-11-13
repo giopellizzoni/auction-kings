@@ -78,6 +78,8 @@ public sealed class Auction : AggregateRoot
 
     public Result Activate(DateTime now)
     {
+        // Already Active stays an idempotent Success even when EndTime has passed: activation already happened,
+        // and closing an overdue auction is AuctionCloseWorker's job, not Activate's.
         if (Status == AuctionStatus.Active)
         {
             return Result.Success();
@@ -91,6 +93,12 @@ public sealed class Auction : AggregateRoot
         if (now < StartTime)
         {
             return Result.Success();
+        }
+
+        // A Pending auction whose window has already closed must never become Active (same boundary as PlaceBid).
+        if (now >= EndTime)
+        {
+            return Result.Failure(DomainErrors.Auction.Ended);
         }
 
         Status = AuctionStatus.Active;

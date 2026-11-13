@@ -140,6 +140,32 @@ public sealed class CreateAuctionCommandHandlerTests
         await _unitOfWork.Received(1).CommitAsync(Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task CreateAuctionCommandHandler_WithStartTimeJustInThePastAndMinimumDuration_ShouldSucceedAndActivate()
+    {
+        // The validator accepts StartTime >= now - 1 minute and Duration >= 5 minutes, so EndTime > now always holds
+        // and the end-time check in Activate cannot reject a valid creation.
+        Auction? saved = null;
+        await _auctionRepository.AddAsync(Arg.Do<Auction>(a => saved = a), Arg.Any<CancellationToken>());
+        var command = new CreateAuctionCommand(
+            Title: "Test Auction",
+            Description: "A test auction description",
+            StartingPrice: 100m,
+            Currency: "USD",
+            Duration: TimeSpan.FromMinutes(5),
+            SellerId: Guid.NewGuid(),
+            StartTime: Now.AddSeconds(-59)
+        );
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(saved);
+        Assert.Equal(AuctionStatus.Active, saved.Status);
+        Assert.True(saved.EndTime > Now);
+        await _unitOfWork.Received(1).CommitAsync(Arg.Any<CancellationToken>());
+    }
+
     private async Task AssertNothingPersistedAsync()
     {
         await _auctionRepository.DidNotReceive().AddAsync(Arg.Any<Auction>(), Arg.Any<CancellationToken>());

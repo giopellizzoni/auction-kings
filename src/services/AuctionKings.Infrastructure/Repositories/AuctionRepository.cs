@@ -100,7 +100,9 @@ internal sealed class AuctionRepository : IAuctionRepository
         CancellationToken cancellationToken = default)
     {
         return await _context.Auctions
-            .Where(a => a.Status == AuctionStatus.Pending && a.StartTime <= now)
+            // EndTime > now: Activate rejects a Pending auction that already ended, so selecting one would fail
+            // on every poll and, with enough of them at the head of the ordering, starve valid ones.
+            .Where(a => a.Status == AuctionStatus.Pending && a.StartTime <= now && a.EndTime > now)
             .OrderBy(a => a.StartTime)
             .Take(batchSize)
             .ToListAsync(cancellationToken);

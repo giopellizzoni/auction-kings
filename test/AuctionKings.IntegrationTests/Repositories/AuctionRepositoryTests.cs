@@ -47,6 +47,51 @@ public sealed class AuctionRepositoryTests
     }
 
     [Fact]
+    public async Task AuctionRepository_GetPendingAuctionsToActivate_ShouldSkipEndedAuctionsEvenWhenTheyFillTheBatch()
+    {
+        const int batchSize = 3;
+        var now = DateTime.UtcNow;
+
+        // Pending auctions that already ended (one ends exactly at `now`), all starting before the valid one so that
+        // StartTime ordering would put them first and fill the whole batch.
+        var endedIds = new List<Guid>();
+        for (var i = 0; i < batchSize + 1; i++)
+        {
+            endedIds.Add(await AddPendingAuctionAsync(
+                startTime: now.AddDays(-3).AddMinutes(i),
+                endTime: i == 0 ? now : now.AddHours(-1 - i)));
+        }
+
+        var validId = await AddPendingAuctionAsync(startTime: now.AddHours(-2), endTime: now.AddHours(2));
+
+        await using var readContext = _fixture.CreateDbContext();
+        var repository = new AuctionRepository(readContext);
+
+        var due = await repository.GetPendingAuctionsToActivateAsync(now, batchSize);
+
+        Assert.Contains(due, a => a.Id == validId);
+        Assert.DoesNotContain(due, a => endedIds.Contains(a.Id));
+    }
+
+    // Auction.Create makes a past-start auction Active, so seed it Pending with a future window and then move the
+    // window into the past directly, which is the state a never-activated auction ends up in.
+    private async Task<Guid> AddPendingAuctionAsync(DateTime startTime, DateTime endTime)
+    {
+        await using var context = _fixture.CreateDbContext();
+        var auction = CreateSampleAuction();
+        await new AuctionRepository(context).AddAsync(auction);
+        await context.SaveChangesAsync();
+
+        await context.Auctions
+            .Where(a => a.Id == auction.Id)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(a => a.StartTime, startTime)
+                .SetProperty(a => a.EndTime, endTime));
+
+        return auction.Id;
+    }
+
+    [Fact]
     public async Task AuctionRepository_Update_WithStaleVersion_ShouldThrowConcurrencyException()
     {
         // Arrange: persist an active auction (Close() increments Version, which is the concurrency token)

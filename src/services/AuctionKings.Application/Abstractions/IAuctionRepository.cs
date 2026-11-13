@@ -23,6 +23,10 @@ public interface IAuctionRepository
         int batchSize,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Pending auctions that are due: <c>StartTime &lt;= now</c> and not yet ended (<c>EndTime &gt; now</c>),
+    /// oldest start first. Ended-but-never-activated auctions are excluded; they stay Pending.
+    /// </summary>
     Task<IReadOnlyList<Auction>> GetPendingAuctionsToActivateAsync(
         DateTime now,
         int batchSize,
