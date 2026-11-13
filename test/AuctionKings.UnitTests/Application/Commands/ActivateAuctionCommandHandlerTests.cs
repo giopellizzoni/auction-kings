@@ -1,3 +1,4 @@
+using AuctionKings.Domain.Events;
 using AuctionKings.Application.Abstractions;
 using AuctionKings.Application.Auctions.Commands.ActivateAuction;
 using AuctionKings.Domain.Aggregates;
@@ -56,6 +57,8 @@ public sealed class ActivateAuctionCommandHandlerTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(AuctionStatus.Cancelled, auction.Status);
+        var raised = Assert.IsType<AuctionCancelledEvent>(Assert.Single(auction.GetDomainEvents()));
+        Assert.Equal(_dateTimeProvider.UtcNow, raised.CancelledAt);
         await _auctionRepository.Received(1).UpdateAsync(auction, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).CommitAsync(Arg.Any<CancellationToken>());
     }

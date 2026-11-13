@@ -428,4 +428,43 @@ public sealed class AuctionTests
         Assert.True(result.IsFailure);
         Assert.Equal("Auction.AlreadyCancelled", result.Error.Code);
     }
+
+    [Fact]
+    public void Auction_Cancel_ActiveAuction_ShouldRaiseSingleCancelledEvent()
+    {
+        var auction = CreateActiveAuction();
+        auction.ClearDomainEvents();
+
+        var result = auction.Cancel(Now);
+
+        Assert.True(result.IsSuccess);
+        var raised = Assert.IsType<AuctionCancelledEvent>(Assert.Single(auction.GetDomainEvents()));
+        Assert.Equal(auction.Id, raised.AuctionId);
+        Assert.Equal(Now, raised.CancelledAt);
+    }
+
+    [Fact]
+    public void Auction_Cancel_AlreadyCancelled_ShouldNotRaiseEvent()
+    {
+        var auction = CreateActiveAuction();
+        auction.Cancel(Now);
+        auction.ClearDomainEvents();
+
+        auction.Cancel(Now);
+
+        Assert.Empty(auction.GetDomainEvents());
+    }
+
+    [Fact]
+    public void Auction_Cancel_ClosedAuction_ShouldFailWithoutEvent()
+    {
+        var auction = CreateActiveAuction();
+        auction.Close(Now);
+        auction.ClearDomainEvents();
+
+        var result = auction.Cancel(Now);
+
+        Assert.True(result.IsFailure);
+        Assert.Empty(auction.GetDomainEvents());
+    }
 }

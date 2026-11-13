@@ -1,4 +1,6 @@
+using System.Text.Json;
 using AuctionKings.Domain.Aggregates;
+using AuctionKings.Domain.Events;
 using AuctionKings.Domain.ValueObjects;
 using AuctionKings.Infrastructure.Persistence;
 using AuctionKings.IntegrationTests.Infrastructure;
@@ -62,5 +64,29 @@ public sealed class UnitOfWorkTests
 
         // After commit: events should be cleared
         Assert.Empty(auction.GetDomainEvents());
+    }
+
+    [Fact]
+    public async Task UnitOfWork_Commit_CancelledAuction_ShouldPersistResolvableCancelledEventInOutbox()
+    {
+        await using var context = _fixture.CreateDbContext();
+        var unitOfWork = new UnitOfWork(context);
+        var auction = CreateActiveAuction(Guid.NewGuid());
+        await context.Auctions.AddAsync(auction);
+        await unitOfWork.CommitAsync();
+
+        var cancelledAt = DateTime.UtcNow;
+        Assert.True(auction.Cancel(cancelledAt).IsSuccess);
+        await unitOfWork.CommitAsync();
+
+        await using var readContext = _fixture.CreateDbContext();
+        var cancelledType = typeof(AuctionCancelledEvent).FullName;
+        var messages = await readContext.OutboxMessages.Where(m => m.Type == cancelledType).ToListAsync();
+        var message = Assert.Single(messages, m => m.Content.Contains(auction.Id.ToString()));
+        var type = DomainEventTypeRegistry.Resolve(message.Type);
+        Assert.NotNull(type);
+        Assert.Equal(typeof(AuctionCancelledEvent), type);
+        var deserialized = Assert.IsType<AuctionCancelledEvent>(JsonSerializer.Deserialize(message.Content, type));
+        Assert.Equal(auction.Id, deserialized.AuctionId);
     }
 }

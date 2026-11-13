@@ -7,6 +7,7 @@ public sealed class DomainEventTypeRegistryTests
     [Theory]
     [InlineData(typeof(AuctionCreatedEvent))]
     [InlineData(typeof(AuctionClosedEvent))]
+    [InlineData(typeof(AuctionCancelledEvent))]
     [InlineData(typeof(AuctionExtendedEvent))]
     [InlineData(typeof(AuctionActivatedEvent))]
     [InlineData(typeof(BidPlacedEvent))]
@@ -36,10 +37,11 @@ public sealed class DomainEventTypeRegistryTests
 
         Assert.Contains(typeof(AuctionCreatedEvent).FullName!, all.Keys);
         Assert.Contains(typeof(AuctionClosedEvent).FullName!, all.Keys);
+        Assert.Contains(typeof(AuctionCancelledEvent).FullName!, all.Keys);
         Assert.Contains(typeof(AuctionExtendedEvent).FullName!, all.Keys);
         Assert.Contains(typeof(AuctionActivatedEvent).FullName!, all.Keys);
         Assert.Contains(typeof(BidPlacedEvent).FullName!, all.Keys);
         Assert.Contains(typeof(WinnerDeterminedEvent).FullName!, all.Keys);
-        Assert.Equal(6, all.Count);
+        Assert.Equal(7, all.Count);
     }
 }

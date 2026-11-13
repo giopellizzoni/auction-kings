@@ -218,6 +218,8 @@ public sealed class Auction : AggregateRoot
             bid.Cancel();
         }
 
+        AddDomainEvent(new AuctionCancelledEvent(Id, now));
+
         return Result.Success();
     }
 }
