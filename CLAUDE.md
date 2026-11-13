@@ -56,7 +56,7 @@ Clean Architecture: `API → Application → Domain ← Infrastructure`
 - NuGet versions: centralized in `Directory.Packages.props` — do NOT add versions in individual `.csproj` files
 - `Directory.Build.props` — `net10.0`, C# 14, nullable enabled, analyzers enforced
 - Code style: `.editorconfig`
-- `TreatWarningsAsErrors` is commented out — warnings do not fail the build
+- `TreatWarningsAsErrors` is enabled in `Directory.Build.props` — any compiler/analyzer warning fails the build. Fix the code; suppress only specific, justified diagnostics with a comment. NuGet advisory warnings (NU1901–NU1904) are kept as warnings via `WarningsNotAsErrors`.
 
 ## AWS Services
 
