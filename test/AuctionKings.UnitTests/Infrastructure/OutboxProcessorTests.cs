@@ -4,6 +4,7 @@ using AuctionKings.Domain.Events;
 using AuctionKings.Domain.ValueObjects;
 using AuctionKings.Infrastructure.Outbox;
 using AuctionKings.Infrastructure.Persistence;
+using AuctionKings.Shared.Common;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -19,10 +20,15 @@ public sealed class OutboxProcessorTests : IDisposable
     private readonly IPublisher _publisher = Substitute.For<IPublisher>();
     private readonly IEventBus _eventBus = Substitute.For<IEventBus>();
     private readonly OutboxOptions _options = new() { BatchSize = 10, MaxRetries = 3 };
+    private readonly IDateTimeProvider _dateTimeProvider = Substitute.For<IDateTimeProvider>();
     private readonly OutboxProcessor _processor;
+
+    private static readonly DateTime FixedNow = new(2030, 1, 2, 3, 4, 5, DateTimeKind.Utc);
 
     public OutboxProcessorTests()
     {
+        _dateTimeProvider.UtcNow.Returns(FixedNow);
+
         var scopeFactory = Substitute.For<IServiceScopeFactory>();
         var scope = Substitute.For<IServiceScope>();
 
@@ -39,6 +45,7 @@ public sealed class OutboxProcessorTests : IDisposable
         _processor = new OutboxProcessor(
             scopeFactory,
             Options.Create(_options),
+            _dateTimeProvider,
             NullLogger<OutboxProcessor>.Instance
         );
     }
@@ -52,8 +59,8 @@ public sealed class OutboxProcessorTests : IDisposable
             "Test Auction",
             Guid.NewGuid(),
             new Money(100m, "USD"),
-            DateTime.UtcNow,
-            DateTime.UtcNow.AddDays(1)
+            FixedNow,
+            FixedNow.AddDays(1)
         );
 
         return OutboxMessage.Create(domainEvent);
@@ -70,8 +77,23 @@ public sealed class OutboxProcessorTests : IDisposable
         await _processor.ProcessBatchAsync(CancellationToken.None);
 
         await _publisher.Received(1).Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
-        Assert.NotNull(message.ProcessedAt);
+        Assert.Equal(FixedNow, message.ProcessedAt);
         await _repository.Received(1).SaveAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task OutboxProcessor_ShouldStampProcessedAtFromDateTimeProvider()
+    {
+        var message = BuildAuctionCreatedMessage();
+        var processedAt = new DateTime(2041, 6, 7, 8, 9, 10, DateTimeKind.Utc);
+        _dateTimeProvider.UtcNow.Returns(processedAt);
+        _repository
+            .FetchPendingAsync(_options.BatchSize, Arg.Any<CancellationToken>())
+            .Returns([message]);
+
+        await _processor.ProcessBatchAsync(CancellationToken.None);
+
+        Assert.Equal(processedAt, message.ProcessedAt);
     }
 
     [Fact]

@@ -16,16 +16,19 @@ public sealed partial class OutboxProcessor : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly OutboxOptions _options;
+    private readonly IDateTimeProvider _dateTimeProvider;
     private readonly ILogger<OutboxProcessor> _logger;
 
     public OutboxProcessor(
         IServiceScopeFactory scopeFactory,
         IOptions<OutboxOptions> options,
+        IDateTimeProvider dateTimeProvider,
         ILogger<OutboxProcessor> logger
     )
     {
         _scopeFactory = scopeFactory;
         _options = options.Value;
+        _dateTimeProvider = dateTimeProvider;
         _logger = logger;
     }
 
@@ -106,7 +109,7 @@ public sealed partial class OutboxProcessor : BackgroundService
 
             await eventBus.PublishAsync((IDomainEvent)domainEvent, cancellationToken).ConfigureAwait(false);
 
-            message.MarkAsProcessed(DateTime.UtcNow);
+            message.MarkAsProcessed(_dateTimeProvider.UtcNow);
 
             LogProcessed(_logger, message.Id, message.Type);
         }
