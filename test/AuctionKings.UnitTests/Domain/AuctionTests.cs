@@ -1,7 +1,9 @@
 using AuctionKings.Domain.Aggregates;
 using AuctionKings.Domain.Enums;
+using AuctionKings.Domain.Errors;
 using AuctionKings.Domain.Events;
 using AuctionKings.Domain.ValueObjects;
+using AuctionKings.Shared.Common;
 
 namespace AuctionKings.UnitTests.Domain;
 
@@ -26,7 +28,7 @@ public sealed class AuctionTests
             startTime ?? Now,
             duration ?? Duration,
             sellerId ?? SellerId
-        );
+        ).Value;
 
         auction.Activate(Now);
         auction.ClearDomainEvents();
@@ -42,7 +44,7 @@ public sealed class AuctionTests
             futureStart,
             Duration,
             SellerId
-        );
+        ).Value;
         auction.ClearDomainEvents();
         return auction;
     }
@@ -50,7 +52,7 @@ public sealed class AuctionTests
     [Fact]
     public void Auction_Create_ShouldRaiseAuctionCreatedEvent()
     {
-        var auction = Auction.Create("Test", "Desc", StartingPrice, Now, Duration, SellerId);
+        var auction = Auction.Create("Test", "Desc", StartingPrice, Now, Duration, SellerId).Value;
 
         var events = auction.GetDomainEvents();
         Assert.Single(events);
@@ -243,12 +245,67 @@ public sealed class AuctionTests
         Assert.Equal("Bid.CurrencyMismatch", result.Error.Code);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Auction_Create_WithBlankTitle_ShouldFailWithTitleRequired(string? title)
+    {
+        var result = Auction.Create(title!, "Desc", StartingPrice, Now, Duration, SellerId);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(DomainErrors.Auction.TitleRequired, result.Error);
+        Assert.Equal(ErrorType.Validation, result.Error.Type);
+    }
+
+    [Fact]
+    public void Auction_Create_WithEmptySeller_ShouldFailWithSellerRequired()
+    {
+        var result = Auction.Create("Test", "Desc", StartingPrice, Now, Duration, Guid.Empty);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(DomainErrors.Auction.SellerRequired, result.Error);
+        Assert.Equal(ErrorType.Validation, result.Error.Type);
+    }
+
+    [Fact]
+    public void Auction_Create_WithBlankTitleAndEmptySeller_ShouldReportTheTitleFirst()
+    {
+        var result = Auction.Create(" ", "Desc", StartingPrice, Now, Duration, Guid.Empty);
+
+        Assert.Equal(DomainErrors.Auction.TitleRequired, result.Error);
+    }
+
+    [Fact]
+    public void Auction_Create_WhenItFails_ShouldNotThrow_AndGiveNoAuction()
+    {
+        var result = Auction.Create("", "Desc", StartingPrice, Now, Duration, SellerId);
+
+        // A failed Result carries an error, never a value: reading it is a programming error.
+        Assert.Throws<InvalidOperationException>(() => result.Value);
+    }
+
+    [Fact]
+    public void Auction_Create_ShouldReturnTheAuctionWithTheGivenValues()
+    {
+        var result = Auction.Create("Vintage Watch", null!, StartingPrice, Now, Duration, SellerId);
+
+        Assert.True(result.IsSuccess);
+        var auction = result.Value;
+        Assert.Equal("Vintage Watch", auction.Title);
+        Assert.Equal(string.Empty, auction.Description); // a null description is normalised, not rejected
+        Assert.Equal(SellerId, auction.SellerId);
+        Assert.Equal(StartingPrice, auction.StartingPrice);
+        Assert.Equal(StartingPrice, auction.CurrentPrice);
+        Assert.Equal(Now.Add(Duration.Value), auction.EndTime);
+    }
+
     [Fact]
     public void Auction_Create_WithPastStartTime_ShouldBeActive()
     {
         var pastStart = DateTime.UtcNow.AddHours(-1);
 
-        var auction = Auction.Create("Test", "Desc", StartingPrice, pastStart, Duration, SellerId);
+        var auction = Auction.Create("Test", "Desc", StartingPrice, pastStart, Duration, SellerId).Value;
 
         Assert.Equal(AuctionStatus.Active, auction.Status);
     }
@@ -258,7 +315,7 @@ public sealed class AuctionTests
     {
         var futureStart = DateTime.UtcNow.AddHours(2);
 
-        var auction = Auction.Create("Test", "Desc", StartingPrice, futureStart, Duration, SellerId);
+        var auction = Auction.Create("Test", "Desc", StartingPrice, futureStart, Duration, SellerId).Value;
 
         Assert.Equal(AuctionStatus.Pending, auction.Status);
     }

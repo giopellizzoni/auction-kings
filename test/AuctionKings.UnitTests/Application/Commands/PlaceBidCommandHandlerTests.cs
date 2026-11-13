@@ -44,7 +44,7 @@ public sealed class PlaceBidCommandHandlerTests
             Now,
             AuctionDuration.FromDays(1),
             sellerId ?? SellerId
-        );
+        ).Value;
 
         auction.Activate(Now);
         return auction;

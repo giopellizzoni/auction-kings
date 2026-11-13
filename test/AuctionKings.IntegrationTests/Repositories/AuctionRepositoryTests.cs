@@ -22,7 +22,7 @@ public sealed class AuctionRepositoryTests
             DateTime.UtcNow.AddHours(1),
             AuctionDuration.FromDays(1),
             Guid.NewGuid()
-        );
+        ).Value;
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public sealed class AuctionRepositoryTests
             DateTime.UtcNow.AddHours(-2),
             AuctionDuration.FromDays(1),
             Guid.NewGuid()
-        );
+        ).Value;
         auction.Activate(DateTime.UtcNow.AddHours(-2));
         await setupRepository.AddAsync(auction);
         await setupContext.SaveChangesAsync();

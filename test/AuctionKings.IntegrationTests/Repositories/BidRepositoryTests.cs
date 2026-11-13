@@ -26,7 +26,7 @@ public sealed class BidRepositoryTests
             DateTime.UtcNow.AddMinutes(-10),
             AuctionDuration.FromDays(1),
             sellerId
-        );
+        ).Value;
         auction.Activate(DateTime.UtcNow.AddMinutes(-10));
 
         await context.Auctions.AddAsync(auction);

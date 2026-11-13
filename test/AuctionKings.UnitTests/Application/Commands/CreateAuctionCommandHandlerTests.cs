@@ -1,6 +1,8 @@
 using AuctionKings.Application.Abstractions;
 using AuctionKings.Application.Auctions.Commands.CreateAuction;
 using AuctionKings.Domain.Aggregates;
+using AuctionKings.Domain.Enums;
+using AuctionKings.Domain.Errors;
 using AuctionKings.Shared.Common;
 using NSubstitute;
 
@@ -70,5 +72,78 @@ public sealed class CreateAuctionCommandHandlerTests
             validationResult.Errors,
             e => e.PropertyName == nameof(CreateAuctionCommand.Title)
         );
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task CreateAuctionCommandHandler_WhenTheAggregateRejectsTheTitle_ShouldReturnTheErrorAndPersistNothing(
+        string title)
+    {
+        // Called directly, bypassing the validation behaviour: the domain must still answer with a Result.
+        var command = new CreateAuctionCommand(
+            Title: title,
+            Description: "A test auction description",
+            StartingPrice: 100m,
+            Currency: "USD",
+            Duration: TimeSpan.FromDays(1),
+            SellerId: Guid.NewGuid()
+        );
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(DomainErrors.Auction.TitleRequired, result.Error);
+        await AssertNothingPersistedAsync();
+    }
+
+    [Fact]
+    public async Task CreateAuctionCommandHandler_WhenTheAggregateRejectsTheSeller_ShouldReturnTheErrorAndPersistNothing()
+    {
+        var command = new CreateAuctionCommand(
+            Title: "Test Auction",
+            Description: "A test auction description",
+            StartingPrice: 100m,
+            Currency: "USD",
+            Duration: TimeSpan.FromDays(1),
+            SellerId: Guid.Empty
+        );
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(DomainErrors.Auction.SellerRequired, result.Error);
+        await AssertNothingPersistedAsync();
+    }
+
+    [Fact]
+    public async Task CreateAuctionCommandHandler_WithAFutureStartTime_ShouldSucceedAndSaveThePendingAuction()
+    {
+        // Activate is a no-op before the start time. Checking its Result must not turn that into a failure.
+        Auction? saved = null;
+        await _auctionRepository.AddAsync(Arg.Do<Auction>(a => saved = a), Arg.Any<CancellationToken>());
+        var command = new CreateAuctionCommand(
+            Title: "Test Auction",
+            Description: "A test auction description",
+            StartingPrice: 100m,
+            Currency: "USD",
+            Duration: TimeSpan.FromDays(1),
+            SellerId: Guid.NewGuid(),
+            StartTime: DateTime.UtcNow.AddDays(1)
+        );
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(saved);
+        Assert.Equal(AuctionStatus.Pending, saved.Status);
+        await _unitOfWork.Received(1).CommitAsync(Arg.Any<CancellationToken>());
+    }
+
+    private async Task AssertNothingPersistedAsync()
+    {
+        await _auctionRepository.DidNotReceive().AddAsync(Arg.Any<Auction>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
+        await _cacheInvalidation.DidNotReceive().InvalidateActiveListingsAsync(Arg.Any<CancellationToken>());
     }
 }

@@ -34,7 +34,7 @@ public sealed class GetAuctionBidsQueryHandlerTests
             Now,
             AuctionDuration.FromDays(1),
             SellerId
-        );
+        ).Value;
 
         auction.Activate(Now);
         return auction;

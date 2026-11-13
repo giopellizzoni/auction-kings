@@ -28,7 +28,7 @@ public sealed class Auction : AggregateRoot
 
     private Auction() : base(Guid.NewGuid()) { }
 
-    public static Auction Create(
+    public static Result<Auction> Create(
         string title,
         string description,
         Money startingPrice,
@@ -38,12 +38,12 @@ public sealed class Auction : AggregateRoot
     {
         if (string.IsNullOrWhiteSpace(title))
         {
-            throw new ArgumentException("Title cannot be empty.", nameof(title));
+            return Result.Failure<Auction>(DomainErrors.Auction.TitleRequired);
         }
 
         if (sellerId == Guid.Empty)
         {
-            throw new ArgumentException("SellerId cannot be empty.", nameof(sellerId));
+            return Result.Failure<Auction>(DomainErrors.Auction.SellerRequired);
         }
 
         var endTime = duration.GetEndTime(startTime);
@@ -73,7 +73,7 @@ public sealed class Auction : AggregateRoot
             startTime,
             endTime));
 
-        return auction;
+        return Result.Success(auction);
     }
 
     public Result Activate(DateTime now)

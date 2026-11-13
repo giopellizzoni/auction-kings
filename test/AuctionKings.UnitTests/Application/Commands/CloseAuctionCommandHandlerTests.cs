@@ -43,7 +43,7 @@ public sealed class CloseAuctionCommandHandlerTests
             Now,
             AuctionDuration.FromDays(1),
             SellerId
-        );
+        ).Value;
 
         auction.Activate(Now);
         return auction;
