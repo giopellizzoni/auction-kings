@@ -39,18 +39,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.4" />
   </ItemGroup>
   <ItemGroup Label="AWS">
-    <PackageVersion Include="AWSSDK.DynamoDBv2" Version="4.0.17.5" />
     <PackageVersion Include="AWSSDK.SQS" Version="4.0.2.25" />
-    <PackageVersion Include="AWSSDK.SimpleNotificationService" Version="4.0.2.24" />
-    <PackageVersion Include="AWSSDK.S3" Version="4.0.20.2" />
-    <PackageVersion Include="AWSSDK.CognitoIdentityProvider" Version="4.0.6.7" />
-    <PackageVersion Include="AWSSDK.SecretsManager" Version="4.0.4.14" />
-    <PackageVersion Include="AWSSDK.AppConfig" Version="4.0.3.21" />
-    <PackageVersion Include="AWSSDK.CloudWatch" Version="4.0.9.1" />
-    <PackageVersion Include="AWSSDK.CloudWatchLogs" Version="4.0.19" />
-    <PackageVersion Include="AWSSDK.XRay" Version="4.0.3.21" />
-    <PackageVersion Include="AWSSDK.EventBridge" Version="4.0.5.23" />
-    <PackageVersion Include="Kralizek.Extensions.Configuration.AWSSecretsManager" Version="1.7.0" />
   </ItemGroup>
   <ItemGroup Label="Test">
     <PackageVersion Include="coverlet.collector" Version="10.0.0" />
