@@ -37,7 +37,7 @@ public sealed class CreateAuctionCommandHandler
         var now = _dateTimeProvider.UtcNow;
         var startTime = request.StartTime ?? now;
 
-        var auction = Auction.Create(
+        var created = Auction.Create(
             request.Title,
             request.Description,
             money,
@@ -46,9 +46,21 @@ public sealed class CreateAuctionCommandHandler
             request.SellerId
         );
 
-        // Auctions have no scheduled-start concept today (Duration is relative to "now"),
-        // so every auction is activated immediately on creation rather than staying Pending.
-        auction.Activate(now);
+        if (created.IsFailure)
+        {
+            return Result.Failure<Guid>(created.Error);
+        }
+
+        var auction = created.Value;
+
+        // Create already activates an auction that starts now or earlier; a future StartTime leaves it Pending
+        // until AuctionActivationWorker activates it. Activate is idempotent, so calling it here is harmless,
+        // and its result is checked rather than silently dropped.
+        var activated = auction.Activate(now);
+        if (activated.IsFailure)
+        {
+            return Result.Failure<Guid>(activated.Error);
+        }
 
         await _auctionRepository.AddAsync(auction, cancellationToken);
         await _unitOfWork.CommitAsync(cancellationToken);

@@ -101,7 +101,7 @@ public sealed class PlaceBidConcurrencyTests
             DateTime.UtcNow.AddMinutes(-5),
             AuctionDuration.FromDays(1),
             Guid.NewGuid()
-        );
+        ).Value;
         auction.Activate(DateTime.UtcNow.AddMinutes(-5));
         await context.Auctions.AddAsync(auction);
         await context.SaveChangesAsync();

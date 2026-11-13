@@ -35,6 +35,12 @@ public static class DomainErrors
 
         public static readonly Error CannotOutbidSelf =
             Error.Validation("Auction.CannotOutbidSelf", "You are already the highest bidder.");
+
+        public static readonly Error TitleRequired =
+            Error.Validation("Auction.TitleRequired", "The auction title is required.");
+
+        public static readonly Error SellerRequired =
+            Error.Validation("Auction.SellerRequired", "The auction seller is required.");
     }
 
     public static class Bid

@@ -49,7 +49,7 @@ public sealed class AuctionCloseWorkerTests : IDisposable
         DateTime.UtcNow.AddDays(-2),
         new AuctionDuration(TimeSpan.FromHours(1)),
         Guid.NewGuid()
-    );
+    ).Value;
 
     [Fact]
     public async Task CloseExpiredAuctionsAsync_WithExpiredAuctions_SendsCloseCommand()

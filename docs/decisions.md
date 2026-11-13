@@ -242,3 +242,27 @@ Tracking each scope's live keys in a Redis set would have kept the code change s
 - Each cache read is two `GET`s instead of one (sent together, so no extra round trip), and each scope that has been invalidated keeps a small marker key for an hour.
 - Entries written by the previous code have no version and are treated as misses, so a rolling deploy simply re-warms the cache.
 - Page numbers are still unbounded, so a flood of distinct pages can still fill the cache until TTLs reclaim it. That is unchanged by this decision; it is no longer amplified by invalidation, which does not depend on how many entries exist.
+
+---
+
+## ADR-010: Aggregates Report Rule Violations as Results
+
+### Context
+
+Audit finding M-10 (issue #116): `Auction.Create` threw `ArgumentException` for a blank title or empty seller, while `Activate`, `PlaceBid`, `Close` and `Cancel` returned `Result`. Callers had to handle two error contracts, and `GlobalExceptionFilter` turns any `ArgumentException` into a 500.
+
+Through the API this was not reachable, because `ValidationBehavior` runs before the handler and already rejects the same inputs. The gap was in the domain: it relied on a validator in another layer to keep its own rules, so any caller that bypasses MediatR (a worker, a future endpoint, an import) would have turned a business-rule violation into a 500.
+
+### Decision
+
+- **Aggregates return `Result` / `Result<T>` for every business-rule violation**, including their factory methods. `Auction.Create` now returns `Result<Auction>` with `Auction.TitleRequired` and `Auction.SellerRequired` (both `ErrorType.Validation`, so they map to a 400). No other rule or event changed, and nothing is raised on failure.
+- **Value-object constructors still throw** (`Money`, `AuctionDuration`). They guard programmer errors and are only built from input that has already passed validation. `Money` is persisted as an EF Core complex property, so EF materialises it through its public constructor and changing that constructor is not a free refactor; `AuctionDuration` is never persisted, it only computes `EndTime`. If a use case ever needs to construct them from unvalidated input it should add `Result`-returning factories rather than catch exceptions.
+- `CreateAuctionCommandHandler` returns the aggregate's error instead of letting it escape, and it now checks the `Result` of `Activate` instead of discarding it.
+- An architecture test (`DomainRulesTests`) requires every public method declared on an `AggregateRoot` to return `Result` or `Result<T>`, so a second error contract cannot creep back in. It fails with the offending method's name.
+- FluentValidation stays the first line of defence and the source of detailed, per-field messages for HTTP callers; the aggregate is the last line, not a replacement for it.
+
+### Limitations
+
+- `Money` and `AuctionDuration` can still throw if constructed from unvalidated input, as noted above.
+- `Auction.Create` reads the system clock (`DateTime.UtcNow`) to choose between Active and Pending, while the other methods take `now`. That inconsistency is separate from error handling and is not addressed here.
+- The domain does not enforce a positive starting price; only the validator does. Adding that rule to `Create` would now be a one-line `Result` failure, but it changes behaviour and is a separate decision.

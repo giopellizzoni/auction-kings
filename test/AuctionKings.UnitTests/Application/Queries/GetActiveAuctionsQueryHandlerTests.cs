@@ -29,7 +29,7 @@ public sealed class GetActiveAuctionsQueryHandlerTests
             new Money(100m, "USD"),
             Now,
             AuctionDuration.FromDays(1),
-            Guid.NewGuid());
+            Guid.NewGuid()).Value;
 
         auction.Activate(Now);
         return auction;
