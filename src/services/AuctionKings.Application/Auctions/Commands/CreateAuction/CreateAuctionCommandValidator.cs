@@ -3,7 +3,7 @@ using FluentValidation;
 
 namespace AuctionKings.Application.Auctions.Commands.CreateAuction;
 
-public sealed class CreateAuctionCommandValidator : AbstractValidator<CreateAuctionCommand>
+internal sealed class CreateAuctionCommandValidator : AbstractValidator<CreateAuctionCommand>
 {
     public CreateAuctionCommandValidator()
     {
