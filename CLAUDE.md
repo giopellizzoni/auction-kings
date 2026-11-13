@@ -45,7 +45,7 @@ Clean Architecture: `API → Application → Domain ← Infrastructure`
 
 **SignalR note:** `SignalRNotificationService` lives in the API layer (not Infrastructure) to avoid circular dependency.
 
-**Infrastructure:** PostgreSQL 16 (port 5432), Redis 7 (port 6379), LocalStack 4.3 (port 4566), Moto 5.1.4 (port 5555), Prometheus (port 9090), Grafana (port 3000, admin/admin). Secrets in `/docker/secrets/` (not committed) — `postgres_password.txt` and `redis_password.txt` must be created locally; run `./scripts/setup-local-env.sh` once per checkout to generate them and wire up `.env.local` (root) and `docker/.env.local` automatically. DB: `AuctionKingsDB`, user: `dev`.
+**Infrastructure:** PostgreSQL 16 (port 5432), Redis 7 (port 6379), LocalStack 4.3 (port 4566), Moto 5.1.4 (port 5555), Prometheus (port 9090), Grafana (port 3000, user `admin`, generated password in `docker/secrets/grafana_admin_password.txt`). Secrets in `/docker/secrets/` (not committed) — `postgres_password.txt`, `redis_password.txt` and `grafana_admin_password.txt` must be created locally; run `./scripts/setup-local-env.sh` once per checkout to generate them and wire up `.env.local` (root) and `docker/.env.local` automatically. DB: `AuctionKingsDB`, user: `dev`.
 
 **Full Docker stack (`docker compose up`, not just the infra file):** the `api`/`worker` containers need `POSTGRES_PASSWORD`, `REDIS_PASSWORD` (same values as the files above), and `JWT_SECRET` as plain env vars. `docker compose` does not auto-load `.env.local` — run `docker compose --env-file .env.local up -d`, or the app fails on startup (`'Jwt:Secret' is not configured` / Redis `NOAUTH`). See `docker/.env` for the template and README.md → Configuration for details.
 
