@@ -27,6 +27,7 @@ public sealed class GetUserBidHistoryQueryHandler
         var cacheKey = $"user:{request.UserId}:bids:{request.Page}:{request.PageSize}";
 
         var pagedResult = await _cacheService.GetOrSetAsync(
+            CacheScopes.UserBids(request.UserId),
             cacheKey,
             async ct =>
             {

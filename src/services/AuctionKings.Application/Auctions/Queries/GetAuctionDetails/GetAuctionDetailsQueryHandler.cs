@@ -29,22 +29,20 @@ public sealed class GetAuctionDetailsQueryHandler
     {
         var cacheKey = $"auction:{request.AuctionId}";
 
-        var cached = await _cacheService.GetAsync<AuctionDetailDto>(cacheKey, cancellationToken);
-        if (cached is not null)
-        {
-            return Result.Success(cached);
-        }
+        // An unknown auction is not cached (the factory returns null), so a missing ID is never remembered.
+        var dto = await _cacheService.GetOrSetIfFoundAsync(
+            CacheScopes.Auction(request.AuctionId),
+            cacheKey,
+            async ct =>
+            {
+                var auction = await _auctionRepository.GetByIdAsync(request.AuctionId, ct);
+                return auction?.Adapt<AuctionDetailDto>();
+            },
+            CacheExpiry,
+            cancellationToken);
 
-        var auction = await _auctionRepository.GetByIdAsync(request.AuctionId, cancellationToken);
-        if (auction is null)
-        {
-            return Result.Failure<AuctionDetailDto>(DomainErrors.Auction.NotFound);
-        }
-
-        var dto = auction.Adapt<AuctionDetailDto>();
-
-        await _cacheService.SetAsync(cacheKey, dto, CacheExpiry, cancellationToken);
-
-        return Result.Success(dto);
+        return dto is null
+            ? Result.Failure<AuctionDetailDto>(DomainErrors.Auction.NotFound)
+            : Result.Success(dto);
     }
 }

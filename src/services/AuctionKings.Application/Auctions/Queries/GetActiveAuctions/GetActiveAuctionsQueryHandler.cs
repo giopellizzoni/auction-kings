@@ -28,23 +28,19 @@ public sealed class GetActiveAuctionsQueryHandler
     {
         var cacheKey = $"auctions:active:{request.Page}:{request.PageSize}";
 
-        var cached = await _cacheService.GetAsync<PagedResult<AuctionSummaryDto>>(cacheKey, cancellationToken);
-        if (cached is not null)
-        {
-            return Result.Success(cached);
-        }
+        var result = await _cacheService.GetOrSetAsync(
+            CacheScopes.ActiveListings,
+            cacheKey,
+            async ct =>
+            {
+                var auctions = await _auctionRepository.GetActiveAuctionsAsync(request.Page, request.PageSize, ct);
+                var totalCount = await _auctionRepository.CountActiveAuctionsAsync(ct);
 
-        var auctions = await _auctionRepository.GetActiveAuctionsAsync(
-            request.Page,
-            request.PageSize,
+                var items = auctions.Adapt<List<AuctionSummaryDto>>();
+                return new PagedResult<AuctionSummaryDto>(items, totalCount, request.Page, request.PageSize);
+            },
+            CacheExpiry,
             cancellationToken);
-
-        var totalCount = await _auctionRepository.CountActiveAuctionsAsync(cancellationToken);
-
-        var items = auctions.Adapt<List<AuctionSummaryDto>>();
-        var result = new PagedResult<AuctionSummaryDto>(items, totalCount, request.Page, request.PageSize);
-
-        await _cacheService.SetAsync(cacheKey, result, CacheExpiry, cancellationToken);
 
         return Result.Success(result);
     }

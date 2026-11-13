@@ -147,6 +147,12 @@ All use-cases flow through MediatR. Commands mutate state; queries are read-only
 | `GetActiveAuctionsQuery` | Paginated list of active auctions |
 | `GetAuctionBidsQuery` | Bid history for a given auction |
 
+### Query caching and invalidation
+
+Query results are cached in Redis in **scopes** (`CacheScopes`): one per auction (its details and bid pages), one for the active listings, and one per user's bid history. Commands invalidate a scope after their transaction commits (`ICacheInvalidationService`).
+
+Invalidation never scans or deletes keys. Each scope has a random version marker (`cachever:{scope}`) and every entry is stored as `{version}|{json}`; replacing the marker makes all older entries misses, and they expire on their own. This is constant time, uses only single-key Redis commands (safe on Redis Cluster), and a reader that loaded data before an invalidation cannot re-cache it, because its version was captured before the load. The cache fails open: if Redis is unavailable, queries read from PostgreSQL. See ADR-009.
+
 ### Pipeline Behaviors (ordered)
 
 1. **LoggingBehavior** — structured entry/exit logs with elapsed ms.

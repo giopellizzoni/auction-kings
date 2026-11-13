@@ -12,14 +12,14 @@ internal sealed class CacheInvalidationService : ICacheInvalidationService
     public Task InvalidateAuctionAsync(
         Guid auctionId,
         CancellationToken cancellationToken = default
-    ) => _cacheService.RemoveByPrefixAsync(CacheKeys.AuctionPrefix(auctionId), cancellationToken);
+    ) => _cacheService.InvalidateScopeAsync(CacheScopes.Auction(auctionId), cancellationToken);
 
     public Task InvalidateActiveListingsAsync(
         CancellationToken cancellationToken = default
-    ) => _cacheService.RemoveByPrefixAsync(CacheKeys.ActiveListingsPrefix(), cancellationToken);
+    ) => _cacheService.InvalidateScopeAsync(CacheScopes.ActiveListings, cancellationToken);
 
     public Task InvalidateUserBidsAsync(
         Guid userId,
         CancellationToken cancellationToken = default
-    ) => _cacheService.RemoveByPrefixAsync(CacheKeys.UserBidsPrefix(userId), cancellationToken);
+    ) => _cacheService.InvalidateScopeAsync(CacheScopes.UserBids(userId), cancellationToken);
 }

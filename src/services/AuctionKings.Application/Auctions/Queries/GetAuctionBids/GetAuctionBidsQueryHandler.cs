@@ -28,23 +28,25 @@ public sealed class GetAuctionBidsQueryHandler
         // never returned directly; every response is projected per caller below.
         var cacheKey = $"auction:{request.AuctionId}:bids:{request.Page}:{request.PageSize}";
 
-        var page = await _cacheService.GetAsync<PagedResult<BidDto>>(cacheKey, cancellationToken);
-        if (page is null)
-        {
-            var (bids, totalCount) = await _bidRepository.GetByAuctionIdPagedAsync(
-                request.AuctionId,
-                request.Page,
-                request.PageSize,
-                cancellationToken);
+        var page = await _cacheService.GetOrSetAsync(
+            CacheScopes.Auction(request.AuctionId),
+            cacheKey,
+            async ct =>
+            {
+                var (bids, totalCount) = await _bidRepository.GetByAuctionIdPagedAsync(
+                    request.AuctionId,
+                    request.Page,
+                    request.PageSize,
+                    ct);
 
-            page = new PagedResult<BidDto>(
-                bids.Adapt<List<BidDto>>(),
-                totalCount,
-                request.Page,
-                request.PageSize);
-
-            await _cacheService.SetAsync(cacheKey, page, CacheExpiry, cancellationToken);
-        }
+                return new PagedResult<BidDto>(
+                    bids.Adapt<List<BidDto>>(),
+                    totalCount,
+                    request.Page,
+                    request.PageSize);
+            },
+            CacheExpiry,
+            cancellationToken);
 
         var items = page.Items
             .Select(b => new AuctionBidDto(

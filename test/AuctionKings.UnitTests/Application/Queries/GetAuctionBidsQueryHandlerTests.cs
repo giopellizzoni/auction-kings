@@ -5,6 +5,7 @@ using AuctionKings.Domain.Aggregates;
 using AuctionKings.Domain.Enums;
 using AuctionKings.Domain.ValueObjects;
 using AuctionKings.Shared.Common;
+using AuctionKings.UnitTests.Helpers;
 using NSubstitute;
 
 namespace AuctionKings.UnitTests.Application.Queries;
@@ -16,15 +17,11 @@ public sealed class GetAuctionBidsQueryHandlerTests
     private static readonly Guid SellerId = Guid.NewGuid();
 
     private readonly IBidRepository _bidRepository = Substitute.For<IBidRepository>();
-    private readonly ICacheService _cacheService = Substitute.For<ICacheService>();
+    private readonly InMemoryScopedCache _cacheService = new();
     private readonly GetAuctionBidsQueryHandler _handler;
 
     public GetAuctionBidsQueryHandlerTests()
     {
-        _cacheService
-            .GetAsync<PagedResult<BidDto>>(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns((PagedResult<BidDto>?)null);
-
         _handler = new GetAuctionBidsQueryHandler(_bidRepository, _cacheService);
     }
 
@@ -108,10 +105,8 @@ public sealed class GetAuctionBidsQueryHandlerTests
             totalCount: 2,
             page: 1,
             pageSize: 10);
-        _cacheService
-            .GetAsync<PagedResult<BidDto>>(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(cachedPage);
         var auctionId = Guid.NewGuid();
+        _cacheService.Seed(CacheScopes.Auction(auctionId), $"auction:{auctionId}:bids:1:10", cachedPage);
 
         var asCaller = await _handler.Handle(
             new GetAuctionBidsQuery(auctionId, 1, 10, caller), CancellationToken.None);
