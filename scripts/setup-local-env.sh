@@ -40,6 +40,13 @@ else
   echo "$SECRETS_DIR/redis_password.txt already exists, leaving it alone"
 fi
 
+if [ ! -f "$SECRETS_DIR/grafana_admin_password.txt" ]; then
+  gen_secret > "$SECRETS_DIR/grafana_admin_password.txt"
+  echo "Created $SECRETS_DIR/grafana_admin_password.txt"
+else
+  echo "$SECRETS_DIR/grafana_admin_password.txt already exists, leaving it alone"
+fi
+
 POSTGRES_PASSWORD="$(cat "$SECRETS_DIR/postgres_password.txt")"
 REDIS_PASSWORD="$(cat "$SECRETS_DIR/redis_password.txt")"
 # 256 bits of entropy as 64 hex chars: meets the HS256 minimum and is safe unquoted in a .env file.
@@ -116,5 +123,6 @@ fi
 echo ""
 echo "Done. Next steps:"
 echo "  cd docker && docker compose -f docker-compose.infra.yml up -d && cd .."
+echo "Grafana (http://localhost:3000): user admin, password in $SECRETS_DIR/grafana_admin_password.txt"
 echo "  dotnet run --project src/services/AuctionKings.API/AuctionKings.API.csproj"
 echo "  dotnet run --project src/workers/AuctionKings.BackgroundWorkers/AuctionKings.BackgroundWorkers.csproj"
