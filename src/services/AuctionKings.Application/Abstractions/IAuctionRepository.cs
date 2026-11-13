@@ -24,8 +24,9 @@ public interface IAuctionRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Pending auctions that are due: <c>StartTime &lt;= now</c> and not yet ended (<c>EndTime &gt; now</c>),
-    /// oldest start first. Ended-but-never-activated auctions are excluded; they stay Pending.
+    /// Pending auctions whose <c>StartTime &lt;= now</c>, oldest start first. This deliberately includes ones that
+    /// already ended: activating them is rejected and ActivateAuctionCommandHandler cancels them, which removes
+    /// them from the Pending set (so they cannot starve later auctions).
     /// </summary>
     Task<IReadOnlyList<Auction>> GetPendingAuctionsToActivateAsync(
         DateTime now,

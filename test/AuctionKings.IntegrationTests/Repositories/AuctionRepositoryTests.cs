@@ -47,30 +47,21 @@ public sealed class AuctionRepositoryTests
     }
 
     [Fact]
-    public async Task AuctionRepository_GetPendingAuctionsToActivate_ShouldSkipEndedAuctionsEvenWhenTheyFillTheBatch()
+    public async Task AuctionRepository_GetPendingAuctionsToActivate_ShouldReturnEndedPendingAuctionsSoTheyCanBeCancelled()
     {
-        const int batchSize = 3;
         var now = DateTime.UtcNow;
-
-        // Pending auctions that already ended (one ends exactly at `now`), all starting before the valid one so that
-        // StartTime ordering would put them first and fill the whole batch.
-        var endedIds = new List<Guid>();
-        for (var i = 0; i < batchSize + 1; i++)
-        {
-            endedIds.Add(await AddPendingAuctionAsync(
-                startTime: now.AddDays(-3).AddMinutes(i),
-                endTime: i == 0 ? now : now.AddHours(-1 - i)));
-        }
-
+        var endedId = await AddPendingAuctionAsync(startTime: now.AddDays(-3), endTime: now.AddHours(-1));
         var validId = await AddPendingAuctionAsync(startTime: now.AddHours(-2), endTime: now.AddHours(2));
+        var futureId = await AddPendingAuctionAsync(startTime: now.AddHours(1), endTime: now.AddHours(5));
 
         await using var readContext = _fixture.CreateDbContext();
         var repository = new AuctionRepository(readContext);
 
-        var due = await repository.GetPendingAuctionsToActivateAsync(now, batchSize);
+        var due = await repository.GetPendingAuctionsToActivateAsync(now, 100);
 
+        Assert.Contains(due, a => a.Id == endedId);
         Assert.Contains(due, a => a.Id == validId);
-        Assert.DoesNotContain(due, a => endedIds.Contains(a.Id));
+        Assert.DoesNotContain(due, a => a.Id == futureId);
     }
 
     // Auction.Create makes a past-start auction Active, so seed it Pending with a future window and then move the
