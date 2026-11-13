@@ -6,6 +6,7 @@ public static class DomainEventTypeRegistry
     {
         [typeof(AuctionCreatedEvent).FullName!] = typeof(AuctionCreatedEvent),
         [typeof(AuctionActivatedEvent).FullName!] = typeof(AuctionActivatedEvent),
+        [typeof(AuctionCancelledEvent).FullName!] = typeof(AuctionCancelledEvent),
         [typeof(AuctionClosedEvent).FullName!] = typeof(AuctionClosedEvent),
         [typeof(AuctionExtendedEvent).FullName!] = typeof(AuctionExtendedEvent),
         [typeof(BidPlacedEvent).FullName!] = typeof(BidPlacedEvent),
