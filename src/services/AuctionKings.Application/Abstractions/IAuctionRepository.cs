@@ -23,6 +23,11 @@ public interface IAuctionRepository
         int batchSize,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Pending auctions whose <c>StartTime &lt;= now</c>, oldest start first. This deliberately includes ones that
+    /// already ended: activating them is rejected and ActivateAuctionCommandHandler cancels them, which removes
+    /// them from the Pending set (so they cannot starve later auctions).
+    /// </summary>
     Task<IReadOnlyList<Auction>> GetPendingAuctionsToActivateAsync(
         DateTime now,
         int batchSize,

@@ -47,6 +47,42 @@ public sealed class AuctionRepositoryTests
     }
 
     [Fact]
+    public async Task AuctionRepository_GetPendingAuctionsToActivate_ShouldReturnEndedPendingAuctionsSoTheyCanBeCancelled()
+    {
+        var now = DateTime.UtcNow;
+        var endedId = await AddPendingAuctionAsync(startTime: now.AddDays(-3), endTime: now.AddHours(-1));
+        var validId = await AddPendingAuctionAsync(startTime: now.AddHours(-2), endTime: now.AddHours(2));
+        var futureId = await AddPendingAuctionAsync(startTime: now.AddHours(1), endTime: now.AddHours(5));
+
+        await using var readContext = _fixture.CreateDbContext();
+        var repository = new AuctionRepository(readContext);
+
+        var due = await repository.GetPendingAuctionsToActivateAsync(now, 100);
+
+        Assert.Contains(due, a => a.Id == endedId);
+        Assert.Contains(due, a => a.Id == validId);
+        Assert.DoesNotContain(due, a => a.Id == futureId);
+    }
+
+    // Auction.Create makes a past-start auction Active, so seed it Pending with a future window and then move the
+    // window into the past directly, which is the state a never-activated auction ends up in.
+    private async Task<Guid> AddPendingAuctionAsync(DateTime startTime, DateTime endTime)
+    {
+        await using var context = _fixture.CreateDbContext();
+        var auction = CreateSampleAuction();
+        await new AuctionRepository(context).AddAsync(auction);
+        await context.SaveChangesAsync();
+
+        await context.Auctions
+            .Where(a => a.Id == auction.Id)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(a => a.StartTime, startTime)
+                .SetProperty(a => a.EndTime, endTime));
+
+        return auction.Id;
+    }
+
+    [Fact]
     public async Task AuctionRepository_Update_WithStaleVersion_ShouldThrowConcurrencyException()
     {
         // Arrange: persist an active auction (Close() increments Version, which is the concurrency token)
