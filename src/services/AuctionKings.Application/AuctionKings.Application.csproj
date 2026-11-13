@@ -8,6 +8,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>AuctionKings.UnitTests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\common\AuctionKings.Shared\AuctionKings.Shared.csproj" />
     <ProjectReference Include="..\AuctionKings.Domain\AuctionKings.Domain.csproj" />
   </ItemGroup>

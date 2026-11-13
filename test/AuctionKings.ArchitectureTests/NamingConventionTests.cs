@@ -47,4 +47,18 @@ public class NamingConventionTests
         Assert.True(result.IsSuccessful,
             $"Query handlers must be named *QueryHandler. Violations: {string.Join(", ", result.FailingTypeNames ?? [])}");
     }
+
+    [Fact]
+    public void Validators_ShouldNotBePublic()
+    {
+        var result = Types.InAssembly(ApplicationAssembly)
+            .That()
+            .Inherit(typeof(FluentValidation.AbstractValidator<>))
+            .Should()
+            .NotBePublic()
+            .GetResult();
+
+        Assert.True(result.IsSuccessful,
+            $"Validators must be internal. Violations: {string.Join(", ", result.FailingTypeNames ?? [])}");
+    }
 }
