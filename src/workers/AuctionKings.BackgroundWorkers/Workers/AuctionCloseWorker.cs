@@ -20,15 +20,18 @@ public sealed partial class AuctionCloseWorker : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly AuctionCloseWorkerOptions _options;
+    private readonly IDateTimeProvider _dateTimeProvider;
     private readonly ILogger<AuctionCloseWorker> _logger;
 
     public AuctionCloseWorker(
         IServiceScopeFactory scopeFactory,
         IOptions<AuctionCloseWorkerOptions> options,
+        IDateTimeProvider dateTimeProvider,
         ILogger<AuctionCloseWorker> logger)
     {
         _scopeFactory = scopeFactory;
         _options = options.Value;
+        _dateTimeProvider = dateTimeProvider;
         _logger = logger;
     }
 
@@ -56,7 +59,7 @@ public sealed partial class AuctionCloseWorker : BackgroundService
         var sender = scope.ServiceProvider.GetRequiredService<ISender>();
 
         var expired = await repository.GetExpiredAuctionsAsync(
-            DateTime.UtcNow,
+            _dateTimeProvider.UtcNow,
             _options.BatchSize,
             cancellationToken);
 

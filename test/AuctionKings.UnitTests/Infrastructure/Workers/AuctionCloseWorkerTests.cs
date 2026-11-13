@@ -18,6 +18,7 @@ public sealed class AuctionCloseWorkerTests : IDisposable
     private readonly IAuctionRepository _repository = Substitute.For<IAuctionRepository>();
     private readonly ISender _sender = Substitute.For<ISender>();
     private readonly AuctionCloseWorkerOptions _options = new() { PollingIntervalSeconds = 10, BatchSize = 50 };
+    private readonly FakeDateTimeProvider _clock = new(new DateTime(2026, 1, 15, 12, 0, 0, DateTimeKind.Utc));
     private readonly AuctionCloseWorker _worker;
 
     public AuctionCloseWorkerTests()
@@ -36,17 +37,18 @@ public sealed class AuctionCloseWorkerTests : IDisposable
         _worker = new AuctionCloseWorker(
             scopeFactory,
             Options.Create(_options),
+            _clock,
             NullLogger<AuctionCloseWorker>.Instance
         );
     }
 
     public void Dispose() => _worker.Dispose();
 
-    private static Auction BuildAuction() => Auction.Create(
+    private Auction BuildAuction() => Auction.Create(
         "Test Auction",
         "Description",
         new Money(100m, "USD"),
-        DateTime.UtcNow.AddDays(-2),
+        _clock.UtcNow.AddDays(-2),
         new AuctionDuration(TimeSpan.FromHours(1)),
         Guid.NewGuid()
     ).Value;
@@ -101,6 +103,22 @@ public sealed class AuctionCloseWorkerTests : IDisposable
 
         await _sender.Received(1).Send(
             Arg.Is<CloseAuctionCommand>(c => c.AuctionId == a2.Id),
+            Arg.Any<CancellationToken>()
+        );
+    }
+
+    [Fact]
+    public async Task CloseExpiredAuctionsAsync_QueriesRepositoryWithInjectedClockTime()
+    {
+        _repository
+            .GetExpiredAuctionsAsync(Arg.Any<DateTime>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns([]);
+
+        await _worker.CloseExpiredAuctionsAsync(CancellationToken.None);
+
+        await _repository.Received(1).GetExpiredAuctionsAsync(
+            _clock.UtcNow,
+            _options.BatchSize,
             Arg.Any<CancellationToken>()
         );
     }

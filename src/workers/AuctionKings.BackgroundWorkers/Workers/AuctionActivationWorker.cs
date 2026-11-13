@@ -20,15 +20,18 @@ public sealed partial class AuctionActivationWorker : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly AuctionActivationWorkerOptions _options;
+    private readonly IDateTimeProvider _dateTimeProvider;
     private readonly ILogger<AuctionActivationWorker> _logger;
 
     public AuctionActivationWorker(
         IServiceScopeFactory scopeFactory,
         IOptions<AuctionActivationWorkerOptions> options,
+        IDateTimeProvider dateTimeProvider,
         ILogger<AuctionActivationWorker> logger)
     {
         _scopeFactory = scopeFactory;
         _options = options.Value;
+        _dateTimeProvider = dateTimeProvider;
         _logger = logger;
     }
 
@@ -56,7 +59,7 @@ public sealed partial class AuctionActivationWorker : BackgroundService
         var sender = scope.ServiceProvider.GetRequiredService<ISender>();
 
         var pending = await repository.GetPendingAuctionsToActivateAsync(
-            DateTime.UtcNow,
+            _dateTimeProvider.UtcNow,
             _options.BatchSize,
             cancellationToken);
 
