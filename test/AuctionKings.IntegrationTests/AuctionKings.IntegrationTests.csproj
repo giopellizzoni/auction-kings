@@ -11,6 +11,8 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Testcontainers.Redis" />
@@ -26,6 +28,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\services\AuctionKings.API\AuctionKings.API.csproj" />
     <ProjectReference Include="..\..\src\services\AuctionKings.Infrastructure\AuctionKings.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\services\AuctionKings.Domain\AuctionKings.Domain.csproj" />
     <ProjectReference Include="..\..\src\common\AuctionKings.Shared\AuctionKings.Shared.csproj" />
