@@ -3,7 +3,6 @@ using AuctionKings.Application.Abstractions;
 using AuctionKings.BackgroundWorkers;
 using AuctionKings.BackgroundWorkers.Workers;
 using AuctionKings.Infrastructure;
-using AuctionKings.Infrastructure.Outbox;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -14,16 +13,7 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-builder.Services.Configure<OutboxOptions>(
-    builder.Configuration.GetSection(OutboxOptions.SectionName)
-);
-
-builder.Services.Configure<AuctionCloseWorkerOptions>(
-    builder.Configuration.GetSection(AuctionCloseWorkerOptions.SectionName));
-builder.Services.Configure<AuctionActivationWorkerOptions>(
-    builder.Configuration.GetSection(AuctionActivationWorkerOptions.SectionName));
-builder.Services.Configure<CleanupWorkerOptions>(
-    builder.Configuration.GetSection(CleanupWorkerOptions.SectionName));
+builder.Services.AddWorkerOptions(builder.Configuration);
 
 builder.Services.AddSingleton<IRealtimeNotificationService, NoOpRealtimeNotificationService>();
 
