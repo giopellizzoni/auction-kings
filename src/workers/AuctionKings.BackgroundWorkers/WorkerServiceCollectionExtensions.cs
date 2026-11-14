@@ -2,7 +2,6 @@ using AuctionKings.BackgroundWorkers.Workers;
 using AuctionKings.Infrastructure.Outbox;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 
 namespace AuctionKings.BackgroundWorkers;
@@ -15,19 +14,76 @@ internal static class WorkerServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddWorkerOptions(this IServiceCollection services, IConfiguration configuration)
     {
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<WorkerConnectionStrings>, WorkerConnectionStringsValidator>());
-        services.AddSingleton<WorkerOptionsValidator>();
-        services.AddSingleton<IValidateOptions<OutboxOptions>>(sp => sp.GetRequiredService<WorkerOptionsValidator>());
-        services.AddSingleton<IValidateOptions<AuctionCloseWorkerOptions>>(sp => sp.GetRequiredService<WorkerOptionsValidator>());
-        services.AddSingleton<IValidateOptions<AuctionActivationWorkerOptions>>(sp => sp.GetRequiredService<WorkerOptionsValidator>());
-        services.AddSingleton<IValidateOptions<CleanupWorkerOptions>>(sp => sp.GetRequiredService<WorkerOptionsValidator>());
+        const string connections = WorkerConnectionStrings.SectionName;
 
-        services.AddOptions<WorkerConnectionStrings>().Bind(configuration.GetSection(WorkerConnectionStrings.SectionName)).ValidateOnStart();
-        services.AddOptions<OutboxOptions>().Bind(configuration.GetSection(OutboxOptions.SectionName)).ValidateOnStart();
-        services.AddOptions<AuctionCloseWorkerOptions>().Bind(configuration.GetSection(AuctionCloseWorkerOptions.SectionName)).ValidateOnStart();
-        services.AddOptions<AuctionActivationWorkerOptions>().Bind(configuration.GetSection(AuctionActivationWorkerOptions.SectionName)).ValidateOnStart();
-        services.AddOptions<CleanupWorkerOptions>().Bind(configuration.GetSection(CleanupWorkerOptions.SectionName)).ValidateOnStart();
+        AddValidated<WorkerConnectionStrings>(
+            services,
+            configuration,
+            connections,
+            o =>
+            [
+                Check.Required(connections, nameof(o.DefaultConnection), o.DefaultConnection),
+                Check.Required(connections, nameof(o.Redis), o.Redis),
+            ]
+        );
+
+        AddValidated<OutboxOptions>(
+            services,
+            configuration,
+            OutboxOptions.SectionName,
+            o =>
+            [
+                Check.Positive(OutboxOptions.SectionName, nameof(o.PollingIntervalSeconds), o.PollingIntervalSeconds),
+                Check.Positive(OutboxOptions.SectionName, nameof(o.BatchSize), o.BatchSize),
+                Check.Positive(OutboxOptions.SectionName, nameof(o.MaxRetries), o.MaxRetries),
+            ]
+        );
+
+        AddValidated<AuctionCloseWorkerOptions>(
+            services,
+            configuration,
+            AuctionCloseWorkerOptions.SectionName,
+            o =>
+            [
+                Check.Positive(AuctionCloseWorkerOptions.SectionName, nameof(o.PollingIntervalSeconds), o.PollingIntervalSeconds),
+                Check.Positive(AuctionCloseWorkerOptions.SectionName, nameof(o.BatchSize), o.BatchSize),
+            ]
+        );
+
+        AddValidated<AuctionActivationWorkerOptions>(
+            services,
+            configuration,
+            AuctionActivationWorkerOptions.SectionName,
+            o =>
+            [
+                Check.Positive(AuctionActivationWorkerOptions.SectionName, nameof(o.PollingIntervalSeconds), o.PollingIntervalSeconds),
+                Check.Positive(AuctionActivationWorkerOptions.SectionName, nameof(o.BatchSize), o.BatchSize),
+            ]
+        );
+
+        AddValidated<CleanupWorkerOptions>(
+            services,
+            configuration,
+            CleanupWorkerOptions.SectionName,
+            o =>
+            [
+                Check.Positive(CleanupWorkerOptions.SectionName, nameof(o.IntervalHours), o.IntervalHours),
+                Check.Positive(CleanupWorkerOptions.SectionName, nameof(o.OutboxRetentionDays), o.OutboxRetentionDays),
+            ]
+        );
 
         return services;
+    }
+
+    private static void AddValidated<TOptions>(
+        IServiceCollection services,
+        IConfiguration configuration,
+        string section,
+        Func<TOptions, IEnumerable<string?>> check
+    )
+        where TOptions : class
+    {
+        services.AddSingleton<IValidateOptions<TOptions>>(new WorkerOptionsValidator<TOptions>(check));
+        services.AddOptions<TOptions>().Bind(configuration.GetSection(section)).ValidateOnStart();
     }
 }

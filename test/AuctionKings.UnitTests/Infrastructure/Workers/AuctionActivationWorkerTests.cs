@@ -76,7 +76,7 @@ public sealed class AuctionActivationWorkerTests : IDisposable
             .Returns([auction]);
         _sender
             .Send(Arg.Any<ActivateAuctionCommand>(), Arg.Any<CancellationToken>())
-            .Returns(Result.Success());
+            .Returns(Result.Success(ActivationOutcome.Activated));
 
         await _worker.ActivatePendingAuctionsAsync(CancellationToken.None);
 

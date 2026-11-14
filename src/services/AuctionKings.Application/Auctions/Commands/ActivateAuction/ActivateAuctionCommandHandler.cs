@@ -5,7 +5,7 @@ using MediatR;
 
 namespace AuctionKings.Application.Auctions.Commands.ActivateAuction;
 
-public sealed class ActivateAuctionCommandHandler : IRequestHandler<ActivateAuctionCommand, Result>
+public sealed class ActivateAuctionCommandHandler : IRequestHandler<ActivateAuctionCommand, Result<ActivationOutcome>>
 {
     private readonly IAuctionRepository _auctionRepository;
     private readonly IUnitOfWork _unitOfWork;
@@ -24,13 +24,13 @@ public sealed class ActivateAuctionCommandHandler : IRequestHandler<ActivateAuct
         _cacheInvalidation = cacheInvalidation;
     }
 
-    public async Task<Result> Handle(ActivateAuctionCommand request, CancellationToken cancellationToken)
+    public async Task<Result<ActivationOutcome>> Handle(ActivateAuctionCommand request, CancellationToken cancellationToken)
     {
         var auction = await _auctionRepository.GetByIdAsync(request.AuctionId, cancellationToken);
 
         if (auction is null)
         {
-            return Result.Failure(DomainErrors.Auction.NotFound);
+            return Result.Failure<ActivationOutcome>(DomainErrors.Auction.NotFound);
         }
 
         var now = _dateTimeProvider.UtcNow;
@@ -43,18 +43,21 @@ public sealed class ActivateAuctionCommandHandler : IRequestHandler<ActivateAuct
             var cancelled = auction.Cancel(now);
             if (cancelled.IsFailure)
             {
-                return cancelled;
+                return Result.Failure<ActivationOutcome>(cancelled.Error);
             }
 
             await _auctionRepository.UpdateAsync(auction, cancellationToken);
             await _unitOfWork.CommitAsync(cancellationToken);
 
-            return Result.Success();
+            await _cacheInvalidation.InvalidateAuctionAsync(auction.Id, CancellationToken.None);
+            await _cacheInvalidation.InvalidateActiveListingsAsync(CancellationToken.None);
+
+            return ActivationOutcome.Cancelled;
         }
 
         if (result.IsFailure)
         {
-            return result;
+            return Result.Failure<ActivationOutcome>(result.Error);
         }
 
         await _auctionRepository.UpdateAsync(auction, cancellationToken);
@@ -62,6 +65,6 @@ public sealed class ActivateAuctionCommandHandler : IRequestHandler<ActivateAuct
 
         await _cacheInvalidation.InvalidateActiveListingsAsync(CancellationToken.None);
 
-        return Result.Success();
+        return ActivationOutcome.Activated;
     }
 }

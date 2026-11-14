@@ -79,6 +79,10 @@ public sealed partial class AuctionActivationWorker : BackgroundService
                 {
                     LogActivateFailed(_logger, auction.Id, result.Error);
                 }
+                else if (result.Value == ActivationOutcome.Cancelled)
+                {
+                    LogAuctionCancelled(_logger, auction.Id);
+                }
                 else
                 {
                     LogAuctionActivated(_logger, auction.Id);
@@ -99,6 +103,9 @@ public sealed partial class AuctionActivationWorker : BackgroundService
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Auction {Id} activated.")]
     private static partial void LogAuctionActivated(ILogger logger, Guid id);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Auction {Id} ended before it could be activated; cancelled.")]
+    private static partial void LogAuctionCancelled(ILogger logger, Guid id);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Unexpected error activating auction {Id}. Continuing.")]
     private static partial void LogUnexpectedError(ILogger logger, Exception ex, Guid id);
