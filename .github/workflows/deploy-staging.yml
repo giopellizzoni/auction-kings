@@ -8,27 +8,21 @@
 #   4.  deploy-staging.yml        → Deploy containers to ECS (this file)
 #   5.  infra-staging-destroy.yml → Terraform destroy (manual only)
 #
+# Trigger: manual dispatch only.
+#
 # This workflow assumes infrastructure has already been provisioned
-# by infra-staging.yml (Terraform). It only updates ECS task
-# definitions with new container images.
+# by infra-staging.yml (Terraform) and the image tag was pushed by
+# docker-publish.yml. It only updates ECS task definitions with new
+# container images.
 # ──────────────────────────────────────────────────────────────
 
 name: Deploy to Staging
 
 on:
-  workflow_run:
-    workflows: ["Infrastructure \u2013 Staging"]
-    types:
-      - completed
-    branches:
-      - develop
-      - main
-
-  # Allow manual trigger with a specific image tag
   workflow_dispatch:
     inputs:
       image_tag:
-        description: "Image tag to deploy (e.g. abc1234). Defaults to latest commit SHA on main."
+        description: "Image tag to deploy (a full commit SHA published by docker-publish.yml, or latest). Defaults to the SHA of the branch you run this on."
         required: false
         default: ""
       action:
@@ -49,9 +43,7 @@ jobs:
   deploy-api:
     name: Deploy API to ECS Staging
     runs-on: ubuntu-latest
-    if: |
-      (github.event.workflow_run.conclusion == 'success') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.action != 'destroy')
+    if: github.event.inputs.action != 'destroy'
 
     permissions:
       id-token: write # Required for OIDC → AssumeRoleWithWebIdentity
@@ -75,8 +67,6 @@ jobs:
         run: |
           if [ -n "${{ github.event.inputs.image_tag }}" ]; then
             TAG="${{ github.event.inputs.image_tag }}"
-          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
-            TAG="${{ github.event.workflow_run.head_sha }}"
           else
             TAG="${{ github.sha }}"
           fi
@@ -126,9 +116,7 @@ jobs:
   deploy-worker:
     name: Deploy Worker to ECS Staging
     runs-on: ubuntu-latest
-    if: |
-      (github.event.workflow_run.conclusion == 'success') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.action != 'destroy')
+    if: github.event.inputs.action != 'destroy'
 
     permissions:
       id-token: write
@@ -152,8 +140,6 @@ jobs:
         run: |
           if [ -n "${{ github.event.inputs.image_tag }}" ]; then
             TAG="${{ github.event.inputs.image_tag }}"
-          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
-            TAG="${{ github.event.workflow_run.head_sha }}"
           else
             TAG="${{ github.sha }}"
           fi

@@ -8,9 +8,8 @@
 #   4.  deploy-staging.yml        → Deploy containers to ECS
 #   5.  infra-staging-destroy.yml → Terraform destroy (manual only)
 #
-# Triggers:
-#   • Docker publish completes successfully → auto plan + apply
-#   • Manual dispatch                       → ad-hoc runs
+# Trigger: manual dispatch only (nothing runs on merge or after an image
+# publish). Run "Publish Docker Images" first when the images changed.
 #
 # Flow:
 #   1. plan  — always runs; detects changes
@@ -24,11 +23,6 @@
 name: "Infrastructure – Staging"
 
 on:
-  workflow_run:
-    workflows: ["Publish Docker Images"]
-    types: [completed]
-    branches: [develop, main]
-
   workflow_dispatch:
 
 # Only one Terraform run at a time — never cancel a running apply.
@@ -52,9 +46,6 @@ jobs:
   plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
-      github.event_name == 'workflow_dispatch'
     outputs:
       has_changes: ${{ steps.plan.outputs.has_changes }}
 

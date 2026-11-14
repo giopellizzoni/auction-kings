@@ -8,21 +8,15 @@
 #   4.  deploy-staging.yml        → Deploy containers to ECS
 #   5.  infra-staging-destroy.yml → Terraform destroy (manual only)
 #
-# Triggers:
-#   • CI passes on push or PR targeting develop/main → auto-build & push
-#   • Manual dispatch                                → ad-hoc builds
+# Trigger: manual dispatch only. Nothing is published on merge — run this
+# workflow (Actions → Publish Docker Images → Run workflow) and pick the branch
+# to build. CI still builds the images on every PR/push without pushing them.
+# Every stage after this one (infra, deploy) is manual as well.
 # ──────────────────────────────────────────────────────────────
 
 name: Publish Docker Images
 
 on:
-  # Auto-trigger after CI passes on a PR targeting develop.
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
-    branches: [develop]
-
-  # Keep manual trigger for ad-hoc builds.
   workflow_dispatch:
     inputs:
       image:
@@ -36,17 +30,14 @@ on:
           - both
 
 env:
-  # For workflow_run the SHA comes from the triggering workflow;
-  # for workflow_dispatch it falls back to the current commit.
-  COMMIT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+  # The commit of the branch the workflow was dispatched on.
+  COMMIT_SHA: ${{ github.sha }}
 
 jobs:
   build-api:
     name: Build & Push API
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
-      (github.event_name == 'workflow_dispatch' && (inputs.image == 'api' || inputs.image == 'both'))
+    if: inputs.image == 'api' || inputs.image == 'both'
     permissions:
       contents: read
       packages: write
@@ -86,9 +77,7 @@ jobs:
   build-worker:
     name: Build & Push Worker
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
-      (github.event_name == 'workflow_dispatch' && (inputs.image == 'worker' || inputs.image == 'both'))
+    if: inputs.image == 'worker' || inputs.image == 'both'
     permissions:
       contents: read
       packages: write

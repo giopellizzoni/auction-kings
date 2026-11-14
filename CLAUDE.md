@@ -107,7 +107,7 @@ GitHub Actions workflows in `.github/workflows/`:
 - `infra-staging.yml` / `infra-staging-destroy.yml` — Terraform apply/destroy for staging
 - `deploy-staging.yml` — deploy to ECS Fargate staging (GitHub OIDC, no long-lived keys)
 
-The staging chain runs after a successful image publish (publish → infra → deploy). Dependabot (`.github/dependabot.yml`) opens weekly update PRs and ignores .NET 11 majors; secret scanning and push protection are enabled on the repository.
+Only `ci.yml` runs automatically. Publish, infra and deploy are manual (`workflow_dispatch`), run in that order (publish → infra → deploy); nothing reaches GHCR or AWS on merge. Dependabot (`.github/dependabot.yml`) opens weekly update PRs and ignores .NET 11 majors; secret scanning and push protection are enabled on the repository.
 
 ## Documentation
 
