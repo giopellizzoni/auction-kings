@@ -81,14 +81,14 @@ public sealed class PlaceBidLoadTest : LoadTestBase
 
         var s = stats.ScenarioStats.First(x => x.ScenarioName == "place_bid");
         var errorPct =
-            s.AllRequestCount > 0 ? s.AllFailCount / (double)s.AllRequestCount * 100.0 : 0.0;
+            (s.Ok.Request.Count + s.Fail.Request.Count) > 0 ? s.Fail.Request.Count / (double)(s.Ok.Request.Count + s.Fail.Request.Count) * 100.0 : 0.0;
 
         // Concurrent bids on shared auctions produce some concurrency conflicts (expected).
         // Assert on latency: even under contention the API must stay responsive.
         Assert.True(
             s.Ok.Latency.Percent99 < 500.0,
             $"P99 latency {s.Ok.Latency.Percent99:F1}ms exceeded 500ms threshold. "
-                + $"Total: {s.AllRequestCount}, OK: {s.AllOkCount}, Fail: {s.AllFailCount} ({errorPct:F2}%)"
+                + $"Total: {(s.Ok.Request.Count + s.Fail.Request.Count)}, OK: {s.Ok.Request.Count}, Fail: {s.Fail.Request.Count} ({errorPct:F2}%)"
         );
     }
 }
