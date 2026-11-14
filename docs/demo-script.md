@@ -90,7 +90,8 @@ that's expected until Option B's second `dotnet run` (or the Docker `worker` con
 ### Step 2: Generate Tokens (a seller and 3 bidders, fixed UUIDs for repeatability)
 
 `/dev/token` works only when `Features:EnableDevTokenEndpoint` is `true` (it is in
-`appsettings.Development.json`, so for both options above; otherwise it returns 404). It needs no
+`appsettings.Development.json`, so for both options above; otherwise it returns 404). Locally it needs
+no key; against staging, add `-H "X-Dev-Token-Key: $KEY"` (see `docs/runbook.md` §7). It needs no
 `X-Request-Id`: that header is required only on actions marked `[Idempotent]` (placing a bid).
 Identities come from the token's `sub` claim — request bodies never carry a seller or bidder ID.
 

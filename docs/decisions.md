@@ -165,7 +165,7 @@ The key was public the moment it was committed and remains in git history, so it
 - The placeholder stays in git history. It was never a real secret, but any environment that ever ran with it must be treated as compromised and re-keyed.
 - Developers must re-run `./scripts/setup-local-env.sh` once after pulling this change; until then the API refuses to start, with a message that says so.
 - The validator checks length and the known placeholder, not entropy. A short guessable value that is 32+ bytes would pass.
-- Staging still enables `Features:EnableDevTokenEndpoint`, which mints tokens signed with the real staging secret for anyone who calls it. That is a deliberate demo setting from #157, tracked separately.
+- Staging enables `Features:EnableDevTokenEndpoint` for demos, and the endpoint mints tokens signed with the real staging secret for any role. Since then it is gated by `Features:DevTokenKey`: outside Development the API refuses to start with the endpoint on and no key (`DevTokenOptionsValidator`), and callers must send the key in `X-Dev-Token-Key` (compared in constant time; every refusal is a 404). Staging gets the key from Secrets Manager (`/auction-kings/staging/dev-token-key`). Anyone holding the key can still mint an `Admin` token, so treat it like the JWT secret.
 
 ---
 

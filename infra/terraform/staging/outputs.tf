@@ -53,3 +53,8 @@ output "rds_endpoint" {
   value       = "${aws_db_instance.postgres.address}:${aws_db_instance.postgres.port}"
   sensitive   = true
 }
+
+output "dev_token_key_secretsmanager_secret_name" {
+  description = "Secrets Manager name of the key POST /dev/token requires in the X-Dev-Token-Key header."
+  value       = aws_secretsmanager_secret.dev_token_key.name
+}
