@@ -314,7 +314,7 @@ aws secretsmanager put-secret-value \
   --region us-east-1
 ```
 
-The ECS task definitions do not read it yet: a task whose secret has no value fails to start, so they are wired up in a second change, after the value exists. Until then staging runs without a key (MediatR may log a license warning).
+Both ECS task definitions (API and worker) read it as `MediatR__License`. A task whose secret has no value fails to start, so **set the value before the infrastructure workflow applies this configuration**; if it was applied first, set the value and force a new deployment of both services (`aws ecs update-service --force-new-deployment`).
 
 ---
 

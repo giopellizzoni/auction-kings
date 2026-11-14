@@ -21,6 +21,12 @@ resource "aws_ecs_task_definition" "worker" {
         { name = "AWS_DEFAULT_REGION", value = var.aws_region },
       ]
 
+      # Injected at task start by the execution role. Created empty by Terraform; the value is set out of
+      # band (docs/runbook.md section 7). The task fails to start until the secret has a value.
+      secrets = [
+        { name = "MediatR__License", valueFrom = aws_secretsmanager_secret.mediatr_license.arn },
+      ]
+
       logConfiguration = {
         logDriver = "awslogs"
         options = {

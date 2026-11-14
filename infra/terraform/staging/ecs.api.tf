@@ -59,6 +59,9 @@ resource "aws_ecs_task_definition" "api" {
       # Secrets injected at task start by the execution role — never appear in plain-text env vars in the console.
       secrets = [
         { name = "Jwt__Secret", valueFrom = aws_secretsmanager_secret.jwt_secret.arn },
+        # Created empty by Terraform; the value is set out of band (docs/runbook.md section 7).
+        # The task fails to start until the secret has a value.
+        { name = "MediatR__License", valueFrom = aws_secretsmanager_secret.mediatr_license.arn },
       ]
 
       logConfiguration = {
