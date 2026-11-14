@@ -4,7 +4,9 @@ WORKDIR /repo
 
 # Copy project files for restore layer caching
 COPY AuctionKings.slnx .
-COPY Directory.Build.props .
+# .editorconfig carries the analyzer severities (e.g. CS8618 = none) that TreatWarningsAsErrors depends on;
+# without it the image build fails on warnings the editorconfig silences.
+COPY Directory.Build.props .editorconfig .
 COPY Directory.Packages.props .
 COPY src/common/AuctionKings.Shared/AuctionKings.Shared.csproj src/common/AuctionKings.Shared/
 COPY src/services/AuctionKings.Domain/AuctionKings.Domain.csproj src/services/AuctionKings.Domain/
