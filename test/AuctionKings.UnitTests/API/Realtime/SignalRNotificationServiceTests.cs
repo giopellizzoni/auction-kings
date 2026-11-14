@@ -9,6 +9,9 @@ namespace AuctionKings.UnitTests.API.Realtime;
 public sealed class SignalRNotificationServiceTests
 {
     private readonly IHubContext<AuctionHub> _hubContext = Substitute.For<IHubContext<AuctionHub>>();
+    private readonly IHubContext<NotificationHub> _notificationHubContext = Substitute.For<IHubContext<NotificationHub>>();
+    private readonly IHubClients _notificationClients = Substitute.For<IHubClients>();
+    private readonly IClientProxy _userProxy = Substitute.For<IClientProxy>();
     private readonly IHubClients _clients = Substitute.For<IHubClients>();
     private readonly IClientProxy _groupProxy = Substitute.For<IClientProxy>();
     private readonly SignalRNotificationService _service;
@@ -17,7 +20,9 @@ public sealed class SignalRNotificationServiceTests
     {
         _hubContext.Clients.Returns(_clients);
         _clients.Group(Arg.Any<string>()).Returns(_groupProxy);
-        _service = new SignalRNotificationService(_hubContext, NullLogger<SignalRNotificationService>.Instance);
+        _notificationHubContext.Clients.Returns(_notificationClients);
+        _notificationClients.Group(Arg.Any<string>()).Returns(_userProxy);
+        _service = new SignalRNotificationService(_hubContext, _notificationHubContext, NullLogger<SignalRNotificationService>.Instance);
     }
 
     [Fact]
@@ -49,6 +54,29 @@ public sealed class SignalRNotificationServiceTests
 
         _clients.Received(1).Group($"auction-{auctionId}");
         await _groupProxy.Received(1).SendCoreAsync("AuctionClosed", Arg.Any<object?[]>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SignalRNotificationService_AuctionCancelled_ShouldNotifySellerGroupOnly()
+    {
+        var sellerId = Guid.NewGuid();
+
+        await _service.NotifyAuctionCancelledAsync(sellerId, Guid.NewGuid(), "Vase", DateTime.UtcNow);
+
+        _notificationClients.Received(1).Group($"user-{sellerId}");
+        await _userProxy.Received(1).SendCoreAsync("AuctionCancelled", Arg.Any<object?[]>(), Arg.Any<CancellationToken>());
+        _clients.DidNotReceive().Group(Arg.Any<string>());
+    }
+
+    [Fact]
+    public void AuctionCancelledNotificationDto_ShouldNotExposeBidderInformation()
+    {
+        var names = typeof(AuctionKings.Application.DTOs.AuctionCancelledNotificationDto)
+            .GetProperties().Select(p => p.Name);
+
+        Assert.DoesNotContain(
+            names,
+            n => n.Contains("Bid", StringComparison.Ordinal) || n.Contains("Winner", StringComparison.Ordinal));
     }
 
     [Fact]

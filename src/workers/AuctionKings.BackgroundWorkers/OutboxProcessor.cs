@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AuctionKings.Application.Abstractions;
+using AuctionKings.Application.Events;
 using AuctionKings.Domain.Events;
 using AuctionKings.Infrastructure.Outbox;
 using AuctionKings.Infrastructure.Persistence;
@@ -105,7 +106,9 @@ public sealed partial class OutboxProcessor : BackgroundService
                 return;
             }
 
-            await publisher.Publish(domainEvent, cancellationToken);
+            // Domain events are not MediatR notifications (Domain has no MediatR reference) and
+            // Publish(object) throws for them, so wrap in the Application adapter first.
+            await publisher.Publish((object)DomainEventNotification.Wrap((IDomainEvent)domainEvent), cancellationToken);
 
             await eventBus.PublishAsync((IDomainEvent)domainEvent, cancellationToken).ConfigureAwait(false);
 

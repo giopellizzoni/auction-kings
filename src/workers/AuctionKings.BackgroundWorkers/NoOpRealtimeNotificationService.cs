@@ -30,4 +30,11 @@ internal sealed class NoOpRealtimeNotificationService : IRealtimeNotificationSer
         Guid auctionId,
         DateTime newEndTime,
         CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task NotifyAuctionCancelledAsync(
+        Guid sellerId,
+        Guid auctionId,
+        string title,
+        DateTime cancelledAt,
+        CancellationToken cancellationToken = default) => Task.CompletedTask;
 }

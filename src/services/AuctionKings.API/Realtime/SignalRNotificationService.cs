@@ -7,6 +7,7 @@ namespace AuctionKings.API.Realtime;
 
 internal sealed partial class SignalRNotificationService(
     IHubContext<AuctionHub> auctionHub,
+    IHubContext<NotificationHub> notificationHub,
     ILogger<SignalRNotificationService> logger) : IRealtimeNotificationService
 {
     public async Task NotifyBidPlacedAsync(
@@ -68,6 +69,28 @@ internal sealed partial class SignalRNotificationService(
         catch (Exception ex)
         {
             LogNotifyFailed(logger, nameof(NotifyAuctionExtendedAsync), auctionId, ex);
+        }
+    }
+
+    public async Task NotifyAuctionCancelledAsync(
+        Guid sellerId,
+        Guid auctionId,
+        string title,
+        DateTime cancelledAt,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await notificationHub.Clients
+                .Group($"user-{sellerId}")
+                .SendAsync(
+                    "AuctionCancelled",
+                    new AuctionCancelledNotificationDto(auctionId, title, cancelledAt),
+                    cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            LogNotifyFailed(logger, nameof(NotifyAuctionCancelledAsync), auctionId, ex);
         }
     }
 
