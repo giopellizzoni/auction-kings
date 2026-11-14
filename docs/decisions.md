@@ -6,6 +6,8 @@ Full ADR records for AuctionKings. For a brief summary see [architecture.md — 
 
 ## ADR-001: Optimistic Concurrency via PostgreSQL `xmin`
 
+> **Update:** the concurrency control described below is implemented with an application-level `Auction.Version` integer column as the EF Core concurrency token, not with `xmin`: Npgsql 10 does not reliably read `xid` system columns back through `RETURNING`, so the tracked value stayed 0 and every update failed (see the comment in `AuctionConfiguration.cs`). The goal and the retry behaviour are unchanged; the `xmin` rationale below is kept as the original record.
+
 ### Context
 
 Multiple bidders can submit bids on the same auction simultaneously. Without concurrency control, two concurrent bids could both read the same "current highest bid", pass validation, and both be persisted — meaning the auction ends with an incorrect winner.
