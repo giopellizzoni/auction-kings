@@ -344,6 +344,51 @@ aws secretsmanager put-secret-value \
 
 Both ECS task definitions (API and worker) read it as `MediatR__License`. A task whose secret has no value fails to start, so **set the value before the infrastructure workflow applies this configuration**; if it was applied first, set the value and force a new deployment of both services (`aws ecs update-service --force-new-deployment`).
 
+**Deploying staging (all manual).** Nothing is published on merge. Run, from the Actions tab, in order:
+`Publish Docker Images` → `Infrastructure – Staging` → `Deploy to Staging`. Terraform reads its values from
+the committed, secret-free `infra/terraform/staging/terraform.staging.tfvars`.
+
+### Tearing staging down
+
+Run **Actions → Infrastructure – Staging Destroy → Run workflow** and type `destroy-staging` in the
+`confirm` input (any other value skips the job). It:
+
+1. moves the GitHub Actions deploy role and its inline policies out of the Terraform state
+   (`scripts/staging-deploy-role.sh forget`) — the workflow runs as that role, so it must survive;
+2. runs `terraform destroy` on everything else: ECS, ALB, NAT gateway + Elastic IP, VPC, RDS (no final
+   snapshot — the data is gone), ElastiCache, SQS, Secrets Manager (no recovery window), log groups;
+3. fails if an ECS cluster, load balancer, RDS instance, ElastiCache group, NAT gateway, Elastic IP or VPC
+   of the project is still there.
+
+What remains costs nothing or a few cents a month: the deploy role, the GitHub OIDC provider, the
+`auction-kings-terraform-state` S3 bucket and the `auction-kings-terraform-locks` DynamoDB table.
+
+**Bringing it back:** run `Infrastructure – Staging` (its first step imports the deploy role back into the
+state with `scripts/staging-deploy-role.sh adopt`), set the MediatR license value again (the secret is
+recreated empty) and force a new deployment, then run `Deploy to Staging`.
+
+**Complete wipe** (nothing of the project left in the account) — only after the destroy workflow succeeded,
+with your own admin credentials, since the deploy role cannot delete itself:
+
+```bash
+ROLE=auction-kings-staging-github-deploy
+for p in $(aws iam list-role-policies --role-name $ROLE --query 'PolicyNames[]' --output text); do
+  aws iam delete-role-policy --role-name $ROLE --policy-name "$p"
+done
+aws iam delete-role --role-name $ROLE
+# Only if no other repository in the account uses GitHub OIDC:
+aws iam delete-open-id-connect-provider --open-id-connect-provider-arn \
+  "arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):oidc-provider/token.actions.githubusercontent.com"
+# State backend. If the bucket has versioning on, `s3 rm` leaves old versions and delete-bucket fails:
+# empty it with the console's "Empty" button instead.
+aws s3 rm s3://auction-kings-terraform-state --recursive
+aws s3api delete-bucket --bucket auction-kings-terraform-state
+aws dynamodb delete-table --table-name auction-kings-terraform-locks --region us-east-1
+```
+
+After a complete wipe, provisioning again means recreating the state bucket, lock table, OIDC provider and
+deploy role by hand (seed policy: `infra/policies/bootstrap-role-patch.json`).
+
 ---
 
 ## 8. Troubleshooting

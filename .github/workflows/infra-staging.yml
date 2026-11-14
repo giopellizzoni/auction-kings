@@ -6,7 +6,7 @@
 #   2.  docker-publish.yml        → Build & push Docker images
 #   3.  infra-staging.yml         → Terraform plan / apply (this file)
 #   4.  deploy-staging.yml        → Deploy containers to ECS
-#   5.  infra-staging-destroy.yml → Terraform destroy (manual only)
+#   5.  infra-staging-destroy.yml → Teardown (manual only)
 #
 # Trigger: manual dispatch only (nothing runs on merge or after an image
 # publish). Run "Publish Docker Images" first when the images changed.
@@ -37,9 +37,8 @@ permissions:
 env:
   AWS_REGION: us-east-1
   TF_WORKING_DIR: infra/terraform/staging
-  # Same naming as docker-publish.yml (ghcr.io/<owner>/<repo>-api|worker; the repository is lowercase).
-  TF_VAR_app_image: "ghcr.io/${{ github.repository }}-api:latest"
-  TF_VAR_worker_image: "ghcr.io/${{ github.repository }}-worker:latest"
+  # Committed, secret-free variable values (terraform.tfvars is git-ignored and never reaches CI).
+  TF_VAR_FILE: terraform.staging.tfvars
 
 jobs:
   # ── Plan ──────────────────────────────────────────────────────
@@ -72,6 +71,12 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform validate -no-color
 
+      - name: Re-adopt the deploy role after a teardown
+        # infra-staging-destroy.yml moves the deploy role out of the state so the destroy never deletes
+        # the identity it runs as. Import it back before anything plans against it; no-op otherwise.
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: ../../../scripts/staging-deploy-role.sh adopt -var-file="$TF_VAR_FILE"
+
       - name: Terraform Apply - IAM permissions (bootstrap)
         # Self-apply all IAM policies attached to the deploy role so the role gains
         # its full permission set before the plan reads the rest of the state.
@@ -79,7 +84,7 @@ jobs:
         # first bootstrap (requires manual seed — see infra/terraform/staging/iam.tf).
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          terraform apply -input=false -auto-approve \
+          terraform apply -input=false -auto-approve -var-file="$TF_VAR_FILE" \
             -target=aws_iam_role.github_actions_deploy \
             -target=aws_iam_role_policy.github_actions_tf_state \
             -target=aws_iam_role_policy.github_actions_networking \
@@ -98,7 +103,7 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           set +e
-          terraform plan -input=false -no-color -detailed-exitcode -out=tfplan
+          terraform plan -input=false -no-color -detailed-exitcode -var-file="$TF_VAR_FILE" -out=tfplan
           EXIT_CODE=$?
           set -e
           if [ $EXIT_CODE -eq 1 ]; then
