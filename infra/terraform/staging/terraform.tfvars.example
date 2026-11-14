@@ -5,7 +5,7 @@ environment = "staging"
 aws_region  = "us-east-1"
 
 github = {
-  repo = "repo:PellizzoniCode/auction-kings:*"
+  repo = "repo:giopellizzoni/auction-kings:*"
 }
 
 vpc = {
@@ -32,8 +32,8 @@ elasticache = {
 }
 
 ecs = {
-  api_image            = "ghcr.io/pellizzonicode/auction-kings-api:sha-<commit-sha>"
-  worker_image         = "ghcr.io/pellizzonicode/auction-kings-worker:sha-<commit-sha>"
+  api_image            = "ghcr.io/giopellizzoni/auction-kings-api:sha-<commit-sha>"
+  worker_image         = "ghcr.io/giopellizzoni/auction-kings-worker:sha-<commit-sha>"
   api_desired_count    = 1
   worker_desired_count = 1
   api_cpu              = 256
