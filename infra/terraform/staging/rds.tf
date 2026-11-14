@@ -5,7 +5,7 @@ resource "random_password" "db" {
 }
 
 resource "aws_db_subnet_group" "postgres" {
-  name       = "${local.name_prefix}"
+  name       = local.name_prefix
   subnet_ids = aws_subnet.private[*].id
 
   tags = merge(local.common_tags, {
@@ -14,7 +14,7 @@ resource "aws_db_subnet_group" "postgres" {
 }
 
 resource "aws_db_instance" "postgres" {
-  identifier = "${local.name_prefix}"
+  identifier = local.name_prefix
 
   engine         = "postgres"
   engine_version = var.rds.engine_version
