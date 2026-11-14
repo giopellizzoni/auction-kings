@@ -42,6 +42,28 @@ resource "aws_secretsmanager_secret_version" "jwt_secret" {
   secret_string = random_password.jwt_secret.result
 }
 
+# ----- /dev/token key -----
+# The API enables POST /dev/token in staging for demos; it only answers callers that send this value in the
+# X-Dev-Token-Key header, and refuses to start outside Development without it. Read it with:
+#   aws secretsmanager get-secret-value --secret-id /auction-kings/<environment>/dev-token-key \
+#     --query SecretString --output text
+
+resource "random_password" "dev_token_key" {
+  length  = 48
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "dev_token_key" {
+  name                    = "/auction-kings/${var.environment}/dev-token-key"
+  recovery_window_in_days = 0
+  tags                    = { Name = "${local.name_prefix}-dev-token-key" }
+}
+
+resource "aws_secretsmanager_secret_version" "dev_token_key" {
+  secret_id     = aws_secretsmanager_secret.dev_token_key.id
+  secret_string = random_password.dev_token_key.result
+}
+
 # ----- MediatR license key -----
 # Terraform creates only the secret, never its value: the key is a licensed credential that must not enter the
 # repository or the Terraform state. Set it once, out of band:

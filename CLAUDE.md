@@ -57,6 +57,8 @@ Clean Architecture: `API → Application → Domain ← Infrastructure`
 
 **Health endpoints:** `/health/live` (liveness — runs no checks, so a DB/Redis outage never fails it; the ECS and compose container health checks use it), `/health/ready` (DB + Redis + Outbox), `/health/db` (database only).
 
+**Dev token endpoint:** `POST /dev/token` mints a JWT for any user and role when `Features:EnableDevTokenEndpoint` is true (Development and staging). Outside Development it also requires `Features:DevTokenKey` (≥ 32 bytes, sent as `X-Dev-Token-Key`; staging reads it from Secrets Manager `/auction-kings/staging/dev-token-key`) — `DevTokenOptionsValidator` stops startup otherwise. Refusals are 404.
+
 ## Build Configuration
 
 - NuGet versions: centralized in `Directory.Packages.props` — do NOT add versions in individual `.csproj` files

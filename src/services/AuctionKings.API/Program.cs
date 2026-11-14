@@ -139,6 +139,13 @@ builder.Services.AddAuthorization(options =>
 });
 builder.Services.AddSingleton<JwtTokenGenerator>();
 
+// /dev/token: outside Development the API refuses to start with the endpoint enabled but no key.
+builder.Services.AddSingleton<IValidateOptions<DevTokenOptions>, DevTokenOptionsValidator>();
+builder
+    .Services.AddOptions<DevTokenOptions>()
+    .BindConfiguration(DevTokenOptions.SectionName)
+    .ValidateOnStart();
+
 builder.Services.AddHealthChecks().AddInfrastructureHealthChecks();
 
 var app = builder.Build();
