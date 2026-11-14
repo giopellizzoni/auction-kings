@@ -6,7 +6,8 @@ Operational reference for running, monitoring, and troubleshooting AuctionKings 
 
 ## 0. Local Setup From a Clean Checkout
 
-Everything below works end-to-end on a fresh clone with no manual `psql`/`redis-cli` steps.
+Everything below works on a fresh clone with no manual `psql`/`redis-cli` steps. The schema is
+**not** created automatically: nothing calls `Migrate()`, so step 3 is required.
 
 ```bash
 # 1. Generate docker/secrets/*.txt and .env.local (root + docker/) — idempotent, run once
@@ -15,29 +16,43 @@ Everything below works end-to-end on a fresh clone with no manual `psql`/`redis-
 # 2. Start infra: PostgreSQL, Redis, LocalStack, Prometheus, Grafana
 cd docker && docker compose -f docker-compose.infra.yml up -d && cd ..
 
-# 3. Start the API — auto-applies EF Core migrations on startup in Development
+# 3. Apply EF Core migrations (needs `dotnet tool install --global dotnet-ef`). The design-time
+#    factory reads the connection string from the environment only; export just that line —
+#    `source .env.local` would split the unquoted value at each `;`.
+export ConnectionStrings__DefaultConnection="$(grep '^ConnectionStrings__DefaultConnection=' .env.local | cut -d= -f2-)"
+dotnet ef database update --project src/services/AuctionKings.Infrastructure
+
+# 4. Start the API (http://localhost:5081, API reference at /scalar)
 dotnet run --project src/services/AuctionKings.API/AuctionKings.API.csproj
 
-# 4. In a separate terminal, start the background workers (outbox processor, auction closer)
+# 5. In a separate terminal, start the background workers (outbox, activation, close, cleanup)
 dotnet run --project src/workers/AuctionKings.BackgroundWorkers/AuctionKings.BackgroundWorkers.csproj
 ```
 
-Confirm it's healthy, then create an auction — it's **Active immediately** (auctions have no
-scheduled-start concept yet, so `CreateAuctionCommandHandler` activates on creation):
+> **Known issue:** `20260611000000_AddIdempotencyStatusAndResponse` has no `.Designer.cs`, so EF
+> does not discover it and `database update` leaves `idempotency_keys` without its `status` and
+> `response` columns. Bid placement fails on such a database until the migration is fixed.
+
+Confirm it's healthy, get a token, then create an auction. With no `startTime` (or one in the past)
+it is **Active immediately**; a future `startTime` leaves it `Pending` until `AuctionActivationWorker`
+activates it. The seller is the token's `sub` claim:
 
 ```bash
 curl -s http://localhost:5081/health/ready | jq .
 
-curl -s -X POST http://localhost:5081/api/v1/auctions \
+TOKEN=$(curl -s -X POST http://localhost:5081/dev/token \
   -H "Content-Type: application/json" \
-  -H "X-Request-Id: $(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)" \
+  -d '{"userId":"550e8400-e29b-41d4-a716-446655440000","role":"Bidder"}' | jq -r .token)
+
+curl -s -X POST http://localhost:5081/api/v1/auctions \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
   -d '{
     "title": "Vintage Rolex Submariner",
     "description": "Classic 1960s timepiece.",
     "startingPrice": 5000.00,
     "currency": "USD",
-    "durationInHours": 1,
-    "sellerId": "550e8400-e29b-41d4-a716-446655440000"
+    "durationInHours": 1
   }'
 # -> "status": "Active" in a follow-up GET /api/v1/auctions/{id}
 ```
@@ -54,9 +69,10 @@ Notes:
   `'Jwt:Secret' is not configured`, re-run the script: it adds a secret to an existing
   `.env.local` without touching anything else. Do not add `Jwt__Issuer`/`Jwt__Audience` there;
   they come from `appsettings.Development.json`.
-- `/dev/token` (see §8) only works when `ASPNETCORE_ENVIRONMENT=Development` — true for
-  `dotnet run` (via `launchSettings.json`) and for `docker compose up` (the all-in-one compose
-  file is local-only and is never used for staging/production deploys).
+- `/dev/token` (see §8) works only when `Features:EnableDevTokenEndpoint` is `true` (otherwise
+  404). It is on in `appsettings.Development.json` — so for `dotnet run` and the all-in-one compose
+  file — **and in staging** (`Features__EnableDevTokenEndpoint=true` in `ecs.api.tf`). It needs no
+  authentication and mints a token for any user ID and role, including `Admin`.
 
 ---
 
@@ -77,22 +93,27 @@ below for details.
 # 1. Start infrastructure (PostgreSQL, Redis, LocalStack)
 cd docker && docker compose -f docker-compose.infra.yml up -d && cd ..
 
-# 2. Start the API (port 5081) — applies EF Core migrations automatically in Development
+# 2. Apply migrations — nothing does it automatically (see §0 for the export step)
+dotnet ef database update --project src/services/AuctionKings.Infrastructure
+
+# 3. Start the API (port 5081)
 dotnet run --project src/services/AuctionKings.API/AuctionKings.API.csproj
 
-# 3. Start background workers (separate terminal)
+# 4. Start background workers (separate terminal)
 dotnet run --project src/workers/AuctionKings.BackgroundWorkers/AuctionKings.BackgroundWorkers.csproj
 ```
 
-Or with Docker Compose (all-in-one — API, worker, and infra in containers):
+Or with Docker Compose (all-in-one — API, worker, and infra in containers), then apply the
+migrations from the host as in §0 (PostgreSQL is published on `localhost:5432`):
 
 ```bash
 cd docker && docker compose --env-file .env.local up -d
 ```
 
-Every `POST`/`PUT` request requires an `X-Request-Id` header (idempotency), including
-`/dev/token` and `POST /api/v1/auctions` — not just bid placement. Omitting it returns
-`400 {"code":"Idempotency.MissingKey", ...}`. All examples below include it.
+`X-Request-Id` (a GUID) is required only on actions marked `[Idempotent]` — today just
+`POST /api/v1/auctions/{id}/bids`. There, a missing header returns
+`400 {"code":"Idempotency.MissingKey", ...}` and a non-GUID returns `Idempotency.InvalidKey`.
+Other endpoints ignore it.
 
 ---
 
@@ -392,12 +413,14 @@ Both are real, both return `409`, but they mean different things and have differ
    could not be placed due to a concurrent update. Please try again."}`. Legitimate under real
    concurrent writers to the same auction; the client should retry.
 
-2. **Duplicate `X-Request-Id`** — the idempotency key was already used for a prior request
-   (`IdempotencyBehavior` checks existence only, not payload equality, so reusing a key with a
-   *different* body still throws). Body is an RFC7807 `ProblemDetails`, not the `{code,message}`
-   shape above: `{"type":"...","title":"Duplicate Request","status":409,"detail":"Command with
-   idempotency key '<key>' has already been processed.", ...}`. This means the request was
-   already processed — generate a fresh `X-Request-Id` per attempt, don't retry with the same one.
+2. **Duplicate `X-Request-Id` while the first request is still running** — the key
+   (`{userId}:{auctionId}:{X-Request-Id}`) is reserved in `idempotency_keys` but not completed yet.
+   Body is an RFC7807 `ProblemDetails`, not the `{code,message}` shape above:
+   `{"title":"Duplicate Request","status":409,"detail":...}` (the detail names the key only in
+   Development). Wait and retry with the **same** `X-Request-Id`: once the first request
+   completes, a duplicate gets the stored response replayed (same status and body, no second bid).
+   The behavior compares keys only, not payloads — reusing a key with a *different* body replays
+   the first response. Use a fresh `X-Request-Id` for each new bid.
 
 If you see `Auction.ConcurrencyConflict` on **strictly sequential** requests against a single
 auction with no other writer in play, that's not expected — optimistic concurrency conflicts
@@ -411,24 +434,22 @@ mutated outside EF Core (e.g. a manual `UPDATE` via `psql`) between your request
 
 **Steps:**
 
-1. Generate a fresh Bidder token (`/dev/token` is also gated by the global idempotency
-   filter — it needs `X-Request-Id` like any other POST):
+1. Generate a fresh Bidder token (no `X-Request-Id` needed here):
 
    ```bash
    curl -s -X POST http://localhost:5081/dev/token \
      -H "Content-Type: application/json" \
-     -H "X-Request-Id: $(uuidgen)" \
      -d '{"userId": "00000000-0000-0000-0000-000000000001", "role": "Bidder"}' | jq .token
    ```
 
-2. Use the token:
+2. Use the token. The bidder is the token's `sub` claim — the body has no `bidderId`:
 
    ```bash
    curl -s -X POST "http://localhost:5081/api/v1/auctions/{auctionId}/bids" \
      -H "Authorization: Bearer <token>" \
      -H "Content-Type: application/json" \
      -H "X-Request-Id: $(uuidgen)" \
-     -d '{"bidderId": "00000000-0000-0000-0000-000000000001", "amount": 150, "currency": "USD"}'
+     -d '{"amount": 150, "currency": "USD"}'
    ```
 
 3. If still 401, the token has expired (default: 60 min). Re-generate.
@@ -438,6 +459,5 @@ mutated outside EF Core (e.g. a manual `UPDATE` via `psql`) between your request
    ```bash
    curl -s -X POST http://localhost:5081/dev/token \
      -H "Content-Type: application/json" \
-     -H "X-Request-Id: $(uuidgen)" \
      -d '{"userId": "00000000-0000-0000-0000-000000000002", "role": "Admin"}' | jq .token
    ```

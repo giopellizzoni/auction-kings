@@ -13,9 +13,17 @@ AuctionKings is a real-time auction platform — ASP.NET Core 10, Clean Architec
 # Infrastructure (run first)
 cd docker && docker-compose -f docker-compose.infra.yml up -d
 
-# Build & Run — API: http://localhost:5081, Swagger: http://localhost:5081/swagger
-# EF Core migrations apply automatically on startup in Development.
+# Build
 dotnet restore && dotnet build
+
+# Apply EF Core migrations — nothing runs them automatically (API, worker, compose and the
+# staging deploy all skip it). The design-time factory reads the connection string from the
+# environment only, so export it from .env.local (don't `source` the file: the value has `;`).
+export ConnectionStrings__DefaultConnection="$(grep '^ConnectionStrings__DefaultConnection=' .env.local | cut -d= -f2-)"
+dotnet ef database update --project src/services/AuctionKings.Infrastructure
+
+# Run — API: http://localhost:5081, API reference (Scalar, Development only): http://localhost:5081/scalar,
+# OpenAPI document: /openapi/v1.json. There is no Swagger UI.
 dotnet run --project src/services/AuctionKings.API/AuctionKings.API.csproj
 
 # Background Workers (separate process)
@@ -38,7 +46,7 @@ Clean Architecture: `API → Application → Domain ← Infrastructure`
 - `src/services/AuctionKings.Domain` — aggregates, entities, value objects, domain events
 - `src/services/AuctionKings.Infrastructure` — repositories, EF Core, external integrations
 - `src/common/AuctionKings.Shared` — `Entity`, `AggregateRoot` base classes
-- `src/workers/AuctionKings.BackgroundWorkers` — OutboxProcessor (polls every 5s), AuctionActivationWorker (polls every 10s; activates due Pending auctions and cancels ones that ended before activation), AuctionCloseWorker (polls every 10s), CleanupExpiredDataWorker (hourly purge). Its options are validated at startup (`WorkerOptionsValidation`).
+- `src/workers/AuctionKings.BackgroundWorkers` — OutboxProcessor (polls every 1s by default — `Outbox:PollingIntervalSeconds`; the worker's `appsettings.json` uses a section named `OutboxProcessor`, which is not bound, so its 5s/20 values have no effect), AuctionActivationWorker (polls every 10s; activates due Pending auctions and cancels ones that ended before activation), AuctionCloseWorker (polls every 10s), CleanupExpiredDataWorker (hourly purge). Its options are validated at startup (`WorkerOptionsValidation`).
 - `test/` — UnitTests, IntegrationTests, ArchitectureTests, LoadTests
 
 **Key patterns:** CQRS, Outbox Pattern (with SKIP LOCKED batch processing), two SignalR hubs (`AuctionHub`, `NotificationHub`), Redis backplane, optimistic concurrency via an app-level `Auction.Version` int column (**not** PostgreSQL `xmin` — Npgsql 10 doesn't reliably read `xid` system columns back via `RETURNING`, see the comment in `AuctionConfiguration.cs`), idempotency via `X-Request-Id` GUID header (required only on actions marked `[Idempotent]` — currently `BidsController.PlaceBid` — enforced by the globally registered `IdempotencyFilter`), CORS via an explicit origin allowlist (`Cors:AllowedOrigins`, see `API/Cors/` and ADR-004), Mapster DTOs, FluentValidation pipeline behaviors.
@@ -68,7 +76,7 @@ Clean Architecture: `API → Application → Domain ← Infrastructure`
 | VPC                 | Isolated network with public/private subnets                              |
 | ALB                 | Public HTTP :80 entry point                                               |
 | ECS Fargate         | API + Background Workers (0.25 vCPU / 512 MB each)                        |
-| ECR                 | Docker image registry for API and Worker                                  |
+| GHCR (GitHub)       | Docker image registry for API and Worker (not ECR; pushed by `docker-publish.yml`) |
 | RDS PostgreSQL 16   | Primary database — `db.t4g.micro`, private subnet, encrypted              |
 | ElastiCache Redis 7 | Cache, rate limiting, SignalR backplane — `cache.t4g.micro`, TLS + AUTH   |
 | SQS                 | `bid-events` queue + DLQ                                                  |

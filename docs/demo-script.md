@@ -26,6 +26,10 @@ cd ..
 # Wait ~15 seconds for services to be healthy
 sleep 15
 
+# Create the schema — nothing applies migrations automatically (see "Database schema" below)
+export ConnectionStrings__DefaultConnection="$(grep '^ConnectionStrings__DefaultConnection=' .env.local | cut -d= -f2-)"
+dotnet ef database update --project src/services/AuctionKings.Infrastructure
+
 # Export base URL for demo
 export API_URL="http://localhost:5081"
 ```
@@ -39,7 +43,11 @@ the API/worker containers crash on startup (missing JWT secret / Redis password)
 # Start infrastructure first
 cd docker && docker compose -f docker-compose.infra.yml up -d && cd ..
 
-# In a separate terminal, run the API (applies EF Core migrations automatically)
+# Create the schema (see "Database schema" below)
+export ConnectionStrings__DefaultConnection="$(grep '^ConnectionStrings__DefaultConnection=' .env.local | cut -d= -f2-)"
+dotnet ef database update --project src/services/AuctionKings.Infrastructure
+
+# In a separate terminal, run the API
 dotnet run --project src/services/AuctionKings.API/AuctionKings.API.csproj
 
 # In another terminal, run the background workers (outbox processor, auction closer)
@@ -49,6 +57,17 @@ dotnet run --project src/workers/AuctionKings.BackgroundWorkers/AuctionKings.Bac
 export API_URL="http://localhost:5081"
 ```
 
+### Database schema
+
+The API no longer runs `Migrate()` on startup, so both options need the `dotnet ef database update`
+step above (install the tool once with `dotnet tool install --global dotnet-ef`). The design-time
+factory reads `ConnectionStrings__DefaultConnection` from the environment only; export that single
+line rather than `source .env.local`, whose unquoted value contains `;`.
+
+> **Known issue:** migration `20260611000000_AddIdempotencyStatusAndResponse` has no `.Designer.cs`,
+> so EF skips it and `idempotency_keys` lacks its `status`/`response` columns. Step 5 (placing bids)
+> fails on such a database until that migration is fixed.
+
 ---
 
 ## Demo: Step-by-Step
@@ -56,8 +75,8 @@ export API_URL="http://localhost:5081"
 ### Step 1: Verify Health Endpoints
 
 ```bash
-# Check liveness
-curl -s "$API_URL/health/live" | jq .
+# Check liveness (plain-text body, e.g. "Healthy" — not JSON)
+curl -s "$API_URL/health/live"; echo
 
 # Check readiness (DB + Redis + Outbox)
 curl -s "$API_URL/health/ready" | jq .
@@ -81,58 +100,44 @@ that's expected until Option B's second `dotnet run` (or the Docker `worker` con
 
 ---
 
-### Step 2: Generate Bidder Tokens (3 fixed UUIDs for repeatability)
+### Step 2: Generate Tokens (a seller and 3 bidders, fixed UUIDs for repeatability)
 
-`/dev/token` only works when `ASPNETCORE_ENVIRONMENT=Development` (true for both options above;
-it 404s in Production). Like every `POST`/`PUT` endpoint in this API, it requires an
-`X-Request-Id` header — the global idempotency filter checks for it before the request ever
-reaches the controller.
+`/dev/token` works only when `Features:EnableDevTokenEndpoint` is `true` (it is in
+`appsettings.Development.json`, so for both options above; otherwise it returns 404). It needs no
+`X-Request-Id`: that header is required only on actions marked `[Idempotent]` (placing a bid).
+Identities come from the token's `sub` claim — request bodies never carry a seller or bidder ID.
 
 ```bash
-# Bidder 1
-BIDDER_1="550e8400-e29b-41d4-a716-446655440001"
-TOKEN_1=$(curl -s -X POST "$API_URL/dev/token" \
-  -H "Content-Type: application/json" \
-  -H "X-Request-Id: $(uuidgen)" \
-  -d "{\"userId\": \"$BIDDER_1\", \"role\": \"Bidder\"}" | jq -r '.token')
+token() {
+  curl -s -X POST "$API_URL/dev/token" -H "Content-Type: application/json" \
+    -d "{\"userId\": \"$1\", \"role\": \"Bidder\"}" | jq -r '.token'
+}
 
-echo "Token 1: $TOKEN_1"
+SELLER_ID="550e8400-e29b-41d4-a716-446655440000"; SELLER_TOKEN=$(token "$SELLER_ID")
+BIDDER_1="550e8400-e29b-41d4-a716-446655440001"; TOKEN_1=$(token "$BIDDER_1")
+BIDDER_2="550e8400-e29b-41d4-a716-446655440002"; TOKEN_2=$(token "$BIDDER_2")
+BIDDER_3="550e8400-e29b-41d4-a716-446655440003"; TOKEN_3=$(token "$BIDDER_3")
 
-# Bidder 2
-BIDDER_2="550e8400-e29b-41d4-a716-446655440002"
-TOKEN_2=$(curl -s -X POST "$API_URL/dev/token" \
-  -H "Content-Type: application/json" \
-  -H "X-Request-Id: $(uuidgen)" \
-  -d "{\"userId\": \"$BIDDER_2\", \"role\": \"Bidder\"}" | jq -r '.token')
-
-echo "Token 2: $TOKEN_2"
-
-# Bidder 3
-BIDDER_3="550e8400-e29b-41d4-a716-446655440003"
-TOKEN_3=$(curl -s -X POST "$API_URL/dev/token" \
-  -H "Content-Type: application/json" \
-  -H "X-Request-Id: $(uuidgen)" \
-  -d "{\"userId\": \"$BIDDER_3\", \"role\": \"Bidder\"}" | jq -r '.token')
-
-echo "Token 3: $TOKEN_3"
+echo "Seller token: $SELLER_TOKEN"
 ```
+
+Creating an auction also requires the `Bidder` role, so the seller gets a Bidder token too. A
+seller cannot bid on their own auction.
 
 ---
 
 ### Step 3: Create an Auction (10-minute duration for quick demo)
 
 ```bash
-SELLER_ID="550e8400-e29b-41d4-a716-446655440000"
 AUCTION_RESPONSE=$(curl -s -X POST "$API_URL/api/v1/auctions" \
+  -H "Authorization: Bearer $SELLER_TOKEN" \
   -H "Content-Type: application/json" \
-  -H "X-Request-Id: $(uuidgen)" \
   -d '{
     "title": "Vintage Rolex Submariner",
     "description": "Classic 1960s timepiece in excellent condition.",
     "startingPrice": 5000.00,
     "currency": "USD",
-    "durationInHours": 0.166,
-    "sellerId": "'$SELLER_ID'"
+    "durationInHours": 0.166
   }')
 
 # The endpoint returns the new auction's id as a bare JSON string, not an object.
@@ -143,8 +148,9 @@ echo "Auction ID: $AUCTION_ID"
 
 **Expected output:** a quoted UUID, e.g. `"3042d012-ac4a-4520-a622-875ef50f3d16"`.
 
-Auctions have no scheduled-start concept today — `POST /api/v1/auctions` activates the auction
-immediately, so a follow-up `GET` already shows `"status": 1` (Active):
+Without a `startTime` (or with one in the past) the auction is Active immediately; a future
+`startTime` keeps it Pending until `AuctionActivationWorker` activates it. Here a follow-up `GET`
+already shows `"status": 1` (Active):
 
 ```bash
 curl -s "$API_URL/api/v1/auctions/$AUCTION_ID" | jq .
@@ -177,11 +183,7 @@ Try placing a bid without an authorization header:
 curl -s -o /dev/null -w "HTTP %{http_code}\n" -X POST "$API_URL/api/v1/auctions/$AUCTION_ID/bids" \
   -H "Content-Type: application/json" \
   -H "X-Request-Id: $(uuidgen)" \
-  -d '{
-    "bidderId": "'$BIDDER_1'",
-    "amount": 5100.00,
-    "currency": "USD"
-  }'
+  -d '{"amount": 5100.00, "currency": "USD"}'
 ```
 
 **Expected output:** `HTTP 401` with an empty body (the default ASP.NET Core JWT bearer
@@ -196,9 +198,10 @@ Bids on the same auction must be sequential here, not truly concurrent — see t
 ```bash
 for i in {1..20}; do
   MOD=$((i % 3))
-  if   [ $MOD -eq 1 ]; then BIDDER_ID="$BIDDER_1"; TOKEN="$TOKEN_1"
-  elif [ $MOD -eq 2 ]; then BIDDER_ID="$BIDDER_2"; TOKEN="$TOKEN_2"
-  else                       BIDDER_ID="$BIDDER_3"; TOKEN="$TOKEN_3"
+  # Rotate bidders: the current winner may not outbid themselves.
+  if   [ $MOD -eq 1 ]; then TOKEN="$TOKEN_1"
+  elif [ $MOD -eq 2 ]; then TOKEN="$TOKEN_2"
+  else                       TOKEN="$TOKEN_3"
   fi
 
   # +100 per step: BidIncrement requires a $100 minimum raise once price is >= $5,000 (see
@@ -209,7 +212,7 @@ for i in {1..20}; do
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $TOKEN" \
     -H "X-Request-Id: $(uuidgen)" \
-    -d "{\"bidderId\": \"$BIDDER_ID\", \"amount\": $BID_AMOUNT, \"currency\": \"USD\"}"
+    -d "{\"amount\": $BID_AMOUNT, \"currency\": \"USD\"}"
 done
 echo "All 20 bids placed."
 ```
@@ -224,10 +227,13 @@ optimistic concurrency working as intended under real contention, not a bug. If 
 that behavior on purpose, add `&` back before the closing `done` and `wait` after the loop, and
 expect (and handle) some `409`s.
 
-Always use a **fresh** `X-Request-Id` per bid. Reusing one — even to retry with a different
-amount — returns a different 409: an RFC7807 `ProblemDetails` body with
-`"title": "Duplicate Request"`, meaning the earlier request already went through. See
-`docs/runbook.md` → "Two different 409s on `POST /bids`" for how to tell the two apart.
+Always use a **fresh** `X-Request-Id` per bid. Reusing one after the first request finished
+replays its stored response (same status and body, no new bid) — even if you changed the amount.
+Reusing it while the first request is still running returns a 409 RFC7807 `ProblemDetails` with
+`"title": "Duplicate Request"`. See `docs/runbook.md` → "Two different 409s on `POST /bids`".
+
+Each bidder places about 7 bids here, under the `place-bid` rate limit of 10 per 10 seconds per
+user; faster or larger loops get `429 Too Many Requests`.
 
 ---
 
@@ -324,9 +330,6 @@ curl -s "$API_URL/health/ready" | jq '.checks[] | select(.name == "outbox")'
 echo "=== Bids placed total ==="
 curl -s "$API_URL/metrics" | grep "auction_kings_bids_placed_total"
 
-echo ""
-echo "=== Outbox pending ==="
-curl -s "$API_URL/metrics" | grep "auction_kings_outbox_pending_messages_count"
 ```
 
 **Expected output:**
@@ -334,11 +337,11 @@ curl -s "$API_URL/metrics" | grep "auction_kings_outbox_pending_messages_count"
 # HELP auction_kings_bids_placed_total Total number of bids successfully placed.
 # TYPE auction_kings_bids_placed_total counter
 auction_kings_bids_placed_total 20
-
-# HELP auction_kings_outbox_pending_messages_count ...
-# TYPE auction_kings_outbox_pending_messages_count gauge
-auction_kings_outbox_pending_messages_count 0
 ```
+
+The outbox gauge (`auction_kings_outbox_pending_messages_count`) is set by `OutboxProcessor`, which
+runs in the worker process. The worker exposes no `/metrics` endpoint, so the gauge does not appear
+on the API's `/metrics`; use the `outbox` health check (Step 9) instead.
 
 The Grafana dashboard at **http://localhost:3000** (user `admin`, password generated by `./scripts/setup-local-env.sh` in `docker/secrets/grafana_admin_password.txt`) shows these metrics live on the AuctionKings Overview dashboard.
 
@@ -387,16 +390,20 @@ docker compose down -v
 - Ensure Docker stack or dotnet run has completed startup (wait 20+ seconds)
 - Check `curl "$API_URL/health/live"` returns 200
 
-**Token generation / auction creation fails with `{"code":"Idempotency.MissingKey", ...}`:**
-- Every `POST`/`PUT` needs an `X-Request-Id` header, not just bid placement.
+**Bid fails with `{"code":"Idempotency.MissingKey", ...}` or `Idempotency.InvalidKey`:**
+- `POST .../bids` needs an `X-Request-Id` header holding a GUID. No other endpoint requires it.
+
+**Errors like `relation "auctions" does not exist`:**
+- The schema was not created. Run the `dotnet ef database update` step from the setup phase.
 
 **API refuses to start (`'Jwt:Secret' is not configured`) or Redis `NOAUTH`:**
 - Run `./scripts/setup-local-env.sh` first, and for Option A pass
   `docker compose --env-file .env.local up -d` (not plain `docker compose up`).
 
 **Bids rejected with 400 Bad Request:**
-- Ensure `bidderId` and `sellerId` are valid UUIDs
+- The body is only `{"amount", "currency"}`; the bidder comes from the token
 - Verify `currency` matches auction currency
+- The seller cannot bid on their own auction, and the current winner cannot outbid themselves
 - Check amount is >= the minimum increment over the current price (see `BidIncrement`)
 
 **Bids rejected with 409 `Auction.ConcurrencyConflict` on requests you know were sequential:**
@@ -414,19 +421,19 @@ docker compose down -v
 **Add more bidders:**
 ```bash
 BIDDER_N="550e8400-e29b-41d4-a716-446655440099"
-TOKEN_N=$(curl -s -X POST "$API_URL/dev/token" \
-  -H "Content-Type: application/json" \
-  -H "X-Request-Id: $(uuidgen)" \
-  -d "{\"userId\": \"$BIDDER_N\", \"role\": \"Bidder\"}" | jq -r '.token')
+TOKEN_N=$(token "$BIDDER_N")   # helper from Step 2
 ```
 
 **Test auction closure:**
-Wait 10 minutes (or modify duration to 0.001 hours = 3.6 seconds) to see auction close automatically — the `AuctionCloseWorker` polls every 10 seconds (background worker must be running).
+Wait for the end time to see the auction close automatically — the `AuctionCloseWorker` polls every
+10 seconds (background worker must be running). The shortest allowed duration is 5 minutes
+(`durationInHours` ≥ 0.0834); shorter values are rejected with 400. Bids in the last 5 minutes
+extend the end time by 5 minutes (anti-sniping), so stop bidding to let it close.
 
 **Monitor real-time updates (SignalR):**
 Connect to `ws://localhost:5081/hubs/auction` after creating an auction to receive live bid notifications. `scripts/signalr-test-client.html` is a ready-made browser client for this.
 
 ---
 
-**Last updated:** 2026-08-10
+**Last updated:** 2026-11-14
 **Tested with:** ASP.NET Core 10, PostgreSQL 16, Redis 7, Prometheus 2.52, Grafana 10.4
