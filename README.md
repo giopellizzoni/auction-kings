@@ -7,7 +7,8 @@ A real-time auction platform built with ASP.NET Core 10, featuring WebSocket-bas
 - **Framework**: ASP.NET Core 10.0
 - **Language**: C# with nullable reference types
 - **Architecture**: Clean Architecture + DDD
-- **Real-time**: SignalR (WebSockets) + Redis backplane
+- **Real-time**: SignalR (WebSockets) + Redis backplane; the background worker reaches the hubs through a Redis Stream relay
+- **Messaging**: Transactional Outbox publishing to AWS SQS
 - **Database**: PostgreSQL 16
 - **Cache**: Redis 7
 - **Background workers**: .NET Worker Service
@@ -23,8 +24,8 @@ A real-time auction platform built with ASP.NET Core 10, featuring WebSocket-bas
 Both options below start from the same first step:
 
 ```bash
-# Generates docker/secrets/postgres_password.txt + redis_password.txt (if missing),
-# and writes .env.local (repo root) + docker/.env.local from them. Idempotent — safe to
+# Generates docker/secrets/postgres_password.txt, redis_password.txt and grafana_admin_password.txt
+# (if missing), and writes .env.local (repo root) + docker/.env.local from them. Idempotent — safe to
 # re-run, never overwrites a file that already exists.
 ./scripts/setup-local-env.sh
 ```
@@ -106,7 +107,7 @@ auction-kings/
 │   ├── common/
 │   │   └── AuctionKings.Shared/           # Base classes (Entity, AggregateRoot, Result)
 │   └── workers/
-│       └── AuctionKings.BackgroundWorkers/ # OutboxProcessor, AuctionCloseWorker
+│       └── AuctionKings.BackgroundWorkers/ # Outbox, auction activation/close, cleanup workers
 ├── test/
 │   ├── AuctionKings.UnitTests/
 │   ├── AuctionKings.IntegrationTests/
@@ -125,7 +126,6 @@ auction-kings/
 | [Runbook](docs/runbook.md)                         | Health checks, metrics, troubleshooting, AWS staging ops |
 | [Demo Script](docs/demo-script.md)                 | Repeatable 5-minute demo with curl commands              |
 | [Cognito Integration](docs/cognito-integration.md) | AWS Cognito migration guide                              |
-| [Audit](docs/audit.md)                             | Security and code audit findings                         |
 
 ## Configuration
 
@@ -186,6 +186,30 @@ The hubs limit abuse through the `HubThrottling` section of `appsettings.json` (
 Every value must be greater than zero or the API refuses to start. Override per environment with
 `HubThrottling__MaxInvocations=40` etc. Clients over the call limit get a `HubException`; see ADR-007 in `docs/decisions.md`.
 
+### Background workers
+
+The worker host validates its configuration at startup and refuses to start, naming the key, when
+`ConnectionStrings:DefaultConnection` or `ConnectionStrings:Redis` is blank, or when a polling interval,
+batch size, retry count or retention (`Outbox`, `AuctionCloseWorker`, `AuctionActivationWorker`,
+`CleanupWorker` sections) is not greater than zero.
+
+The worker has no SignalR. Real-time pushes it raises (for example `AuctionClosed`, or the notice sent to a
+seller whose auction was cancelled) go to a Redis Stream and the API relays them to the hubs. The relay is
+tuned through the `RealtimeRelay` section (defaults shown; every value must be positive):
+
+```jsonc
+"RealtimeRelay": {
+  "PollInterval": "00:00:00.500",  // wait before polling an empty stream again
+  "ErrorDelay": "00:00:02",
+  "BatchSize": 50,
+  "ClaimIdle": "00:01:00",         // an entry unacknowledged this long is taken over by another replica
+  "ClaimEvery": "00:00:30",
+  "MaxAge": "00:10:00"             // older entries are dropped
+}
+```
+
+Delivery is at least once. See ADR-011 in `docs/decisions.md`.
+
 ## Stopping Services
 
 ```bash
@@ -199,8 +223,11 @@ cd docker && docker compose down -v
 ## Contributing
 
 1. Branch from `develop`
-2. Run tests: `dotnet test`
-3. Submit a pull request
+2. Run tests: `dotnet test` (warnings fail the build: `TreatWarningsAsErrors` is on)
+3. Submit a pull request. CI builds and tests the solution and builds the Docker images
+
+Dependabot opens weekly update PRs (NuGet, GitHub Actions, Docker, Terraform). The app targets `net10.0`, so
+major .NET 11 bumps are ignored until the target framework moves.
 
 ## License
 
