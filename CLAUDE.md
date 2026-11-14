@@ -55,7 +55,7 @@ Clean Architecture: `API → Application → Domain ← Infrastructure`
 
 **Full Docker stack (`docker compose up`, not just the infra file):** the `api`/`worker` containers need `POSTGRES_PASSWORD`, `REDIS_PASSWORD` (same values as the files above), and `JWT_SECRET` as plain env vars. `docker compose` does not auto-load `.env.local` — run `docker compose --env-file .env.local up -d`, or the app fails on startup (`'Jwt:Secret' is not configured` / Redis `NOAUTH`). See `docker/.env` for the template and README.md → Configuration for details. `MEDIATR_LICENSE` (optional) is the MediatR license key; the real key goes only in the git-ignored `.env.local` files, never in the repo or in Terraform.
 
-**Health endpoints:** `/health/live` (liveness), `/health/ready` (DB + Redis + Outbox), `/health/db` (database only).
+**Health endpoints:** `/health/live` (liveness — runs no checks, so a DB/Redis outage never fails it; the ECS and compose container health checks use it), `/health/ready` (DB + Redis + Outbox), `/health/db` (database only).
 
 ## Build Configuration
 

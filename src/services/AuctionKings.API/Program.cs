@@ -189,7 +189,10 @@ app.MapMetrics(); // exposes GET /metrics
 app.MapHub<AuctionHub>("/hubs/auction");
 app.MapHub<NotificationHub>("/hubs/notifications");
 
-app.MapHealthChecks("/health/live");
+// Liveness runs no checks: it only answers "is this process up and serving HTTP". Including the
+// DB/Redis checks here made a dependency blip fail liveness, and ECS/compose would restart healthy
+// API tasks in a loop. Dependency health belongs to /health/ready.
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
 
 app.MapHealthChecks(
     "/health/ready",
