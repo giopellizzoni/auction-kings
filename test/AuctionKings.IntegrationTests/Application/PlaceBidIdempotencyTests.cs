@@ -128,6 +128,14 @@ public sealed class PlaceBidIdempotencyTests
             DateTime newEndTime,
             CancellationToken cancellationToken = default
         ) => Task.CompletedTask;
+
+        public Task NotifyAuctionCancelledAsync(
+            Guid sellerId,
+            Guid auctionId,
+            string title,
+            DateTime cancelledAt,
+            CancellationToken cancellationToken = default
+        ) => Task.CompletedTask;
     }
 
     private sealed class NoOpCacheInvalidationService : ICacheInvalidationService
