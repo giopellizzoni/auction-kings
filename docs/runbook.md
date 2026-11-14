@@ -127,9 +127,12 @@ Other endpoints ignore it.
 
 | Endpoint | Checks | Expected |
 |----------|--------|----------|
-| `GET /health/live` | Process is alive | `200 Healthy` |
-| `GET /health/ready` | DB + Redis + Outbox | `200 Healthy` or `207 Degraded` |
-| `GET /health/db` | PostgreSQL connectivity | `200 Healthy` |
+| `GET /health/live` | None — process is up and serving HTTP | `200 Healthy` (plain text), even when PostgreSQL or Redis is down |
+| `GET /health/ready` | DB + Redis + Outbox | `200` with `Healthy` or `Degraded` (outbox backlog); `503 Unhealthy` when DB or Redis is down |
+| `GET /health/db` | PostgreSQL connectivity | `200 Healthy`; `503 Unhealthy` when unreachable |
+
+Container health checks (ECS task definition, docker compose) use `/health/live`, so a dependency
+outage makes the API not ready but never gets healthy tasks restarted.
 
 **Quick check:**
 
