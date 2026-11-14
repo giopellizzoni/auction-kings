@@ -278,6 +278,17 @@ aws ecs wait services-stable \
   --region us-east-1
 ```
 
+**MediatR license key (staging).** Terraform creates the Secrets Manager secret `/auction-kings/staging/mediatr-license` but never its value: the key must not enter the repository or the Terraform state. Set it once, from a file kept outside the repository (the `file://` form keeps the key out of your shell history):
+
+```bash
+aws secretsmanager put-secret-value \
+  --secret-id /auction-kings/staging/mediatr-license \
+  --secret-string file://path/to/mediatr-license.txt \
+  --region us-east-1
+```
+
+The ECS task definitions do not read it yet: a task whose secret has no value fails to start, so they are wired up in a second change, after the value exists. Until then staging runs without a key (MediatR may log a license warning).
+
 ---
 
 ## 8. Troubleshooting
