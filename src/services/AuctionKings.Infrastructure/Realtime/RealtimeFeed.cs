@@ -58,6 +58,13 @@ public static class RealtimeFeed
     public static TPayload? TryReadPayload<TPayload>(RealtimeEnvelope envelope)
         where TPayload : class
     {
+        // A missing property leaves a default (Undefined) element, and Deserialize on it throws
+        // InvalidOperationException rather than JsonException.
+        if (envelope.Payload.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
+        {
+            return null;
+        }
+
         try
         {
             return envelope.Payload.Deserialize<TPayload>(SerializerOptions);

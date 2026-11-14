@@ -44,7 +44,11 @@ builder.Services.AddHubThrottling();
 builder.Services.AddSingleton<IRealtimeNotificationService, SignalRNotificationService>();
 
 // Pushes notifications that the background worker leaves on a Redis Stream (it cannot reach the hubs itself).
-builder.Services.AddSingleton(new RealtimeRelayOptions());
+builder.Services.AddSingleton<IValidateOptions<RealtimeRelayOptions>, RealtimeRelayOptionsValidator>();
+builder.Services
+    .AddOptions<RealtimeRelayOptions>()
+    .Bind(builder.Configuration.GetSection(RealtimeRelayOptions.SectionName))
+    .ValidateOnStart();
 builder.Services.AddHostedService<RealtimeStreamRelay>();
 
 builder.Services.AddApiCors();

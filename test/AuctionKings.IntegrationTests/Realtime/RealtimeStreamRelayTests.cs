@@ -4,6 +4,7 @@ using AuctionKings.Infrastructure.Realtime;
 using AuctionKings.IntegrationTests.Infrastructure;
 using AuctionKings.Shared.Common;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
 namespace AuctionKings.IntegrationTests.Realtime;
@@ -43,7 +44,7 @@ public sealed class RealtimeStreamRelayTests : IAsyncLifetime
             _fixture.CreateMultiplexer(),
             sink,
             _clock,
-            options ?? new RealtimeRelayOptions(),
+            Options.Create(options ?? new RealtimeRelayOptions()),
             NullLogger<RealtimeStreamRelay>.Instance);
 
     private static string Raw(int version, string kind, string payloadJson) =>
@@ -194,14 +195,64 @@ public sealed class RealtimeStreamRelayTests : IAsyncLifetime
     {
         var db = _redis.GetDatabase();
         var publisher = Publisher();
+        var total = RealtimeFeed.MaxLength + 1_000;
 
-        for (var i = 0; i < RealtimeFeed.MaxLength + 500; i++)
+        // Pipelined in batches: the multiplexer sends them without a round trip each.
+        for (var sent = 0; sent < total; sent += 500)
         {
-            await publisher.NotifyAuctionClosedAsync(Guid.NewGuid(), null);
+            await Task.WhenAll(
+                Enumerable.Range(0, Math.Min(500, total - sent)).Select(_ => publisher.NotifyAuctionClosedAsync(Guid.NewGuid(), null)));
         }
 
-        // Approximate trimming removes whole macro-nodes, so allow a little slack above the cap.
-        Assert.InRange(await db.StreamLengthAsync(RealtimeFeed.Key), 1, RealtimeFeed.MaxLength + 500);
+        // Approximate trimming only drops whole nodes, so allow slack above the cap. Without trimming the
+        // stream would hold all `total` entries and this bound would fail.
+        var length = await db.StreamLengthAsync(RealtimeFeed.Key);
+        Assert.InRange(length, RealtimeFeed.MaxLength, RealtimeFeed.MaxLength + 500);
+        Assert.True(length < total);
+    }
+
+    private async Task<string[]> ConsumerNamesAsync() =>
+        (await _redis.GetDatabase().StreamConsumerInfoAsync(RealtimeFeed.Key, RealtimeFeed.Group))
+            .Select(c => c.Name)
+            .ToArray();
+
+    [Fact]
+    public async Task Stopping_a_replica_removes_its_consumer_when_nothing_is_pending()
+    {
+        await Publisher().NotifyAuctionClosedAsync(Guid.NewGuid(), null);
+        var relay = Relay(new RecordingNotifications());
+        await relay.ProcessOnceAsync(CancellationToken.None);
+        Assert.Contains(relay.ConsumerName, await ConsumerNamesAsync());
+
+        await relay.StopAsync(CancellationToken.None);
+
+        Assert.DoesNotContain(relay.ConsumerName, await ConsumerNamesAsync());
+    }
+
+    [Fact]
+    public async Task Stopping_a_replica_keeps_its_consumer_while_it_owns_unacknowledged_entries()
+    {
+        var publisher = Publisher();
+        await publisher.NotifyAuctionClosedAsync(Guid.NewGuid(), null);
+        var relay = Relay(new RecordingNotifications());
+        await relay.ProcessOnceAsync(CancellationToken.None);
+
+        // The replica read another entry and was stopped before acknowledging it.
+        await publisher.NotifyAuctionClosedAsync(Guid.NewGuid(), null);
+        var db = _redis.GetDatabase();
+        var read = await db.StreamReadGroupAsync(
+            RealtimeFeed.Key,
+            RealtimeFeed.Group,
+            relay.ConsumerName,
+            StreamPosition.NewMessages,
+            10);
+        Assert.Single(read);
+
+        await relay.StopAsync(CancellationToken.None);
+
+        // Deleting the consumer would drop its pending entry for good; it must stay claimable.
+        Assert.Contains(relay.ConsumerName, await ConsumerNamesAsync());
+        Assert.Equal(1, await PendingAsync());
     }
 
     private sealed class FixedClock(DateTime utcNow) : IDateTimeProvider
