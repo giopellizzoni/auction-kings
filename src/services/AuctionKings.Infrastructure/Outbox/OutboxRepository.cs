@@ -1,22 +1,39 @@
 using AuctionKings.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace AuctionKings.Infrastructure.Outbox;
 
 internal sealed class OutboxRepository : IOutboxRepository
 {
     private readonly AuctionDbContext _context;
-    private IDbContextTransaction? _transaction;
 
     public OutboxRepository(AuctionDbContext context)
     {
         _context = context;
     }
 
-    public async Task BeginTransactionAsync(CancellationToken cancellationToken)
+    public Task ExecuteInTransactionAsync(
+        Func<CancellationToken, Task> operation,
+        CancellationToken cancellationToken
+    )
     {
-        _transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        // The context uses NpgsqlRetryingExecutionStrategy (EnableRetryOnFailure), which rejects a transaction
+        // begun outside it. Run begin → operation → commit as one unit the strategy can retry.
+        var strategy = _context.Database.CreateExecutionStrategy();
+
+        return strategy.ExecuteAsync(
+            async token =>
+            {
+                // A retry starts from scratch after a rollback: drop the entities the failed attempt tracked
+                // (and modified), otherwise identity resolution hands the re-fetch those stale instances.
+                _context.ChangeTracker.Clear();
+
+                await using var transaction = await _context.Database.BeginTransactionAsync(token);
+                await operation(token);
+                await transaction.CommitAsync(token);
+            },
+            cancellationToken
+        );
     }
 
     public async Task<IReadOnlyList<OutboxMessage>> FetchPendingAsync(
@@ -41,15 +58,5 @@ internal sealed class OutboxRepository : IOutboxRepository
     public Task SaveAsync(CancellationToken cancellationToken)
     {
         return _context.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task CommitAsync(CancellationToken cancellationToken)
-    {
-        if (_transaction is not null)
-        {
-            await _transaction.CommitAsync(cancellationToken);
-            await _transaction.DisposeAsync();
-            _transaction = null;
-        }
     }
 }
