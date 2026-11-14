@@ -29,7 +29,7 @@ public sealed class RedisHealthCheckTests
     public async Task CheckHealthAsync_WhenPingThrows_ReturnsUnhealthy()
     {
         var db = Substitute.For<IDatabase>();
-        db.PingAsync().ThrowsAsync(new RedisConnectionException(ConnectionFailureType.UnableToConnect, "down"));
+        db.PingAsync().ThrowsAsync(new RedisConnectionException(ConnectionFailureType.UnableToConnect, CommandFlags.None, "down", null, CommandStatus.Unknown));
         var multiplexer = Substitute.For<IConnectionMultiplexer>();
         multiplexer.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(db);
         var check = new RedisHealthCheck(multiplexer);
