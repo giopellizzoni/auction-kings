@@ -40,6 +40,8 @@ cd docker
 docker compose --env-file .env.local up -d
 ```
 
+**MediatR license (optional).** MediatR 13+ asks for a license key. The free Community edition needs a key you register yourself; set it as `MediatR__License` in the git-ignored root `.env.local` for `dotnet run`, or as `MEDIATR_LICENSE` in `docker/.env.local` for the full Docker stack. Without one MediatR may log a license warning. Never commit the key.
+
 If you forget `--env-file .env.local`, those three variables interpolate to empty strings — the API will refuse to start (`'Jwt:Secret' is not configured`) and fail to authenticate with Redis (`NOAUTH`).
 
 Services available after startup (~15 seconds):

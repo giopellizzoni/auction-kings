@@ -22,6 +22,7 @@ services:
       AWS__Region: "us-east-1"
       AWS__SQS__ServiceURL: "http://localstack:4566"
       AWS__SQS__BidQueueUrl: "http://localstack:4566/000000000000/auction-bids-queue"
+      MediatR__License: "${MEDIATR_LICENSE:-}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -54,6 +55,7 @@ services:
       AWS__Region: "us-east-1"
       AWS__SQS__ServiceURL: "http://localstack:4566"
       AWS__SQS__BidQueueUrl: "http://localstack:4566/000000000000/auction-bids-queue"
+      MediatR__License: "${MEDIATR_LICENSE:-}"
     depends_on:
       postgres:
         condition: service_healthy
