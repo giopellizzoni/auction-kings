@@ -57,26 +57,30 @@ public sealed partial class OutboxProcessor : BackgroundService
         var publisher = scope.ServiceProvider.GetRequiredService<IPublisher>();
         var eventBus = scope.ServiceProvider.GetRequiredService<IEventBus>();
 
-        // Open a transaction so FOR UPDATE SKIP LOCKED holds row-level locks for
-        // the full batch. Without a transaction the lock is released immediately after
-        // the query, allowing a second worker to pick up the same rows.
-        await repository.BeginTransactionAsync(cancellationToken);
+        // One transaction for the whole batch so FOR UPDATE SKIP LOCKED holds the row locks until the
+        // results are saved. Without it the locks are released right after the query, letting a second
+        // worker pick up the same rows. If a transient database error makes the execution strategy retry,
+        // the batch re-runs from the fetch and may publish some events again: delivery is at-least-once.
+        await repository.ExecuteInTransactionAsync(
+            async token =>
+            {
+                var messages = await repository.FetchPendingAsync(_options.BatchSize, token);
+                OutboxMetrics.SetPending(messages.Count);
 
-        var messages = await repository.FetchPendingAsync(_options.BatchSize, cancellationToken);
-        OutboxMetrics.SetPending(messages.Count);
+                if (messages.Count == 0)
+                {
+                    return;
+                }
 
-        if (messages.Count == 0)
-        {
-            return;
-        }
+                foreach (var message in messages)
+                {
+                    await ProcessMessageAsync(message, publisher, eventBus, token);
+                }
 
-        foreach (var message in messages)
-        {
-            await ProcessMessageAsync(message, publisher, eventBus, cancellationToken);
-        }
-
-        await repository.SaveAsync(cancellationToken);
-        await repository.CommitAsync(cancellationToken);
+                await repository.SaveAsync(token);
+            },
+            cancellationToken
+        );
     }
 
     private async Task ProcessMessageAsync(

@@ -24,6 +24,20 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
         return new AuctionDbContext(options);
     }
 
+    /// <summary>
+    /// A context configured like the application's (<c>EnableRetryOnFailure</c>), for code that must work
+    /// under NpgsqlRetryingExecutionStrategy — e.g. explicit transactions.
+    /// </summary>
+    public AuctionDbContext CreateRetryingDbContext()
+    {
+        var options = new DbContextOptionsBuilder<AuctionDbContext>()
+            .UseNpgsql(_container.GetConnectionString(), npgsql => npgsql.EnableRetryOnFailure(3))
+            .UseSnakeCaseNamingConvention()
+            .Options;
+
+        return new AuctionDbContext(options);
+    }
+
     public async Task InitializeAsync()
     {
         await _container.StartAsync();

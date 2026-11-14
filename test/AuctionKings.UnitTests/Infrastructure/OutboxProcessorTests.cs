@@ -29,6 +29,11 @@ public sealed class OutboxProcessorTests : IDisposable
     {
         _dateTimeProvider.UtcNow.Returns(FixedNow);
 
+        // Run the batch the way the real repository does: invoke the operation inside the "transaction".
+        _repository
+            .ExecuteInTransactionAsync(Arg.Any<Func<CancellationToken, Task>>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<Func<CancellationToken, Task>>()(call.Arg<CancellationToken>()));
+
         var scopeFactory = Substitute.For<IServiceScopeFactory>();
         var scope = Substitute.For<IServiceScope>();
 
@@ -186,5 +191,26 @@ public sealed class OutboxProcessorTests : IDisposable
 
         await _publisher.DidNotReceive().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
         await _repository.DidNotReceive().SaveAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task OutboxProcessor_ShouldFetchAndSaveInsideOneTransaction()
+    {
+        var message = BuildAuctionCreatedMessage();
+        _repository
+            .FetchPendingAsync(_options.BatchSize, Arg.Any<CancellationToken>())
+            .Returns([message]);
+
+        await _processor.ProcessBatchAsync(CancellationToken.None);
+
+        await _repository
+            .Received(1)
+            .ExecuteInTransactionAsync(Arg.Any<Func<CancellationToken, Task>>(), Arg.Any<CancellationToken>());
+        Received.InOrder(() =>
+        {
+            _repository.ExecuteInTransactionAsync(Arg.Any<Func<CancellationToken, Task>>(), Arg.Any<CancellationToken>());
+            _repository.FetchPendingAsync(_options.BatchSize, Arg.Any<CancellationToken>());
+            _repository.SaveAsync(Arg.Any<CancellationToken>());
+        });
     }
 }
