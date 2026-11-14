@@ -73,7 +73,7 @@ Use the Transactional Outbox Pattern:
 | Max page size (bids/auctions) | 50 | Prevents unbounded query result sets |
 | Rate limit (bids per user) | 10 req / 10 s | Redis sliding window; prevents bid flooding |
 | Outbox batch size | 20 messages | Tunable via `Outbox:BatchSize` |
-| Outbox polling interval | 1 s | Tunable via `Outbox:PollingIntervalSeconds` (the worker's `appsettings.json` uses an unbound `OutboxProcessor` section, so its values don't apply) |
+| Outbox polling interval | 1 s | Tunable via `Outbox:PollingIntervalSeconds` |
 | Outbox max retries | 3 | After 3 failures, message is marked `failed` |
 | JWT expiry | 60 min | Configurable via `Jwt:ExpiresInMinutes` |
 | SignalR backplane | Redis | Required for multi-instance deployments |

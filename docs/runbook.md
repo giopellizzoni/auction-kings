@@ -8,8 +8,14 @@ Operational reference for running, monitoring, and troubleshooting AuctionKings 
 
 Everything below works on a fresh clone with no manual `psql`/`redis-cli` steps. The API creates
 the schema itself: on startup it applies pending EF Core migrations when `Database:MigrateOnStartup`
-is `true` (set in `appsettings.Development.json`). Look for `Applying N pending migration(s)` or
+is `true` (set in `appsettings.Development.json`). Look for `N pending migration(s)` or
 `Database schema is up to date` in its log.
+
+**Migration policy.** The migration runs before the API starts listening, so in a rolling deployment the new
+task migrates while the old API tasks and the worker still run the previous model. Keep migrations additive
+(add nullable columns/tables first; remove or rename in a later release) so both versions work against the
+same schema. A slow migration also has to finish within the ECS container health check `startPeriod`
+(120 s in `ecs.api.tf`); for a long one, run it by hand first.
 
 ```bash
 # 1. Generate docker/secrets/*.txt and .env.local (root + docker/) — idempotent, run once

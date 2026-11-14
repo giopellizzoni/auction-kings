@@ -215,7 +215,7 @@ OutboxProcessor (every 1 s by default)
 
 **Order matters.** SQS is published first and the in-process handlers run afterwards. The processor retries the whole message when any step throws; handlers (for example `NotifySellerOnAuctionCancelled`) are best-effort side effects, so running them before a failing SQS publish would repeat them on every retry. Handlers should therefore swallow and log their own failures. Domain events are not MediatR notifications (Domain has no MediatR reference), hence the `DomainEventNotification<TEvent>` adapter in the Application layer.
 
-**Retry policy:** `MaxRetries` (default 3) attempts per message; the row keeps `RetryCount` and is then marked `Failed`. Defaults are batch size 20 and a 1 s poll, bound from the `Outbox` section (`OutboxOptions.SectionName`). The worker's `appsettings.json` puts `PollingIntervalSeconds: 5` under a section named `OutboxProcessor`, which nothing binds, so the effective poll is 1 s until that section is renamed. SKIP LOCKED makes concurrent processing safe across multiple worker replicas. A circuit breaker for a failing SQS is not implemented (ADR-003).
+**Retry policy:** `MaxRetries` (default 3) attempts per message; the row keeps `RetryCount` and is then marked `Failed`. Defaults are batch size 20 and a 1 s poll, bound from the `Outbox` section (`OutboxOptions.SectionName`); the worker's `appsettings.json` sets the same values explicitly. SKIP LOCKED makes concurrent processing safe across multiple worker replicas. A circuit breaker for a failing SQS is not implemented (ADR-003).
 
 ---
 

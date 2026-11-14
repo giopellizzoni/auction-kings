@@ -381,7 +381,7 @@ docker compose down -v
 - `POST .../bids` needs an `X-Request-Id` header holding a GUID. No other endpoint requires it.
 
 **Errors like `relation "auctions" does not exist`:**
-- The schema was not created. Check the API log for `Applying N pending migration(s)`; if the API
+- The schema was not created. Check the API log for `N pending migration(s)`; if the API
   runs outside Development, set `Database__MigrateOnStartup=true` or migrate by hand (runbook §0).
 
 **API refuses to start (`'Jwt:Secret' is not configured`) or Redis `NOAUTH`:**

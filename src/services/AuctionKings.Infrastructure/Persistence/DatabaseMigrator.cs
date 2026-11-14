@@ -19,7 +19,7 @@ public static partial class DatabaseMigrator
     /// replicas starting at once apply each migration only once.
     /// </summary>
     public static async Task MigrateDatabaseAsync(
-        this IServiceProvider services,
+        IServiceProvider services,
         CancellationToken cancellationToken = default
     )
     {
@@ -41,15 +41,15 @@ public static partial class DatabaseMigrator
         var names = string.Join(", ", pending);
         LogApplying(logger, pending.Count, names);
         await context.Database.MigrateAsync(cancellationToken);
-        LogApplied(logger, pending.Count);
+        LogApplied(logger);
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Database schema is up to date; no migrations to apply.")]
     private static partial void LogUpToDate(ILogger logger);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Applying {Count} pending migration(s): {Migrations}")]
+    [LoggerMessage(Level = LogLevel.Information, Message = "{Count} pending migration(s): {Migrations}. Migrating (another replica starting at the same time may apply them first).")]
     private static partial void LogApplying(ILogger logger, int count, string migrations);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Applied {Count} migration(s).")]
-    private static partial void LogApplied(ILogger logger, int count);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Database migration finished; the schema is up to date.")]
+    private static partial void LogApplied(ILogger logger);
 }

@@ -147,7 +147,7 @@ var app = builder.Build();
 // so a deployed environment only migrates when it sets Database__MigrateOnStartup=true (staging does).
 if (app.Configuration.GetValue<bool>(DatabaseMigrator.MigrateOnStartupKey))
 {
-    await app.Services.MigrateDatabaseAsync();
+    await DatabaseMigrator.MigrateDatabaseAsync(app.Services);
 }
 
 app.UseMiddleware<CorrelationIdMiddleware>();

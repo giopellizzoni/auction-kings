@@ -22,11 +22,7 @@ dotnet restore && dotnet build
 # (appsettings.Development.json → dotnet run and docker compose; staging sets Database__MigrateOnStartup=true
 # in ecs.api.tf; off anywhere else unless configured).
 dotnet run --project src/services/AuctionKings.API/AuctionKings.API.csproj
-
-# Manual migration (any environment without MigrateOnStartup). The design-time factory reads the
-# connection string from the environment only; export that line (don't `source` .env.local: the value has `;`).
-export ConnectionStrings__DefaultConnection="$(grep '^ConnectionStrings__DefaultConnection=' .env.local | cut -d= -f2-)"
-dotnet ef database update --project src/services/AuctionKings.Infrastructure
+# Manual migration (an environment without MigrateOnStartup): see docs/runbook.md section 0.
 
 # Background Workers (separate process)
 dotnet run --project src/workers/AuctionKings.BackgroundWorkers/AuctionKings.BackgroundWorkers.csproj
@@ -48,7 +44,7 @@ Clean Architecture: `API → Application → Domain ← Infrastructure`
 - `src/services/AuctionKings.Domain` — aggregates, entities, value objects, domain events
 - `src/services/AuctionKings.Infrastructure` — repositories, EF Core, external integrations
 - `src/common/AuctionKings.Shared` — `Entity`, `AggregateRoot` base classes
-- `src/workers/AuctionKings.BackgroundWorkers` — OutboxProcessor (polls every 1s by default — `Outbox:PollingIntervalSeconds`; the worker's `appsettings.json` uses a section named `OutboxProcessor`, which is not bound, so its 5s/20 values have no effect), AuctionActivationWorker (polls every 10s; activates due Pending auctions and cancels ones that ended before activation), AuctionCloseWorker (polls every 10s), CleanupExpiredDataWorker (hourly purge). Its options are validated at startup (`WorkerOptionsValidation`).
+- `src/workers/AuctionKings.BackgroundWorkers` — OutboxProcessor (polls every 1s, batch of 20 — `Outbox:PollingIntervalSeconds` / `Outbox:BatchSize`), AuctionActivationWorker (polls every 10s; activates due Pending auctions and cancels ones that ended before activation), AuctionCloseWorker (polls every 10s), CleanupExpiredDataWorker (hourly purge). Its options are validated at startup (`WorkerOptionsValidation`).
 - `test/` — UnitTests, IntegrationTests, ArchitectureTests, LoadTests
 
 **Key patterns:** CQRS, Outbox Pattern (with SKIP LOCKED batch processing), two SignalR hubs (`AuctionHub`, `NotificationHub`), Redis backplane, optimistic concurrency via an app-level `Auction.Version` int column (**not** PostgreSQL `xmin` — Npgsql 10 doesn't reliably read `xid` system columns back via `RETURNING`, see the comment in `AuctionConfiguration.cs`), idempotency via `X-Request-Id` GUID header (required only on actions marked `[Idempotent]` — currently `BidsController.PlaceBid` — enforced by the globally registered `IdempotencyFilter`), CORS via an explicit origin allowlist (`Cors:AllowedOrigins`, see `API/Cors/` and ADR-004), Mapster DTOs, FluentValidation pipeline behaviors.

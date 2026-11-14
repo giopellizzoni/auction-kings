@@ -36,15 +36,8 @@ Both options below start from the same first step:
 applies any pending EF Core migrations when `Database:MigrateOnStartup` is `true`, which
 `appsettings.Development.json` sets (so `dotnet run` and the Docker stack). Staging enables it
 too (`Database__MigrateOnStartup=true` in `infra/terraform/staging/ecs.api.tf`); any other
-environment leaves it off unless it sets that variable. To migrate by hand instead (needs
-`dotnet tool install --global dotnet-ef`), run from the repo root:
-
-```bash
-# The design-time DbContext factory reads the connection string from the environment only.
-# Export just that line — don't `source .env.local`: the unquoted value contains `;`.
-export ConnectionStrings__DefaultConnection="$(grep '^ConnectionStrings__DefaultConnection=' .env.local | cut -d= -f2-)"
-dotnet ef database update --project src/services/AuctionKings.Infrastructure
-```
+environment leaves it off unless it sets that variable. To migrate by hand instead, see
+[docs/runbook.md §0](docs/runbook.md#0-local-setup-from-a-clean-checkout).
 
 ### Option A — Full Docker Stack
 
