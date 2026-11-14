@@ -17,7 +17,7 @@ public class RedisStreamRealtimeNotificationServiceTests
     {
         // The operation that triggered the notification already succeeded; losing the push must not undo it.
         var redis = Substitute.For<IConnectionMultiplexer>();
-        redis.GetDatabase(Arg.Any<int>(), Arg.Any<object>()).Throws(new RedisConnectionException(ConnectionFailureType.UnableToConnect, "down"));
+        redis.GetDatabase(Arg.Any<int>(), Arg.Any<object>()).Throws(new RedisConnectionException(ConnectionFailureType.UnableToConnect, CommandFlags.None, "down", null, CommandStatus.Unknown));
         var clock = Substitute.For<IDateTimeProvider>();
         clock.UtcNow.Returns(Now);
         var service = new RedisStreamRealtimeNotificationService(
