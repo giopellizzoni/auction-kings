@@ -28,8 +28,10 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
     {
         await _container.StartAsync();
 
+        // Build the schema from the real migrations, not EnsureCreated(): a migration EF cannot
+        // discover (or one that drifts from the model) must fail these tests, not production.
         await using var context = CreateDbContext();
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.MigrateAsync();
     }
 
     public async Task DisposeAsync()

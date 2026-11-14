@@ -60,7 +60,7 @@ Use the Transactional Outbox Pattern:
 
 ### Limitations
 
-- **Eventual consistency**: SignalR clients see bid events with a delay equal to the outbox polling interval (default: 5 seconds).
+- **Eventual consistency**: SQS consumers and in-process event handlers see events up to one outbox polling interval late (default 1 s, `Outbox:PollingIntervalSeconds`). SignalR pushes for `BidPlaced` and `AuctionClosed` do not wait for the outbox: the command handlers send them right after the commit (ADR-011 covers the worker path).
 - **At-least-once, not exactly-once**: consumers must be idempotent. The `X-Request-Id` idempotency key on the bid endpoint prevents duplicate bids, but downstream SQS consumers must handle re-delivery.
 - **Stuck message risk**: if the database is healthy but SQS/SignalR is down, messages accumulate. The `OutboxHealthCheck` reports `Degraded` when messages are stuck > 5 minutes.
 
@@ -72,8 +72,8 @@ Use the Transactional Outbox Pattern:
 |-------|-------|--------|
 | Max page size (bids/auctions) | 50 | Prevents unbounded query result sets |
 | Rate limit (bids per user) | 10 req / 10 s | Redis sliding window; prevents bid flooding |
-| Outbox batch size | 50 messages | Tunable via `Outbox:BatchSize` in `appsettings.json` |
-| Outbox polling interval | 5 s | Tunable via `Outbox:PollingIntervalSeconds` |
+| Outbox batch size | 20 messages | Tunable via `Outbox:BatchSize` |
+| Outbox polling interval | 1 s | Tunable via `Outbox:PollingIntervalSeconds` |
 | Outbox max retries | 3 | After 3 failures, message is marked `failed` |
 | JWT expiry | 60 min | Configurable via `Jwt:ExpiresInMinutes` |
 | SignalR backplane | Redis | Required for multi-instance deployments |

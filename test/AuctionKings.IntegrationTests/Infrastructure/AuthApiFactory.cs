@@ -45,8 +45,10 @@ public sealed class AuthApiFactory : WebApplicationFactory<AuctionsController>, 
             .UseNpgsql(_postgres.GetConnectionString())
             .UseSnakeCaseNamingConvention()
             .Options;
+        // Real migrations, as in a deployed database. The host also runs MigrateOnStartup
+        // (Development), which then finds nothing pending.
         await using var context = new AuctionDbContext(options);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.MigrateAsync();
     }
 
     public new async Task DisposeAsync()

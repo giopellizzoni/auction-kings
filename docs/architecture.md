@@ -75,7 +75,7 @@ graph TD
     end
 
     subgraph Workers["Background Workers"]
-        OutboxProc["OutboxProcessor\n(5 s poll, SKIP LOCKED)"]
+        OutboxProc["OutboxProcessor\n(1 s poll, SKIP LOCKED)"]
         ActivationWorker["AuctionActivationWorker\n(10 s poll)"]
         CloseWorker["AuctionCloseWorker\n(10 s poll)"]
         CleanupWorker["CleanupExpiredDataWorker\n(hourly)"]
@@ -205,7 +205,7 @@ PlaceBid command
             └─► INSERT INTO outbox_messages ... (event)
                     ── single PostgreSQL transaction ──
 
-OutboxProcessor (every 5 s)
+OutboxProcessor (every 1 s by default)
     └─► SELECT ... FOR UPDATE SKIP LOCKED  (20 rows, no double-processing)
     └─► Deserialise the event
     └─► IEventBus.PublishAsync()     → AWS SQS (bid-events queue)
@@ -215,7 +215,7 @@ OutboxProcessor (every 5 s)
 
 **Order matters.** SQS is published first and the in-process handlers run afterwards. The processor retries the whole message when any step throws; handlers (for example `NotifySellerOnAuctionCancelled`) are best-effort side effects, so running them before a failing SQS publish would repeat them on every retry. Handlers should therefore swallow and log their own failures. Domain events are not MediatR notifications (Domain has no MediatR reference), hence the `DomainEventNotification<TEvent>` adapter in the Application layer.
 
-**Retry policy:** `MaxRetries` (default 3) attempts per message; the row keeps `RetryCount` and is then marked `Failed`. Defaults are batch size 20 and a 1 s poll; the worker's `appsettings.json` sets the poll to 5 s. SKIP LOCKED makes concurrent processing safe across multiple worker replicas. A circuit breaker for a failing SQS is not implemented (ADR-003).
+**Retry policy:** `MaxRetries` (default 3) attempts per message; the row keeps `RetryCount` and is then marked `Failed`. Defaults are batch size 20 and a 1 s poll, bound from the `Outbox` section (`OutboxOptions.SectionName`); the worker's `appsettings.json` sets the same values explicitly. SKIP LOCKED makes concurrent processing safe across multiple worker replicas. A circuit breaker for a failing SQS is not implemented (ADR-003).
 
 ---
 
@@ -225,7 +225,7 @@ OutboxProcessor (every 5 s)
 
 | Hub | Purpose |
 |---|---|
-| `AuctionHub` | Per-auction groups (`auction-{id}`): `BidPlaced`, `AuctionExtended`, `AuctionClosed` |
+| `AuctionHub` | Per-auction groups (`auction-{id}`): `BidPlaced`, `AuctionClosed`; `AuctionExtended` is wired (`NotifyAuctionExtendedAsync`, relay kind) but nothing sends it yet — `PlaceBidCommandHandler` does not push anti-sniping extensions and `AuctionExtendedEvent` has no handler, so clients see a new `EndTime` only after `RequestStateSync`/reload |
 | `NotificationHub` | Per-user group (`user-{userId}`): notices addressed to one user, for example `AuctionCancelled` to the seller |
 
 Bidder identities are never pushed: `BidPlaced` carries the auction id, bid id, amount and currency only (ADR-005).

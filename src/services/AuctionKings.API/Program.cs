@@ -10,6 +10,7 @@ using AuctionKings.Application;
 using AuctionKings.Application.Abstractions;
 using AuctionKings.Infrastructure;
 using AuctionKings.Infrastructure.HealthChecks;
+using AuctionKings.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
@@ -141,6 +142,13 @@ builder.Services.AddSingleton<JwtTokenGenerator>();
 builder.Services.AddHealthChecks().AddInfrastructureHealthChecks();
 
 var app = builder.Build();
+
+// Create/upgrade the schema before serving traffic. Opt-in (true in appsettings.Development.json),
+// so a deployed environment only migrates when it sets Database__MigrateOnStartup=true (staging does).
+if (app.Configuration.GetValue<bool>(DatabaseMigrator.MigrateOnStartupKey))
+{
+    await DatabaseMigrator.MigrateDatabaseAsync(app.Services);
+}
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();

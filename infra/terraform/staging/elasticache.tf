@@ -7,7 +7,7 @@ resource "random_password" "redis" {
 }
 
 resource "aws_elasticache_subnet_group" "redis" {
-  name       = "${local.name_prefix}"
+  name       = local.name_prefix
   subnet_ids = aws_subnet.private[*].id
 
   tags = merge(local.common_tags, {
@@ -16,7 +16,7 @@ resource "aws_elasticache_subnet_group" "redis" {
 }
 
 resource "aws_elasticache_replication_group" "redis" {
-  replication_group_id = "${local.name_prefix}"
+  replication_group_id = local.name_prefix
   description          = "Redis for AuctionKings ${var.environment} - cache + SignalR backplane"
 
   node_type          = var.elasticache.node_type
