@@ -26,11 +26,7 @@ cd ..
 # Wait ~15 seconds for services to be healthy
 sleep 15
 
-# Create the schema — nothing applies migrations automatically (see "Database schema" below)
-export ConnectionStrings__DefaultConnection="$(grep '^ConnectionStrings__DefaultConnection=' .env.local | cut -d= -f2-)"
-dotnet ef database update --project src/services/AuctionKings.Infrastructure
-
-# Export base URL for demo
+# Export base URL for demo (the API container migrated the schema on startup)
 export API_URL="http://localhost:5081"
 ```
 
@@ -43,11 +39,7 @@ the API/worker containers crash on startup (missing JWT secret / Redis password)
 # Start infrastructure first
 cd docker && docker compose -f docker-compose.infra.yml up -d && cd ..
 
-# Create the schema (see "Database schema" below)
-export ConnectionStrings__DefaultConnection="$(grep '^ConnectionStrings__DefaultConnection=' .env.local | cut -d= -f2-)"
-dotnet ef database update --project src/services/AuctionKings.Infrastructure
-
-# In a separate terminal, run the API
+# In a separate terminal, run the API (applies pending migrations on startup)
 dotnet run --project src/services/AuctionKings.API/AuctionKings.API.csproj
 
 # In another terminal, run the background workers (outbox processor, auction closer)
@@ -59,14 +51,9 @@ export API_URL="http://localhost:5081"
 
 ### Database schema
 
-The API no longer runs `Migrate()` on startup, so both options need the `dotnet ef database update`
-step above (install the tool once with `dotnet tool install --global dotnet-ef`). The design-time
-factory reads `ConnectionStrings__DefaultConnection` from the environment only; export that single
-line rather than `source .env.local`, whose unquoted value contains `;`.
-
-> **Known issue:** migration `20260611000000_AddIdempotencyStatusAndResponse` has no `.Designer.cs`,
-> so EF skips it and `idempotency_keys` lacks its `status`/`response` columns. Step 5 (placing bids)
-> fails on such a database until that migration is fixed.
+No manual step: in Development the API applies pending EF Core migrations on startup
+(`Database:MigrateOnStartup` in `appsettings.Development.json`). To migrate by hand instead, see
+`docs/runbook.md` §0.
 
 ---
 
@@ -394,7 +381,8 @@ docker compose down -v
 - `POST .../bids` needs an `X-Request-Id` header holding a GUID. No other endpoint requires it.
 
 **Errors like `relation "auctions" does not exist`:**
-- The schema was not created. Run the `dotnet ef database update` step from the setup phase.
+- The schema was not created. Check the API log for `Applying N pending migration(s)`; if the API
+  runs outside Development, set `Database__MigrateOnStartup=true` or migrate by hand (runbook §0).
 
 **API refuses to start (`'Jwt:Secret' is not configured`) or Redis `NOAUTH`:**
 - Run `./scripts/setup-local-env.sh` first, and for Option A pass

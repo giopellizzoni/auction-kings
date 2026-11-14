@@ -6,8 +6,10 @@ Operational reference for running, monitoring, and troubleshooting AuctionKings 
 
 ## 0. Local Setup From a Clean Checkout
 
-Everything below works on a fresh clone with no manual `psql`/`redis-cli` steps. The schema is
-**not** created automatically: nothing calls `Migrate()`, so step 3 is required.
+Everything below works on a fresh clone with no manual `psql`/`redis-cli` steps. The API creates
+the schema itself: on startup it applies pending EF Core migrations when `Database:MigrateOnStartup`
+is `true` (set in `appsettings.Development.json`). Look for `Applying N pending migration(s)` or
+`Database schema is up to date` in its log.
 
 ```bash
 # 1. Generate docker/secrets/*.txt and .env.local (root + docker/) — idempotent, run once
@@ -16,22 +18,23 @@ Everything below works on a fresh clone with no manual `psql`/`redis-cli` steps.
 # 2. Start infra: PostgreSQL, Redis, LocalStack, Prometheus, Grafana
 cd docker && docker compose -f docker-compose.infra.yml up -d && cd ..
 
-# 3. Apply EF Core migrations (needs `dotnet tool install --global dotnet-ef`). The design-time
-#    factory reads the connection string from the environment only; export just that line —
-#    `source .env.local` would split the unquoted value at each `;`.
-export ConnectionStrings__DefaultConnection="$(grep '^ConnectionStrings__DefaultConnection=' .env.local | cut -d= -f2-)"
-dotnet ef database update --project src/services/AuctionKings.Infrastructure
-
-# 4. Start the API (http://localhost:5081, API reference at /scalar)
+# 3. Start the API (http://localhost:5081, API reference at /scalar) — migrates on startup
 dotnet run --project src/services/AuctionKings.API/AuctionKings.API.csproj
 
-# 5. In a separate terminal, start the background workers (outbox, activation, close, cleanup)
+# 4. In a separate terminal, start the background workers (outbox, activation, close, cleanup)
 dotnet run --project src/workers/AuctionKings.BackgroundWorkers/AuctionKings.BackgroundWorkers.csproj
 ```
 
-> **Known issue:** `20260611000000_AddIdempotencyStatusAndResponse` has no `.Designer.cs`, so EF
-> does not discover it and `database update` leaves `idempotency_keys` without its `status` and
-> `response` columns. Bid placement fails on such a database until the migration is fixed.
+Start the API before the worker on a fresh database: until the API has migrated, worker polls
+fail (logged and retried on the next poll). To migrate without starting the API, or in an
+environment where `MigrateOnStartup` is off (needs `dotnet tool install --global dotnet-ef`):
+
+```bash
+# The design-time factory reads the connection string from the environment only; export just
+# that line — `source .env.local` would split the unquoted value at each `;`.
+export ConnectionStrings__DefaultConnection="$(grep '^ConnectionStrings__DefaultConnection=' .env.local | cut -d= -f2-)"
+dotnet ef database update --project src/services/AuctionKings.Infrastructure
+```
 
 Confirm it's healthy, get a token, then create an auction. With no `startTime` (or one in the past)
 it is **Active immediately**; a future `startTime` leaves it `Pending` until `AuctionActivationWorker`
@@ -93,18 +96,15 @@ below for details.
 # 1. Start infrastructure (PostgreSQL, Redis, LocalStack)
 cd docker && docker compose -f docker-compose.infra.yml up -d && cd ..
 
-# 2. Apply migrations — nothing does it automatically (see §0 for the export step)
-dotnet ef database update --project src/services/AuctionKings.Infrastructure
-
-# 3. Start the API (port 5081)
+# 2. Start the API (port 5081) — applies pending migrations on startup in Development
 dotnet run --project src/services/AuctionKings.API/AuctionKings.API.csproj
 
-# 4. Start background workers (separate terminal)
+# 3. Start background workers (separate terminal)
 dotnet run --project src/workers/AuctionKings.BackgroundWorkers/AuctionKings.BackgroundWorkers.csproj
 ```
 
-Or with Docker Compose (all-in-one — API, worker, and infra in containers), then apply the
-migrations from the host as in §0 (PostgreSQL is published on `localhost:5432`):
+Or with Docker Compose (all-in-one — API, worker, and infra in containers). The `api` container
+runs as Development, so it migrates on startup, and the `worker` waits for the API to be healthy:
 
 ```bash
 cd docker && docker compose --env-file .env.local up -d
@@ -372,21 +372,12 @@ docker exec -it infra-postgres \
   -c "UPDATE outbox_messages SET failed = false, retry_count = 0 WHERE id = '<message-id>';"
 ```
 
-**Known issue — every outbox message currently fails, permanently:** `OutboxProcessor.ProcessMessageAsync`
-(`src/workers/AuctionKings.BackgroundWorkers/OutboxProcessor.cs`) calls
-`IPublisher.Publish(domainEvent, ...)` (MediatR) on the deserialized event. Domain events only
-implement the plain `IDomainEvent` marker interface (`src/common/AuctionKings.Shared/Common/IDomainEvent.cs`),
-not MediatR's `INotification`, so this throws `System.ArgumentException: notification does not
-implement $INotification` on every single message, exhausts `MaxRetries`, and the message is
-marked `failed = true`. There are currently zero `INotificationHandler<T>` implementations
-anywhere in the codebase, so this call has no handlers to reach even if it didn't throw — actual
-external delivery goes through the separate `eventBus.PublishAsync(...)` call right after it,
-which is unaffected. `/health/ready`'s outbox check only looks at messages stuck (unprocessed)
-for 5+ minutes, not at `failed = true` rows, so this failure is currently invisible to that
-health check — reported healthy while 100% of messages permanently fail. Not fixed here;
-flagging for a deliberate decision (drop the dead `publisher.Publish` call, or add the missing
-notification handlers / make domain events implement `INotification`, plus have the outbox
-health check count `failed = true` rows).
+**Note:** the outbox health check counts only messages that are still unprocessed after 5 minutes;
+rows already marked `failed = true` (retries exhausted) do not affect `/health/ready`. Look for
+`exceeded max retries` in the worker log, or query `outbox_messages WHERE failed`. Each message is
+published to SQS first and then to the in-process handlers (domain events are wrapped in
+`DomainEventNotification<T>`), so a message fails only when one of those steps throws — most often
+an SQS error or an empty/wrong `AWS:SQS:BidQueueUrl`.
 
 ---
 

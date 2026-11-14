@@ -16,15 +16,17 @@ cd docker && docker-compose -f docker-compose.infra.yml up -d
 # Build
 dotnet restore && dotnet build
 
-# Apply EF Core migrations — nothing runs them automatically (API, worker, compose and the
-# staging deploy all skip it). The design-time factory reads the connection string from the
-# environment only, so export it from .env.local (don't `source` the file: the value has `;`).
-export ConnectionStrings__DefaultConnection="$(grep '^ConnectionStrings__DefaultConnection=' .env.local | cut -d= -f2-)"
-dotnet ef database update --project src/services/AuctionKings.Infrastructure
-
 # Run — API: http://localhost:5081, API reference (Scalar, Development only): http://localhost:5081/scalar,
 # OpenAPI document: /openapi/v1.json. There is no Swagger UI.
+# The API applies pending EF Core migrations on startup when Database:MigrateOnStartup is true
+# (appsettings.Development.json → dotnet run and docker compose; staging sets Database__MigrateOnStartup=true
+# in ecs.api.tf; off anywhere else unless configured).
 dotnet run --project src/services/AuctionKings.API/AuctionKings.API.csproj
+
+# Manual migration (any environment without MigrateOnStartup). The design-time factory reads the
+# connection string from the environment only; export that line (don't `source` .env.local: the value has `;`).
+export ConnectionStrings__DefaultConnection="$(grep '^ConnectionStrings__DefaultConnection=' .env.local | cut -d= -f2-)"
+dotnet ef database update --project src/services/AuctionKings.Infrastructure
 
 # Background Workers (separate process)
 dotnet run --project src/workers/AuctionKings.BackgroundWorkers/AuctionKings.BackgroundWorkers.csproj

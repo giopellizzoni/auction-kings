@@ -18,7 +18,7 @@ A real-time auction platform built with ASP.NET Core 10, featuring WebSocket-bas
 
 - [.NET 10.0 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop)
-- EF Core CLI: `dotnet tool install --global dotnet-ef` (used to create the database schema)
+- Optional: EF Core CLI (`dotnet tool install --global dotnet-ef`) to add or apply migrations by hand
 - A POSIX shell with `openssl` for `scripts/setup-local-env.sh` (Git Bash works on Windows)
 
 ## Running the Project
@@ -32,9 +32,12 @@ Both options below start from the same first step:
 ./scripts/setup-local-env.sh
 ```
 
-Both options also need the database schema, and **nothing applies EF Core migrations
-automatically** — not the API, the worker, Docker Compose, or the staging deploy. Once PostgreSQL is
-up (after `docker compose ... up -d` in either option), run from the repo root:
+**Database schema.** In both options the API creates and upgrades the schema itself: on startup it
+applies any pending EF Core migrations when `Database:MigrateOnStartup` is `true`, which
+`appsettings.Development.json` sets (so `dotnet run` and the Docker stack). Staging enables it
+too (`Database__MigrateOnStartup=true` in `infra/terraform/staging/ecs.api.tf`); any other
+environment leaves it off unless it sets that variable. To migrate by hand instead (needs
+`dotnet tool install --global dotnet-ef`), run from the repo root:
 
 ```bash
 # The design-time DbContext factory reads the connection string from the environment only.
@@ -42,11 +45,6 @@ up (after `docker compose ... up -d` in either option), run from the repo root:
 export ConnectionStrings__DefaultConnection="$(grep '^ConnectionStrings__DefaultConnection=' .env.local | cut -d= -f2-)"
 dotnet ef database update --project src/services/AuctionKings.Infrastructure
 ```
-
-> **Known issue:** migration `20260611000000_AddIdempotencyStatusAndResponse` has no `.Designer.cs`
-> file, so EF does not discover it (`dotnet ef migrations list` shows three migrations). A database
-> created by `database update` lacks the `idempotency_keys.status` and `response` columns, and placing
-> a bid fails until that migration is fixed. Integration tests use `EnsureCreated()` and don't catch it.
 
 ### Option A — Full Docker Stack
 
@@ -82,13 +80,10 @@ cd docker && docker compose -f docker-compose.infra.yml up -d && cd ..
 # 2. Restore and build
 dotnet restore && dotnet build
 
-# 3. Create the schema — see "database schema" above (export the connection string, then)
-dotnet ef database update --project src/services/AuctionKings.Infrastructure
-
-# 4. Run the API (http://localhost:5081, API reference at /scalar)
+# 3. Run the API (http://localhost:5081, API reference at /scalar) — applies pending migrations on startup
 dotnet run --project src/services/AuctionKings.API/AuctionKings.API.csproj
 
-# 5. Run background workers in a separate terminal (needed for outbox dispatch and auction auto-close)
+# 4. Run background workers in a separate terminal (needed for outbox dispatch and auction auto-close)
 dotnet run --project src/workers/AuctionKings.BackgroundWorkers/AuctionKings.BackgroundWorkers.csproj
 ```
 
