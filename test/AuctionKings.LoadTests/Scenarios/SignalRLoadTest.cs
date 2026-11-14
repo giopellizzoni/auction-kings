@@ -86,14 +86,14 @@ public sealed class SignalRLoadTest : LoadTestBase
             .Run();
 
         var s = stats.ScenarioStats.First(x => x.ScenarioName == "signalr_connections");
-        var errorPct = s.AllRequestCount > 0
-            ? s.AllFailCount / (double)s.AllRequestCount * 100.0
+        var errorPct = (s.Ok.Request.Count + s.Fail.Request.Count) > 0
+            ? s.Fail.Request.Count / (double)(s.Ok.Request.Count + s.Fail.Request.Count) * 100.0
             : 0.0;
 
         Assert.True(
             errorPct < 1.0,
             $"Error rate {errorPct:F2}% exceeded 1% threshold. "
-                + $"Failed connections: {s.AllFailCount}/{s.AllRequestCount}"
+                + $"Failed connections: {s.Fail.Request.Count}/{(s.Ok.Request.Count + s.Fail.Request.Count)}"
         );
     }
 }
