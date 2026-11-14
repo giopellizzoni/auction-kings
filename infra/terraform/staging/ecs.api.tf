@@ -52,7 +52,7 @@ resource "aws_ecs_task_definition" "api" {
         { name = "Jwt__Issuer", value = var.jwt.issuer },
         { name = "Jwt__Audience", value = var.jwt.audience },
         { name = "Jwt__ExpiresInMinutes", value = tostring(var.jwt.expires_in_minutes) },
-        { name = "Sqs__BidQueueUrl", value = aws_sqs_queue.bid_events.url },
+        { name = "AWS__SQS__BidQueueUrl", value = aws_sqs_queue.bid_events.url },
         { name = "AWS_DEFAULT_REGION", value = var.aws_region },
       ]
 

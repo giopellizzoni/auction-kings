@@ -1,4 +1,5 @@
 using AuctionKings.BackgroundWorkers.Workers;
+using AuctionKings.Infrastructure.Messaging;
 using AuctionKings.Infrastructure.Outbox;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -70,6 +71,15 @@ internal static class WorkerServiceCollectionExtensions
                 Check.Positive(CleanupWorkerOptions.SectionName, nameof(o.IntervalHours), o.IntervalHours),
                 Check.Positive(CleanupWorkerOptions.SectionName, nameof(o.OutboxRetentionDays), o.OutboxRetentionDays),
             ]
+        );
+
+        // The outbox publishes every event to this queue. Without it every message fails SQS, is retried and
+        // marked failed, so refuse to start instead (staging once set Sqs__BidQueueUrl, which binds nowhere).
+        AddValidated<SqsOptions>(
+            services,
+            configuration,
+            SqsOptions.SectionName,
+            o => [Check.Required(SqsOptions.SectionName, nameof(o.BidQueueUrl), o.BidQueueUrl)]
         );
 
         return services;
