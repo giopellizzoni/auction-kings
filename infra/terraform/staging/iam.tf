@@ -33,6 +33,7 @@ resource "aws_iam_role_policy" "ecs_execution_secrets" {
         aws_secretsmanager_secret.db_password.arn,
         aws_secretsmanager_secret.redis_auth.arn,
         aws_secretsmanager_secret.jwt_secret.arn,
+        aws_secretsmanager_secret.mediatr_license.arn,
       ]
     }]
   })
