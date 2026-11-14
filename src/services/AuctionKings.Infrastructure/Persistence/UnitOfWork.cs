@@ -2,6 +2,7 @@ using AuctionKings.Application.Abstractions;
 using AuctionKings.Application.Exceptions;
 using AuctionKings.Shared.Common;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace AuctionKings.Infrastructure.Persistence;
 
@@ -33,6 +34,10 @@ internal sealed class UnitOfWork : IUnitOfWork
         catch (DbUpdateConcurrencyException ex)
         {
             throw new ConcurrencyException(ex);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } pg)
+        {
+            throw new UniqueConstraintException(pg.ConstraintName, ex);
         }
     }
 

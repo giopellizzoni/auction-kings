@@ -70,6 +70,9 @@ public sealed class AuthApiFactory : WebApplicationFactory<AuctionsController>, 
         builder.UseSetting("ConnectionStrings:DefaultConnection", _postgres.GetConnectionString());
         builder.UseSetting("ConnectionStrings:Redis", _redis.GetConnectionString());
         builder.UseSetting("Features:EnableDevTokenEndpoint", "false");
+        // Every anonymous test request shares one rate-limit identity (TestServer has no remote IP), so the
+        // default 10 requests per 10 s would make the auth endpoint tests flaky. Rate limiting has its own tests.
+        builder.UseSetting("RateLimit:MaxRequests", "1000");
     }
 
     /// <summary>A token signed with the secret the host validates against.</summary>

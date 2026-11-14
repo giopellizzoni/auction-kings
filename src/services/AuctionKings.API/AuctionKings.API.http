@@ -1,6 +1,27 @@
 @AuctionKings.API_HostAddress = http://localhost:5081
 
-GET {{AuctionKings.API_HostAddress}}/weatherforecast/
-Accept: application/json
+### Register a Bidder account (201 + access token)
+POST {{AuctionKings.API_HostAddress}}/api/v1/auth/register
+Content-Type: application/json
+
+{
+  "email": "ann@example.com",
+  "displayName": "Ann",
+  "password": "correct horse battery staple"
+}
+
+### Sign in (200 + access token; 401 on wrong email or password)
+# @name login
+POST {{AuctionKings.API_HostAddress}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "ann@example.com",
+  "password": "correct horse battery staple"
+}
+
+### Use the token
+GET {{AuctionKings.API_HostAddress}}/api/v1/users/{{login.response.body.$.user.id}}/bids
+Authorization: Bearer {{login.response.body.$.accessToken}}
 
 ###

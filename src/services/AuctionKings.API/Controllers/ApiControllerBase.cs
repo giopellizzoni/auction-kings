@@ -11,6 +11,7 @@ public abstract class ApiControllerBase : ControllerBase
         {
             ErrorType.NotFound => NotFound(new { error.Code, error.Message }),
             ErrorType.Conflict => Conflict(new { error.Code, error.Message }),
+            ErrorType.Unauthorized => Unauthorized(new { error.Code, error.Message }),
             ErrorType.Unexpected => StatusCode(
                 StatusCodes.Status500InternalServerError,
                 new { error.Code, error.Message }

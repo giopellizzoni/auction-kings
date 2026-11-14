@@ -54,4 +54,23 @@ public static class DomainErrors
         public static readonly Error CurrencyMismatch =
             Error.Validation("Bid.CurrencyMismatch", "The bid currency does not match the auction currency.");
     }
+
+    public static class User
+    {
+        public static readonly Error EmailRequired =
+            Error.Validation("User.EmailRequired", "The email address is required.");
+
+        public static readonly Error DisplayNameRequired =
+            Error.Validation("User.DisplayNameRequired", "The display name is required.");
+
+        public static readonly Error PasswordHashRequired =
+            Error.Validation("User.PasswordHashRequired", "The password hash is required.");
+
+        public static readonly Error EmailAlreadyRegistered =
+            Error.Conflict("User.EmailAlreadyRegistered", "An account with this email address already exists.");
+
+        // One message for an unknown email and a wrong password, so the response does not reveal which accounts exist.
+        public static readonly Error InvalidCredentials =
+            Error.Unauthorized("User.InvalidCredentials", "The email address or password is incorrect.");
+    }
 }

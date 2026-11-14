@@ -48,6 +48,8 @@ public static class DependencyInjection
 
         services.AddScoped<IAuctionRepository, AuctionRepository>();
         services.AddScoped<IBidRepository, BidRepository>();
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IIdempotencyService, IdempotencyService>();
         services.AddScoped<IOutboxRepository, OutboxRepository>();

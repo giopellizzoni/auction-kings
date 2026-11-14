@@ -57,6 +57,8 @@ Clean Architecture: `API → Application → Domain ← Infrastructure`
 
 **Health endpoints:** `/health/live` (liveness — runs no checks, so a DB/Redis outage never fails it; the ECS and compose container health checks use it), `/health/ready` (DB + Redis + Outbox), `/health/db` (database only).
 
+**Auth endpoints:** `POST /api/v1/auth/register` (email, displayName, password ≥ 8 chars → 201 + token; 409 on a taken email) and `POST /api/v1/auth/login` (→ 200 + token; 401 for a wrong email or password, same message for both). Both are anonymous and rate limited per IP. Self-registration always creates a `Bidder`; there is no API to grant `Admin`. Passwords are PBKDF2-HMAC-SHA512 (`Pbkdf2PasswordHasher`, 210k iterations, stored in `users.password_hash`); tokens are the same local HS256 JWTs.
+
 **Dev token endpoint:** `POST /dev/token` mints a JWT for any user and role when `Features:EnableDevTokenEndpoint` is true (Development and staging). Outside Development it also requires `Features:DevTokenKey` (≥ 32 bytes, sent as `X-Dev-Token-Key`; staging reads it from Secrets Manager `/auction-kings/staging/dev-token-key`) — `DevTokenOptionsValidator` stops startup otherwise. Refusals are 404.
 
 ## Build Configuration

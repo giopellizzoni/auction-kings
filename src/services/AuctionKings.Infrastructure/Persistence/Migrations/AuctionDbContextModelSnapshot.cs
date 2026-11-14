@@ -18,7 +18,7 @@ namespace AuctionKings.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.4")
+                .HasAnnotation("ProductVersion", "10.0.15")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -165,22 +165,57 @@ namespace AuctionKings.Infrastructure.Persistence.Migrations
                     b.ToTable("bids", (string)null);
                 });
 
+            modelBuilder.Entity("AuctionKings.Domain.Aggregates.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("display_name");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("email");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("password_hash");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("role");
+
+                    b.HasKey("Id")
+                        .HasName("pk_users");
+
+                    b.HasIndex("Email")
+                        .IsUnique()
+                        .HasDatabaseName("ux_users_email");
+
+                    b.ToTable("users", (string)null);
+                });
+
             modelBuilder.Entity("AuctionKings.Infrastructure.Persistence.IdempotencyKey", b =>
                 {
                     b.Property<string>("Key")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("key");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("status");
-
-                    b.Property<string>("Response")
-                        .HasColumnType("text")
-                        .HasColumnName("response");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -189,6 +224,16 @@ namespace AuctionKings.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expires_at");
+
+                    b.Property<string>("Response")
+                        .HasColumnType("text")
+                        .HasColumnName("response");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
 
                     b.HasKey("Key")
                         .HasName("pk_idempotency_keys");

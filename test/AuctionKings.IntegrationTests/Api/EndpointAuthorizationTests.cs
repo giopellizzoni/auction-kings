@@ -27,6 +27,8 @@ public sealed class EndpointAuthorizationTests(AuthApiFactory factory)
     {
         ["api/v1/auctions"] = "Public listing of active auctions (GET). Bidding data is not exposed here.",
         ["api/v1/auctions/{id:guid}"] = "Public auction details (GET).",
+        ["api/v1/auth/register"] = "Account registration; rate limited per client IP.",
+        ["api/v1/auth/login"] = "Sign-in that issues the JWT; rate limited per client IP.",
         ["dev/token"] = "Dev-only token minting; returns 404 unless Features:EnableDevTokenEndpoint is set (see test below).",
         ["health/live"] = "Liveness probe for the orchestrator/ALB.",
         ["health/ready"] = "Readiness probe for the orchestrator/ALB.",
@@ -115,7 +117,7 @@ public sealed class EndpointAuthorizationTests(AuthApiFactory factory)
     [Fact]
     public void Allowlisted_endpoints_that_mutate_state_are_not_anonymous_writes()
     {
-        // The only anonymous POST allowed is the (flag-gated) dev token endpoint.
+        // The only anonymous POSTs allowed: registration, sign-in and the (flag-gated) dev token endpoint.
         var anonymousWrites = AllEndpoints()
             .Where(e => !RequiresAuthorization(e) && IsAllowlisted(e))
             .Where(e =>
@@ -126,7 +128,10 @@ public sealed class EndpointAuthorizationTests(AuthApiFactory factory)
             .Select(Describe)
             .ToList();
 
-        Assert.Equal(["POST /dev/token"], anonymousWrites);
+        Assert.Equal(
+            ["POST /api/v1/auth/login", "POST /api/v1/auth/register", "POST /dev/token"],
+            anonymousWrites.Order(StringComparer.Ordinal)
+        );
     }
 
     [Fact]
