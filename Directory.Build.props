@@ -8,8 +8,8 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <!-- NuGet vulnerability advisories (NU1901-NU1904) describe dependencies, not code: keep them as warnings. -->
-    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
+    <!-- NuGet vulnerability advisories (NU1901-NU1904) and NU1900 (advisory data unavailable, e.g. offline restore) describe dependencies or the network, not code: keep them as warnings. -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1900;NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
 
     <!-- Analyzers -->
     <EnableNETAnalyzers>true</EnableNETAnalyzers>

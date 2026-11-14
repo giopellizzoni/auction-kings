@@ -56,11 +56,15 @@ public sealed class ActivateAuctionCommandHandlerTests
         var result = await _handler.Handle(new ActivateAuctionCommand(auction.Id), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
+        Assert.Equal(ActivationOutcome.Cancelled, result.Value);
         Assert.Equal(AuctionStatus.Cancelled, auction.Status);
         var raised = Assert.IsType<AuctionCancelledEvent>(Assert.Single(auction.GetDomainEvents()));
         Assert.Equal(_dateTimeProvider.UtcNow, raised.CancelledAt);
         await _auctionRepository.Received(1).UpdateAsync(auction, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).CommitAsync(Arg.Any<CancellationToken>());
+        // A cancelled auction must not linger in cached detail or listings as Pending.
+        await _cacheInvalidation.Received(1).InvalidateAuctionAsync(auction.Id, Arg.Any<CancellationToken>());
+        await _cacheInvalidation.Received(1).InvalidateActiveListingsAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -73,6 +77,7 @@ public sealed class ActivateAuctionCommandHandlerTests
         var result = await _handler.Handle(new ActivateAuctionCommand(auction.Id), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
+        Assert.Equal(ActivationOutcome.Activated, result.Value);
         Assert.Equal(AuctionStatus.Active, auction.Status);
         await _unitOfWork.Received(1).CommitAsync(Arg.Any<CancellationToken>());
     }

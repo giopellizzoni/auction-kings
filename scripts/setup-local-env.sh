@@ -121,8 +121,8 @@ else
 fi
 
 echo ""
+echo "Grafana (http://localhost:3000): user admin, password in $SECRETS_DIR/grafana_admin_password.txt"
 echo "Done. Next steps:"
 echo "  cd docker && docker compose -f docker-compose.infra.yml up -d && cd .."
-echo "Grafana (http://localhost:3000): user admin, password in $SECRETS_DIR/grafana_admin_password.txt"
 echo "  dotnet run --project src/services/AuctionKings.API/AuctionKings.API.csproj"
 echo "  dotnet run --project src/workers/AuctionKings.BackgroundWorkers/AuctionKings.BackgroundWorkers.csproj"
