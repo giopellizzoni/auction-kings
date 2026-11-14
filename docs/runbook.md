@@ -276,19 +276,13 @@ cd infra/terraform/staging
 terraform output alb_url
 ```
 
-**Check staging health:**
-
-```bash
-ALB=$(terraform output -raw alb_dns_name)
-curl -s "http://$ALB/health/ready" | jq .
-```
-
 **Get a token in staging:** `/dev/token` requires the key Terraform generated into Secrets Manager
 (output `dev_token_key_secretsmanager_secret_name`):
 
 ```bash
 KEY=$(aws secretsmanager get-secret-value --secret-id /auction-kings/staging/dev-token-key \
   --query SecretString --output text --region us-east-1)
+ALB=$(cd infra/terraform/staging && terraform output -raw alb_dns_name)
 curl -s -X POST "http://$ALB/dev/token" -H "Content-Type: application/json" \
   -H "X-Dev-Token-Key: $KEY" \
   -d '{"userId":"00000000-0000-0000-0000-000000000001","role":"Bidder"}' | jq -r .token
@@ -296,6 +290,13 @@ curl -s -X POST "http://$ALB/dev/token" -H "Content-Type: application/json" \
 
 Without the header, or with a wrong key, the endpoint answers 404. Rotate the key with
 `terraform apply -replace=random_password.dev_token_key`, then restart the API service.
+
+**Check staging health:**
+
+```bash
+ALB=$(terraform output -raw alb_dns_name)
+curl -s "http://$ALB/health/ready" | jq .
+```
 
 **Tail staging logs (CloudWatch):**
 
