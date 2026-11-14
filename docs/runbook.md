@@ -280,6 +280,13 @@ ALB=$(terraform output -raw alb_dns_name)
 curl -s "http://$ALB/health/ready" | jq .
 ```
 
+**Configuration names:** task-definition environment variables must mirror the configuration
+path with `__` — for example the queue is `AWS__SQS__BidQueueUrl` (section `AWS:SQS`), not
+`Sqs__BidQueueUrl`, which binds to nothing. The worker refuses to start when `AWS:SQS:BidQueueUrl`
+is empty (`'AWS:SQS:BidQueueUrl' is not configured.` in its log). No `AWS__SQS__ServiceURL` is set
+in staging: the SDK uses the regional endpoint from `AWS_DEFAULT_REGION`. Env var changes reach
+ECS only through `terraform apply` (the deploy workflow reuses the current task definition).
+
 **Tail staging logs (CloudWatch):**
 
 ```bash
@@ -383,7 +390,8 @@ rows already marked `failed = true` (retries exhausted) do not affect `/health/r
 `exceeded max retries` in the worker log, or query `outbox_messages WHERE failed`. Each message is
 published to SQS first and then to the in-process handlers (domain events are wrapped in
 `DomainEventNotification<T>`), so a message fails only when one of those steps throws — most often
-an SQS error or an empty/wrong `AWS:SQS:BidQueueUrl`.
+an SQS error (wrong queue URL, missing `sqs:SendMessage` permission, network). An empty
+`AWS:SQS:BidQueueUrl` stops the worker at startup instead.
 
 ---
 

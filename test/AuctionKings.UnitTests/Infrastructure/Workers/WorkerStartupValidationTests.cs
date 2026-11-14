@@ -21,6 +21,7 @@ public sealed class WorkerStartupValidationTests
             ["AuctionCloseWorker:PollingIntervalSeconds"] = "10",
             ["AuctionActivationWorker:BatchSize"] = "50",
             ["CleanupWorker:IntervalHours"] = "1",
+            ["AWS:SQS:BidQueueUrl"] = "https://sqs.us-east-1.amazonaws.com/000000000000/bid-events",
         };
 
     private static IConfiguration Build(Dictionary<string, string?> settings) =>
@@ -41,22 +42,25 @@ public sealed class WorkerStartupValidationTests
     }
 
     [Fact]
-    public void EmptyConfiguration_PassesForOptionsThatHaveDefaults_ButFailsForConnectionStrings()
+    public void EmptyConfiguration_PassesForOptionsThatHaveDefaults_ButFailsForConnectionStringsAndQueue()
     {
-        var ex = Assert.Throws<OptionsValidationException>(() => RunStartupValidation(Build([])));
+        // Two options fail (connection strings and SQS), so the host reports one exception per option.
+        var ex = Assert.Throws<AggregateException>(() => RunStartupValidation(Build([])));
 
         Assert.Equal(
             [
+                "'AWS:SQS:BidQueueUrl' is not configured.",
                 "'ConnectionStrings:DefaultConnection' is not configured.",
                 "'ConnectionStrings:Redis' is not configured.",
             ],
-            ex.Failures.Order());
+            ex.InnerExceptions.OfType<OptionsValidationException>().SelectMany(e => e.Failures).Order());
     }
 
     [Theory]
     [InlineData("ConnectionStrings:DefaultConnection")]
     [InlineData("ConnectionStrings:Redis")]
-    public void MissingOrBlankConnectionString_NamesTheKey(string key)
+    [InlineData("AWS:SQS:BidQueueUrl")]
+    public void MissingOrBlankRequiredSetting_NamesTheKey(string key)
     {
         foreach (var value in new string?[] { null, "", "   " })
         {
@@ -94,6 +98,19 @@ public sealed class WorkerStartupValidationTests
         var ex = Assert.Throws<OptionsValidationException>(() => RunStartupValidation(Build(settings)));
 
         Assert.Contains($"'{key}' must be greater than zero", ex.Message);
+    }
+
+    [Fact]
+    public void LegacySqsKey_DoesNotSatisfyTheQueueUrl()
+    {
+        // Regression: staging set Sqs__BidQueueUrl (section "Sqs"), which the "AWS:SQS" section never sees.
+        var settings = ValidSettings();
+        settings.Remove("AWS:SQS:BidQueueUrl");
+        settings["Sqs:BidQueueUrl"] = "https://sqs.us-east-1.amazonaws.com/000000000000/bid-events";
+
+        var ex = Assert.Throws<OptionsValidationException>(() => RunStartupValidation(Build(settings)));
+
+        Assert.Contains("'AWS:SQS:BidQueueUrl' is not configured.", ex.Failures);
     }
 
     [Fact]

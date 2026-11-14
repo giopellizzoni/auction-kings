@@ -78,11 +78,19 @@ public static class DependencyInjection
 
         services.AddScoped<IDataCleanupService, DataCleanupService>();
 
-        services.Configure<SqsOptions>(configuration.GetSection("AWS:SQS"));
+        services.Configure<SqsOptions>(configuration.GetSection(SqsOptions.SectionName));
         services.AddSingleton<IAmazonSQS>(sp =>
         {
             var opts = sp.GetRequiredService<IOptions<SqsOptions>>().Value;
-            var config = new AmazonSQSConfig { ServiceURL = opts.ServiceURL };
+            var config = new AmazonSQSConfig();
+
+            // Only override the endpoint when one is configured (LocalStack); on AWS the SDK resolves
+            // the regional endpoint from AWS_REGION / AWS_DEFAULT_REGION.
+            if (!string.IsNullOrWhiteSpace(opts.ServiceURL))
+            {
+                config.ServiceURL = opts.ServiceURL;
+            }
+
             return new AmazonSQSClient(config);
         });
         services.AddSingleton<IEventBus, SqsMessagePublisher>();
