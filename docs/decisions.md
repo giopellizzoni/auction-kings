@@ -266,3 +266,28 @@ Through the API this was not reachable, because `ValidationBehavior` runs before
 - `Money` and `AuctionDuration` can still throw if constructed from unvalidated input, as noted above.
 - `Auction.Create` reads the system clock (`DateTime.UtcNow`) to choose between Active and Pending, while the other methods take `now`. That inconsistency is separate from error handling and is not addressed here.
 - The domain does not enforce a positive starting price; only the validator does. Adding that rule to `Create` would now be a one-line `Result` failure, but it changes behaviour and is a separate decision.
+
+---
+
+## ADR-011: Worker-to-API Real-Time Notifications over a Redis Stream
+
+### Context
+
+`CloseAuctionCommandHandler` and the seller notification for cancelled auctions run in the background worker, which hosts no SignalR and used a no-op `IRealtimeNotificationService`. So the `AuctionClosed` push for an auction closed by `AuctionCloseWorker` never reached any client, and a seller whose auction was cancelled was never told. Only `PlaceBid`, which runs in the API, pushed for real.
+
+### Decision
+
+- **The worker publishes to a Redis Stream (`realtime:notifications`) and the API relays it to the hubs.** `RedisStreamRealtimeNotificationService` (Infrastructure) replaces the no-op in the worker; `RealtimeStreamRelay` (API, a `BackgroundService`) reads the stream and calls the SignalR-backed `IRealtimeNotificationService`. Redis is already shared by both processes, so there is no new infrastructure.
+- **A consumer group (`api`) makes each entry go to exactly one API replica.** A plain Pub/Sub subscription was rejected: every replica would receive the message and re-send it through the SignalR backplane, so clients would get N copies with N replicas.
+- **Delivery is at least once.** An entry is acknowledged only after it was handled; entries stuck with a crashed replica are taken over by another one (`XAUTOCLAIM` after 60 s idle). A client can therefore see a rare duplicate and should treat notifications as idempotent.
+- **A bad entry never wedges the stream.** Malformed entries, unknown kinds, unsupported versions and handler failures are logged and acknowledged (dropped). Entries older than 10 minutes are dropped too: a push that late is noise.
+- **The wire format is versioned** (`RealtimeFeed.CurrentVersion`, a JSON envelope with a typed payload per kind). The stream is capped at roughly 10,000 entries so an absent API cannot grow Redis without bound.
+- **Publishing never throws**, like the SignalR implementation: the operation already succeeded, only the push is lost.
+- All four notification kinds travel the same way (`BidPlaced`, `AuctionClosed`, `AuctionExtended`, `AuctionCancelled`).
+
+### Limitations
+
+- Redis is not durable by default: entries not yet read are lost if Redis loses its data. Acceptable for a UI push; anything that must not be lost belongs in the outbox.
+- If no API replica is running, entries wait (up to the cap and the 10-minute age limit) and are then dropped.
+- Polling: SE.Redis has no blocking `XREADGROUP`, so the relay polls every 500 ms when idle, which adds up to that much latency.
+- A client that is offline when the push happens does not get it later; the UI still has to load current state on connect.

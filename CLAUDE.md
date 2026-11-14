@@ -43,7 +43,7 @@ Clean Architecture: `API → Application → Domain ← Infrastructure`
 
 **Key patterns:** CQRS, Outbox Pattern (with SKIP LOCKED batch processing), two SignalR hubs (`AuctionHub`, `NotificationHub`), Redis backplane, optimistic concurrency via an app-level `Auction.Version` int column (**not** PostgreSQL `xmin` — Npgsql 10 doesn't reliably read `xid` system columns back via `RETURNING`, see the comment in `AuctionConfiguration.cs`), idempotency via `X-Request-Id` GUID header (required only on actions marked `[Idempotent]` — currently `BidsController.PlaceBid` — enforced by the globally registered `IdempotencyFilter`), CORS via an explicit origin allowlist (`Cors:AllowedOrigins`, see `API/Cors/` and ADR-004), Mapster DTOs, FluentValidation pipeline behaviors.
 
-**SignalR note:** `SignalRNotificationService` lives in the API layer (not Infrastructure) to avoid circular dependency.
+**SignalR note:** `SignalRNotificationService` lives in the API layer (not Infrastructure) to avoid circular dependency. The worker hosts no SignalR: it publishes notifications to a Redis Stream (`RedisStreamRealtimeNotificationService`) and the API's `RealtimeStreamRelay` pushes them to the hubs (ADR-011).
 
 **Infrastructure:** PostgreSQL 16 (port 5432), Redis 7 (port 6379), LocalStack 4.3 (port 4566), Moto 5.1.4 (port 5555), Prometheus (port 9090), Grafana (port 3000, user `admin`, generated password in `docker/secrets/grafana_admin_password.txt`). Secrets in `/docker/secrets/` (not committed) — `postgres_password.txt`, `redis_password.txt` and `grafana_admin_password.txt` must be created locally; run `./scripts/setup-local-env.sh` once per checkout to generate them and wire up `.env.local` (root) and `docker/.env.local` automatically. DB: `AuctionKingsDB`, user: `dev`.
 

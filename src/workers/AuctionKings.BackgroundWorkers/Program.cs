@@ -1,8 +1,8 @@
 using AuctionKings.Application;
-using AuctionKings.Application.Abstractions;
 using AuctionKings.BackgroundWorkers;
 using AuctionKings.BackgroundWorkers.Workers;
 using AuctionKings.Infrastructure;
+using AuctionKings.Infrastructure.Realtime;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -15,7 +15,8 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 builder.Services.AddWorkerOptions(builder.Configuration);
 
-builder.Services.AddSingleton<IRealtimeNotificationService, NoOpRealtimeNotificationService>();
+// The worker hosts no SignalR: it hands real-time notifications to the API through a Redis Stream.
+builder.Services.AddRealtimeStreamPublisher();
 
 builder.Services.AddHostedService<OutboxProcessor>();
 builder.Services.AddHostedService<AuctionCloseWorker>();
