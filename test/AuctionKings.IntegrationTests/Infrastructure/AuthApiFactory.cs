@@ -34,12 +34,15 @@ public sealed class AuthApiFactory : WebApplicationFactory<AuctionsController>, 
 
     private readonly RedisContainer _redis = new RedisBuilder("redis:7-alpine").Build();
 
+    /// <summary>Cognito emulator whose pool the host trusts (Moto, as in docker-compose.infra.yml).</summary>
+    internal MotoCognito Cognito { get; } = new();
+
     /// <summary>Connection string of the Redis container the host under test uses.</summary>
     internal string RedisConnectionString => _redis.GetConnectionString();
 
     public async Task InitializeAsync()
     {
-        await Task.WhenAll(_postgres.StartAsync(), _redis.StartAsync());
+        await Task.WhenAll(_postgres.StartAsync(), _redis.StartAsync(), Cognito.StartAsync());
 
         var options = new DbContextOptionsBuilder<AuctionDbContext>()
             .UseNpgsql(_postgres.GetConnectionString())
@@ -56,6 +59,7 @@ public sealed class AuthApiFactory : WebApplicationFactory<AuctionsController>, 
         await base.DisposeAsync();
         await _postgres.DisposeAsync();
         await _redis.DisposeAsync();
+        await Cognito.DisposeAsync();
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -70,6 +74,10 @@ public sealed class AuthApiFactory : WebApplicationFactory<AuctionsController>, 
         builder.UseSetting("ConnectionStrings:DefaultConnection", _postgres.GetConnectionString());
         builder.UseSetting("ConnectionStrings:Redis", _redis.GetConnectionString());
         builder.UseSetting("Features:EnableDevTokenEndpoint", "false");
+        builder.UseSetting("Cognito:Region", MotoCognito.Region);
+        builder.UseSetting("Cognito:UserPoolId", Cognito.UserPoolId);
+        builder.UseSetting("Cognito:ClientIds:0", Cognito.ClientId);
+        builder.UseSetting("Cognito:MetadataAddress", Cognito.MetadataAddress);
     }
 
     /// <summary>A token signed with the secret the host validates against.</summary>

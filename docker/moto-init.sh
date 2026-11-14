@@ -105,6 +105,15 @@ else
 fi
 echo "App Client ID: $APP_CLIENT_ID"
 
+# The API's appsettings.Development.json pins these ids. Moto derives them from the create arguments
+# (MOTO_COGNITO_IDP_*_ID_STRATEGY=HASH in docker-compose.infra.yml), so they only change if the
+# arguments above change — then update the Cognito section of appsettings.Development.json too.
+EXPECTED_USER_POOL_ID="us-east-1_d85380f7cde7bc8c1b0ca2ed3ee5ddc1affc77945b39d"
+EXPECTED_APP_CLIENT_ID="123b1f3863b67d1a3e89103c68"
+if [ "$USER_POOL_ID" != "$EXPECTED_USER_POOL_ID" ] || [ "$APP_CLIENT_ID" != "$EXPECTED_APP_CLIENT_ID" ]; then
+  echo "WARNING: Cognito ids differ from the ones in appsettings.Development.json; the API will reject these tokens." >&2
+fi
+
 # Write Cognito IDs to secret files
 echo -n "$USER_POOL_ID" > "$SECRETS_DIR/cognito_user_pool_id.txt"
 echo -n "$APP_CLIENT_ID" > "$SECRETS_DIR/cognito_app_client_id.txt"
@@ -130,9 +139,10 @@ aws secretsmanager describe-secret \
     --endpoint-url "$LOCALSTACK_ENDPOINT" \
     --region "$REGION"
 
-# Create groups — idempotent: skip creation if the group already exists
+# Create groups — idempotent: skip creation if the group already exists. The names are the API's roles:
+# the API maps cognito:groups to roles, and its policies require exactly "Bidder" or "Admin".
 echo "Creating Cognito groups..."
-for GROUP in Sellers Admins Buyers; do
+for GROUP in Bidder Admin; do
   aws cognito-idp get-group \
     --user-pool-id "$USER_POOL_ID" \
     --group-name "$GROUP" \
@@ -147,10 +157,11 @@ done
 
 # Create test users
 echo "Creating test users..."
+# Seed accounts (password Test1234!). Policies are role-exact: an Admin is not also a Bidder.
 declare -A USERS=(
-  ["admin@test.com"]="Admins"
-  ["seller@test.com"]="Sellers"
-  ["buyer@test.com"]="Buyers"
+  ["admin@test.com"]="Admin"
+  ["seller@test.com"]="Bidder"
+  ["buyer@test.com"]="Bidder"
 )
 
 for EMAIL in "${!USERS[@]}"; do

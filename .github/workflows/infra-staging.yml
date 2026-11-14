@@ -95,6 +95,7 @@ jobs:
             -target=aws_iam_role_policy.github_actions_sqs \
             -target=aws_iam_role_policy.github_actions_secrets \
             -target=aws_iam_role_policy.github_actions_logs \
+            -target=aws_iam_role_policy.github_actions_cognito \
             -target=aws_iam_role_policy.github_actions_iam
         continue-on-error: true
 

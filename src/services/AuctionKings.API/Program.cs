@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using AuctionKings.API.Auth;
 using AuctionKings.API.Cors;
@@ -11,12 +10,10 @@ using AuctionKings.Application.Abstractions;
 using AuctionKings.Infrastructure;
 using AuctionKings.Infrastructure.HealthChecks;
 using AuctionKings.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
 using Prometheus;
 using Scalar.AspNetCore;
 using Serilog;
@@ -100,38 +97,26 @@ if (jwtValidation.Failed)
     );
 }
 
+// Cognito (the identity provider) is optional per environment; validate it eagerly like the JWT section.
+builder.Services.AddSingleton<IValidateOptions<CognitoOptions>, CognitoOptionsValidator>();
 builder
-    .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtOptions.Issuer,
-            ValidAudience = jwtOptions.Audience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Secret)),
-        };
-        // SignalR WebSocket connections cannot send Authorization headers, so the JWT
-        // is passed as the access_token query parameter instead.
-        options.Events = new JwtBearerEvents
-        {
-            OnMessageReceived = context =>
-            {
-                if (context.Request.Path.StartsWithSegments("/hubs"))
-                {
-                    var token = context.Request.Query["access_token"].ToString();
-                    if (!string.IsNullOrEmpty(token))
-                    {
-                        context.Token = token;
-                    }
-                }
-                return Task.CompletedTask;
-            },
-        };
-    });
+    .Services.AddOptions<CognitoOptions>()
+    .BindConfiguration(CognitoOptions.SectionName)
+    .ValidateOnStart();
+
+var cognitoOptions =
+    builder.Configuration.GetSection(CognitoOptions.SectionName).Get<CognitoOptions>() ?? new CognitoOptions();
+var cognitoValidation = new CognitoOptionsValidator(builder.Environment).Validate(null, cognitoOptions);
+if (cognitoValidation.Failed)
+{
+    throw new OptionsValidationException(
+        Options.DefaultName,
+        typeof(CognitoOptions),
+        cognitoValidation.Failures!
+    );
+}
+
+builder.Services.AddAuctionKingsAuthentication(jwtOptions, cognitoOptions);
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(Policies.Bidder, policy => policy.RequireRole(Policies.Bidder));

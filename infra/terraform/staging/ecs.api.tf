@@ -52,6 +52,10 @@ resource "aws_ecs_task_definition" "api" {
         { name = "Jwt__Issuer", value = var.jwt.issuer },
         { name = "Jwt__Audience", value = var.jwt.audience },
         { name = "Jwt__ExpiresInMinutes", value = tostring(var.jwt.expires_in_minutes) },
+        # Cognito is the identity provider; the Jwt__* values only serve the key-protected /dev/token.
+        { name = "Cognito__Region", value = var.aws_region },
+        { name = "Cognito__UserPoolId", value = aws_cognito_user_pool.users.id },
+        { name = "Cognito__ClientIds__0", value = aws_cognito_user_pool_client.api.id },
         { name = "AWS__SQS__BidQueueUrl", value = aws_sqs_queue.bid_events.url },
         { name = "AWS_DEFAULT_REGION", value = var.aws_region },
       ]

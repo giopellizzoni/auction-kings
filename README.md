@@ -93,6 +93,131 @@ curl -s http://localhost:5081/health/ready | jq .
 
 Expected: `{"status":"Healthy",...}`
 
+## Authenticating with Cognito
+
+Amazon Cognito is the identity provider: accounts, sign-up, sign-in and passwords live in a Cognito user
+pool, and the API only validates the RS256 **access tokens** Cognito issues. Cognito groups are the roles:
+
+| Group    | Can                                                      |
+| -------- | -------------------------------------------------------- |
+| `Bidder` | create auctions, place bids                              |
+| `Admin`  | close auctions, read any user's bid history              |
+| _(none)_ | signed in: read public data and their own bid history    |
+
+The user id the API sees (`sellerId`, `bidderId`, `/users/{id}`) is the Cognito `sub`.
+
+Locally, Cognito is emulated by **Moto** (port 5555), started by the infra compose file. Its
+`moto-init` container seeds a pool, an app client, the two groups and three accounts, with fixed ids that
+`appsettings.Development.json` already points to. Nothing to configure.
+
+### Local walkthrough
+
+Requires the AWS CLI v2 and `jq` (Git Bash on Windows). Start infra and the API as in
+[Option B](#option-b--local-development-dotnet-run-recommended-for-iterating) (or Option A), then:
+
+```bash
+# Moto accepts any credentials; these never leave your machine.
+export AWS_ACCESS_KEY_ID=testing AWS_SECRET_ACCESS_KEY=testing AWS_DEFAULT_REGION=us-east-1 AWS_PAGER=""
+COGNITO="aws cognito-idp --endpoint-url http://localhost:5555"
+POOL=us-east-1_d85380f7cde7bc8c1b0ca2ed3ee5ddc1affc77945b39d   # Cognito:UserPoolId
+CLIENT=123b1f3863b67d1a3e89103c68                              # Cognito:ClientIds[0]
+API=http://localhost:5081
+```
+
+**1. Create an account** (or skip to step 2 with a seeded one: `seller@test.com`, `buyer@test.com`
+(`Bidder`) and `admin@test.com` (`Admin`), password `Test1234!`):
+
+```bash
+$COGNITO sign-up --client-id $CLIENT --username ann@example.com --password 'Correct-horse-42' \
+  --user-attributes Name=email,Value=ann@example.com Name=name,Value=Ann
+
+# Real Cognito emails a code (confirm-sign-up --confirmation-code ...); locally, confirm as admin:
+$COGNITO admin-confirm-sign-up --user-pool-id $POOL --username ann@example.com
+
+# A new account is in no group. Make it a Bidder:
+$COGNITO admin-add-user-to-group --user-pool-id $POOL --username ann@example.com --group-name Bidder
+```
+
+**2. Sign in** and keep the access token (not the ID token: the API rejects ID tokens):
+
+```bash
+signin() {  # signin <email> <password> → prints the access token
+  $COGNITO initiate-auth --client-id $CLIENT --auth-flow USER_PASSWORD_AUTH \
+    --auth-parameters "USERNAME=$1,PASSWORD=$2" --query AuthenticationResult.AccessToken --output text
+}
+SELLER_TOKEN=$(signin ann@example.com 'Correct-horse-42')
+BUYER_TOKEN=$(signin buyer@test.com 'Test1234!')
+```
+
+**3. Create an auction** as Ann. The response body is the new auction id:
+
+```bash
+AUCTION_ID=$(curl -s -X POST $API/api/v1/auctions \
+  -H "Authorization: Bearer $SELLER_TOKEN" -H "Content-Type: application/json" \
+  -d '{"title":"Vintage camera","description":"Works perfectly","startingPrice":100,"currency":"USD","durationInHours":24}' \
+  | jq -r .)
+echo $AUCTION_ID
+```
+
+**4. Bid** as the buyer (a seller cannot bid on their own auction). `X-Request-Id` is a required
+idempotency key: resending the same id does not place a second bid.
+
+```bash
+curl -s -X POST $API/api/v1/auctions/$AUCTION_ID/bids \
+  -H "Authorization: Bearer $BUYER_TOKEN" -H "Content-Type: application/json" \
+  -H "X-Request-Id: $(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)" \
+  -d '{"amount":120,"currency":"USD"}'
+```
+
+**5. Read it back:**
+
+```bash
+curl -s $API/api/v1/auctions/$AUCTION_ID | jq .     # public, no token
+
+BUYER_ID=$($COGNITO get-user --access-token "$BUYER_TOKEN" \
+  --query "UserAttributes[?Name=='sub'].Value | [0]" --output text)
+curl -s $API/api/v1/users/$BUYER_ID/bids -H "Authorization: Bearer $BUYER_TOKEN" | jq .
+```
+
+**If something answers 401 or 403:**
+
+- `401`: no token, an expired one (sign in again), an ID token instead of the access token, or a token
+  from another pool or app client. Moto keeps everything in memory, so after it restarts, re-seed it with
+  `cd docker && docker compose -f docker-compose.infra.yml up moto-init` and sign in again.
+- `403`: signed in, but not in the group the endpoint needs (`Bidder` to create or bid, `Admin` to close).
+
+The same requests (with a token pasted in) are in
+[`AuctionKings.API.http`](src/services/AuctionKings.API/AuctionKings.API.http), and the Scalar UI at
+<http://localhost:5081/scalar> has an Authorize button that takes a bearer token.
+
+### Staging
+
+Terraform creates a real user pool (`infra/terraform/staging/cognito*.tf`), and the API task is configured
+with its id. Use the same commands without `--endpoint-url`, with your AWS credentials:
+
+```bash
+COGNITO="aws cognito-idp --region us-east-1"
+cd infra/terraform/staging
+POOL=$(terraform output -raw users_cognito_user_pool_id)
+CLIENT=$(terraform output -raw api_cognito_user_pool_client_id)
+API=$(terraform output -raw alb_url)
+```
+
+The differences from local: `sign-up` emails a verification code, so confirm with
+`$COGNITO confirm-sign-up --client-id $CLIENT --username <email> --confirmation-code <code>`. Adding a user
+to a group (`admin-add-user-to-group`) needs IAM credentials for the pool. The password policy is
+8+ characters with a lowercase letter and a number. A staging teardown deletes the pool and its accounts.
+
+### Without Cognito: dev tokens
+
+In Development (and, key-protected, in staging) `POST /dev/token` still mints a local HS256 token for
+any user id and role. It is handy for scripts and tests, and is never a way to sign in real users:
+
+```bash
+curl -s -X POST $API/dev/token -H "Content-Type: application/json" \
+  -d '{"userId":"00000000-0000-0000-0000-000000000001","role":"Admin"}' | jq -r .token
+```
+
 ## Running Tests
 
 ```bash

@@ -89,3 +89,12 @@ variable "sqs" {
     max_receive_count                = number
   })
 }
+
+variable "cognito" {
+  description = "Cognito user pool configuration."
+  type = object({
+    password_minimum_length       = number
+    access_token_validity_minutes = number
+    refresh_token_validity_days   = number
+  })
+}

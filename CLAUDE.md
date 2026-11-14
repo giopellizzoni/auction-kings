@@ -57,6 +57,8 @@ Clean Architecture: `API → Application → Domain ← Infrastructure`
 
 **Health endpoints:** `/health/live` (liveness — runs no checks, so a DB/Redis outage never fails it; the ECS and compose container health checks use it), `/health/ready` (DB + Redis + Outbox), `/health/db` (database only).
 
+**Authentication:** Amazon Cognito is the identity provider (sign-up, sign-in and passwords live there; no user table or password code in the API). The API validates Cognito RS256 **access** tokens (`Cognito:Region`/`UserPoolId`/`ClientIds`, optional `MetadataAddress` for the emulator), maps `cognito:groups` to roles (groups `Bidder`, `Admin`; policies are role-exact) and uses `sub` as the user id. Locally Moto emulates Cognito: `moto-init` seeds a pool with fixed ids (HASH id strategy) that `appsettings.Development.json` pins, plus `seller@test.com`/`buyer@test.com` (Bidder) and `admin@test.com` (Admin), password `Test1234!`. Staging's pool is in `infra/terraform/staging/cognito*.tf`. `AuthenticationSetup` routes each bearer token by issuer: Cognito's to the Cognito scheme, anything else to the local HS256 scheme (dev tokens, tests). Walkthrough: README → "Authenticating with Cognito".
+
 **Dev token endpoint:** `POST /dev/token` mints a JWT for any user and role when `Features:EnableDevTokenEndpoint` is true (Development and staging). Outside Development it also requires `Features:DevTokenKey` (≥ 32 bytes, sent as `X-Dev-Token-Key`; staging reads it from Secrets Manager `/auction-kings/staging/dev-token-key`) — `DevTokenOptionsValidator` stops startup otherwise. Refusals are 404.
 
 ## Build Configuration
@@ -80,6 +82,7 @@ Clean Architecture: `API → Application → Domain ← Infrastructure`
 | RDS PostgreSQL 16   | Primary database — `db.t4g.micro`, private subnet, encrypted              |
 | ElastiCache Redis 7 | Cache, rate limiting, SignalR backplane — `cache.t4g.micro`, TLS + AUTH   |
 | SQS                 | `bid-events` queue + DLQ                                                  |
+| Cognito             | User pool + public app client + `Bidder`/`Admin` groups; the identity provider |
 | Secrets Manager     | DB password, Redis AUTH token, JWT secret, MediatR license (created empty; value set out of band, see `docs/runbook.md` §7) |
 | CloudWatch Logs     | Container logs under `/ecs/auction-kings-staging-*`                       |
 | IAM (OIDC)          | GitHub Actions deploy role + ECS task execution role — no long-lived keys |
@@ -89,7 +92,6 @@ Clean Architecture: `API → Application → Domain ← Infrastructure`
 | Service                  | Purpose                                                   |
 | ------------------------ | --------------------------------------------------------- |
 | CloudFront               | CDN in front of ALB; serves Blazor WASM frontend          |
-| Cognito User Pools       | RS256 JWT auth, replacing local HS256                     |
 | DynamoDB                 | Immutable domain event store + snapshots (event sourcing) |
 | SNS / EventBridge        | Fan-out messaging for auction events                      |
 | X-Ray                    | Distributed tracing across ECS services                   |
@@ -114,7 +116,7 @@ Only `ci.yml` runs automatically. Publish, infra and deploy are manual (`workflo
 
 - `docs/architecture.md` — full architecture spec, v2.0 roadmap, AWS deployment
 - `docs/decisions.md` — ADRs with context and trade-offs
-- `docs/cognito-integration.md` — Cognito migration guide (auth is currently local HS256 JWT)
+- `docs/cognito-integration.md` — Cognito design notes (implemented; README has the how-to)
 - `docs/runbook.md` — operational commands, health checks, troubleshooting
 
 ## Custom Instructions

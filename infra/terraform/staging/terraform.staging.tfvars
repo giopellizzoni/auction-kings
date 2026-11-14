@@ -45,6 +45,12 @@ ecs = {
   worker_memory        = 512
 }
 
+cognito = {
+  password_minimum_length       = 8
+  access_token_validity_minutes = 60
+  refresh_token_validity_days   = 30
+}
+
 jwt = {
   issuer             = "auction-kings-staging"
   audience           = "auction-kings-staging"

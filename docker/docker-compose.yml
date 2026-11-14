@@ -19,6 +19,8 @@ services:
       Jwt__Issuer: "auction-kings-dev"
       Jwt__Audience: "auction-kings-dev"
       Jwt__ExpiresInMinutes: "60"
+      # Same pool as appsettings.Development.json, reached on the compose network instead of localhost.
+      Cognito__MetadataAddress: "http://moto:5555/us-east-1_d85380f7cde7bc8c1b0ca2ed3ee5ddc1affc77945b39d/.well-known/openid-configuration"
       AWS__Region: "us-east-1"
       AWS__SQS__ServiceURL: "http://localstack:4566"
       AWS__SQS__BidQueueUrl: "http://localstack:4566/000000000000/auction-bids-queue"

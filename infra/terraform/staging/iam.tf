@@ -375,6 +375,39 @@ resource "aws_iam_role_policy" "github_actions_logs" {
   })
 }
 
+# -- Cognito (user pool, app client, groups) --
+
+resource "aws_iam_role_policy" "github_actions_cognito" {
+  name = "cognito"
+  role = aws_iam_role.github_actions_deploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        # A pool has no ARN until it exists, so creating one cannot be scoped to a resource.
+        Sid      = "CognitoCreatePool"
+        Effect   = "Allow"
+        Action   = ["cognito-idp:CreateUserPool", "cognito-idp:ListUserPools"]
+        Resource = "*"
+      },
+      {
+        Sid    = "CognitoManagePool"
+        Effect = "Allow"
+        Action = [
+          "cognito-idp:DescribeUserPool", "cognito-idp:UpdateUserPool", "cognito-idp:DeleteUserPool",
+          "cognito-idp:GetUserPoolMfaConfig", "cognito-idp:SetUserPoolMfaConfig",
+          "cognito-idp:CreateUserPoolClient", "cognito-idp:DescribeUserPoolClient",
+          "cognito-idp:UpdateUserPoolClient", "cognito-idp:DeleteUserPoolClient",
+          "cognito-idp:CreateGroup", "cognito-idp:GetGroup", "cognito-idp:UpdateGroup", "cognito-idp:DeleteGroup",
+          "cognito-idp:TagResource", "cognito-idp:UntagResource", "cognito-idp:ListTagsForResource",
+        ]
+        Resource = "arn:aws:cognito-idp:${var.aws_region}:${data.aws_caller_identity.current.account_id}:userpool/*"
+      }
+    ]
+  })
+}
+
 # -- IAM roles managed by Terraform --
 
 resource "aws_iam_role_policy" "github_actions_iam" {

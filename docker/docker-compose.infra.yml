@@ -74,6 +74,10 @@ services:
     container_name: infra-moto
     restart: unless-stopped
     command: ["-H", "0.0.0.0", "-p", "5555"]
+    environment:
+      # Deterministic Cognito ids (derived from the create arguments), so the API config can pin them.
+      MOTO_COGNITO_IDP_USER_POOL_ID_STRATEGY: HASH
+      MOTO_COGNITO_IDP_USER_POOL_CLIENT_ID_STRATEGY: HASH
     networks:
       - backend
     healthcheck:
