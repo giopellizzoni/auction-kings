@@ -31,11 +31,13 @@ AuctionKings is a real-time auction platform built with .NET 10 / ASP.NET Core 1
 | Persistence | PostgreSQL 16 via EF Core 10 |
 | Cache / Rate limiting | Redis 7 |
 | Real-time backplane | Redis (SignalR) |
-| Auth (current) | JWT HS256 — dev only |
+| Worker-to-API real-time | Redis Stream relay (ADR-011) |
+| Event delivery | Transactional Outbox → AWS SQS |
+| Auth (current) | JWT HS256, signing key from configuration (never committed, ADR-006) |
 | Auth (roadmap) | AWS Cognito (RS256) |
 | Logging | Serilog — structured JSON |
 | Background workers | .NET Worker Service |
-| Local infra | Docker (PostgreSQL, Redis, LocalStack, Moto) |
+| Local infra | Docker (PostgreSQL, Redis, LocalStack, Moto, Prometheus, Grafana) |
 | Cloud target | AWS ECS Fargate, RDS, ElastiCache, SQS/SNS |
 
 ---
@@ -49,11 +51,11 @@ graph TD
     subgraph API["API Layer (AuctionKings.API)"]
         Controllers["REST Controllers\n(Auctions, Bids, Users)"]
         Hubs["SignalR Hubs\n(AuctionHub, NotificationHub)"]
-        Middleware["Middleware & Filters\n(Auth, CorrelationId, RateLimit,\nGlobalExceptionFilter, SecurityHeaders)"]
+        Middleware["Middleware & Filters\n(Auth, CORS, CorrelationId, SecurityHeaders,\nRateLimit, Idempotency, GlobalExceptionFilter)"]
     end
 
     subgraph Application["Application Layer (AuctionKings.Application)"]
-        Commands["Commands\n(CreateAuction, PlaceBid, CloseAuction)"]
+        Commands["Commands\n(CreateAuction, ActivateAuction,\nPlaceBid, CloseAuction)"]
         Queries["Queries\n(GetAuctionDetails, GetActiveAuctions,\nGetAuctionBids)"]
         Behaviors["Pipeline Behaviors\n(Validation, Logging, Idempotency,\nPerformance)"]
     end
@@ -61,7 +63,7 @@ graph TD
     subgraph Domain["Domain Layer (AuctionKings.Domain)"]
         Aggregates["Aggregates\n(Auction, Bid)"]
         ValueObjects["Value Objects\n(Money, AuctionDuration, BidIncrement)"]
-        DomainEvents["Domain Events\n(BidPlaced, AuctionClosed, ...)"]
+        DomainEvents["Domain Events\n(BidPlaced, AuctionClosed,\nAuctionCancelled, ...)"]
         DomainErrors["Domain Errors / Result"]
     end
 
@@ -74,9 +76,13 @@ graph TD
 
     subgraph Workers["Background Workers"]
         OutboxProc["OutboxProcessor\n(5 s poll, SKIP LOCKED)"]
+        ActivationWorker["AuctionActivationWorker\n(10 s poll)"]
         CloseWorker["AuctionCloseWorker\n(10 s poll)"]
         CleanupWorker["CleanupExpiredDataWorker\n(hourly)"]
     end
+
+    Stream[("Redis Stream\nrealtime:notifications")]
+    Relay["RealtimeStreamRelay\n(API BackgroundService)"]
 
     Client -->|HTTP / WebSocket| API
     Controllers --> Application
@@ -88,8 +94,11 @@ graph TD
     Workers --> Infrastructure
     Domain -->|domain events| Outbox
     Outbox --> OutboxProc
-    OutboxProc -->|MediatR Publish| Application
+    OutboxProc -->|SQS publish, then in-process handlers| Application
     Application --> SignalRNotif
+    Workers -->|real-time pushes| Stream
+    Stream --> Relay
+    Relay --> SignalRNotif
     SignalRNotif -->|push| Client
 ```
 
@@ -104,26 +113,44 @@ graph TD
 | Aggregate | Aggregate Root | Key entities / VOs |
 |---|---|---|
 | Auction | `Auction` | `Bid` (entity), `Money`, `AuctionDuration`, `BidIncrement` |
-| User | `User` | `UserProfile` |
+
+Aggregate methods report rule violations as `Result` / `Result<T>`, never by throwing (ADR-010); an architecture test enforces it. The value-object constructors (`Money`, `AuctionDuration`) still throw on invalid input.
+
+### Auction lifecycle
+
+```
+Pending ──Activate (StartTime reached)──► Active ──Close (EndTime reached)──► Closed
+   │                                        │
+   └──────────────── Cancel ────────────────┘──► Cancelled
+```
+
+- `Create` returns `Active` when `StartTime` is now or earlier, otherwise `Pending`.
+- `AuctionActivationWorker` activates `Pending` auctions that are due. `Activate` rejects one that already ended (`Auction.Ended`); `ActivateAuctionCommandHandler` then **cancels** it, so it leaves the pending set instead of failing on every poll.
+- `AuctionCloseWorker` closes `Active` auctions past `EndTime`.
+- `Cancel` is not exposed through any controller yet; who may cancel an auction is an open product decision.
 
 ### Key domain rules (enforced in `Auction.PlaceBid`)
 
 - Auction must be `Active` and not past `EndTime`.
-- Bid amount must exceed `CurrentPrice`.
+- The seller cannot bid on their own auction, and the bid currency must match the auction's.
 - The current winner cannot outbid themselves.
-- **Anti-sniping:** if a bid arrives within the last 30 seconds, `EndTime` extends by 2 minutes and an `AuctionExtendedEvent` is raised.
+- The bid must reach the minimum from `BidIncrement.GetMinimumBid(CurrentPrice)`, not merely exceed the current price.
+- **Anti-sniping:** if a bid arrives when less than 5 minutes remain, `EndTime` extends by 5 minutes and an `AuctionExtendedEvent` is raised.
+- Every state change increments `Auction.Version`, the optimistic-concurrency token (see section 7).
 
 ### Domain Events
 
-All events implement `IDomainEvent` and are collected on `AggregateRoot`. They are never dispatched in-process — they are serialised into the Outbox table within the same database transaction and dispatched asynchronously.
+All events implement `IDomainEvent` and are collected on `AggregateRoot`. They are not dispatched at the moment they are raised: they are serialised into the Outbox table within the same database transaction as the state change and dispatched asynchronously by `OutboxProcessor` (section 5).
 
 | Event | Trigger |
 |---|---|
 | `AuctionCreatedEvent` | New auction persisted |
+| `AuctionActivatedEvent` | Pending auction becomes Active |
 | `BidPlacedEvent` | Successful bid |
 | `AuctionExtendedEvent` | Anti-sniping extension |
 | `AuctionClosedEvent` | Auction finalised |
 | `WinnerDeterminedEvent` | Winner resolved after close |
+| `AuctionCancelledEvent` | Auction cancelled (only on a real state change) |
 
 ---
 
@@ -137,6 +164,7 @@ All use-cases flow through MediatR. Commands mutate state; queries are read-only
 |---|---|
 | `CreateAuctionCommand` | Create and persist a new auction |
 | `PlaceBidCommand` | Validate and record a bid; raises `BidPlacedEvent` |
+| `ActivateAuctionCommand` | Activate a due `Pending` auction; cancels one that ended without being activated (returns an `ActivationOutcome`) |
 | `CloseAuctionCommand` | Transition auction to `Closed`; raises `AuctionClosedEvent` |
 
 ### Queries
@@ -179,11 +207,15 @@ PlaceBid command
 
 OutboxProcessor (every 5 s)
     └─► SELECT ... FOR UPDATE SKIP LOCKED  (20 rows, no double-processing)
-    └─► Deserialise + MediatR.Publish()
-    └─► SET processed_at = NOW()
+    └─► Deserialise the event
+    └─► IEventBus.PublishAsync()     → AWS SQS (bid-events queue)
+    └─► In-process handlers          → MediatR, events wrapped in DomainEventNotification<T>
+    └─► SET processed_at = now
 ```
 
-**Retry policy:** up to 5 retries; error message stored on the row. SKIP LOCKED ensures safe concurrent processing across multiple worker replicas.
+**Order matters.** SQS is published first and the in-process handlers run afterwards. The processor retries the whole message when any step throws; handlers (for example `NotifySellerOnAuctionCancelled`) are best-effort side effects, so running them before a failing SQS publish would repeat them on every retry. Handlers should therefore swallow and log their own failures. Domain events are not MediatR notifications (Domain has no MediatR reference), hence the `DomainEventNotification<TEvent>` adapter in the Application layer.
+
+**Retry policy:** `MaxRetries` (default 3) attempts per message; the row keeps `RetryCount` and is then marked `Failed`. Defaults are batch size 20 and a 1 s poll; the worker's `appsettings.json` sets the poll to 5 s. SKIP LOCKED makes concurrent processing safe across multiple worker replicas. A circuit breaker for a failing SQS is not implemented (ADR-003).
 
 ---
 
@@ -193,16 +225,29 @@ OutboxProcessor (every 5 s)
 
 | Hub | Purpose |
 |---|---|
-| `AuctionHub` | Per-auction groups — bid updates, price changes, auction close |
-| `NotificationHub` | Per-user channel — winner/loser notifications |
+| `AuctionHub` | Per-auction groups (`auction-{id}`): `BidPlaced`, `AuctionExtended`, `AuctionClosed` |
+| `NotificationHub` | Per-user group (`user-{userId}`): notices addressed to one user, for example `AuctionCancelled` to the seller |
+
+Bidder identities are never pushed: `BidPlaced` carries the auction id, bid id, amount and currency only (ADR-005).
 
 ### Scaling with Redis backplane
 
-All hub instances share the Redis backplane (`StackExchangeRedis` provider). Group broadcasts (`auction:{id}`) fan out across all API replicas transparently.
+All hub instances share the Redis backplane (`StackExchangeRedis` provider). Group broadcasts (`auction-{id}`) fan out across all API replicas transparently.
+
+### Worker-to-API notifications (Redis Stream relay)
+
+The background worker hosts no SignalR, yet some pushes originate there (`AuctionClosed` from the close worker, the seller's cancellation notice from an outbox handler). In the worker, `IRealtimeNotificationService` is `RedisStreamRealtimeNotificationService`: it appends a versioned JSON envelope to the Redis Stream `realtime:notifications`. In the API, `RealtimeStreamRelay` reads the stream through the consumer group `api` and calls the SignalR-backed `SignalRNotificationService`.
+
+- One consumer group means each entry reaches exactly one API replica (Pub/Sub would make every replica re-send it through the backplane).
+- At-least-once: an entry is acknowledged after it was handled; entries stuck with a crashed replica are taken over by another (`XAUTOCLAIM`). Malformed, unknown, unsupported-version, stale (> 10 min by default) or failing entries are logged and dropped.
+- The stream is capped at about 10,000 entries; the relay is tuned through the `RealtimeRelay` configuration section.
+- Redis is not durable by default and the relay polls every 500 ms when idle: this path is for UI pushes, not for anything that must not be lost (that belongs in the outbox).
+
+See ADR-011.
 
 ### State sync on reconnect
 
-When a client calls `JoinAuction`, the hub sends the full current `AuctionStateDto` (price, winner, bid count, last 10 bids, server time, version). If the client version is behind after a reconnect, `RequestStateSync` triggers a full refresh.
+When a client calls `JoinAuction`, the hub validates that the auction exists, adds the connection to the auction's group and sends the current auction details (the `GetAuctionDetailsQuery` result) as an `AuctionState` message. After a reconnect, `RequestStateSync` sends it again.
 
 ### Throttling and abuse limits
 
@@ -219,40 +264,38 @@ Invocations are counted per user in Redis (sliding window, same limiter as REST)
 
 ### SignalR placement note
 
-`SignalRNotificationService` (which uses `IHubContext<AuctionHub>`) lives in the **API project**, not Infrastructure. This avoids a circular project dependency (Infrastructure → API). It is registered as `IRealtimeNotificationService` and consumed by Application-layer event handlers.
-
-### Graceful shutdown
-
-`GracefulShutdownService` sends a `ServerShuttingDown` message to all connected clients before the process exits, instructing them to reconnect with a 1-second delay.
+`SignalRNotificationService` (which uses `IHubContext<AuctionHub>` and `IHubContext<NotificationHub>`) lives in the **API project**, not Infrastructure. This avoids a circular project dependency (Infrastructure → API). It is registered as `IRealtimeNotificationService` in the API and consumed by Application-layer handlers; the worker registers the stream-backed implementation instead (see above).
 
 ---
 
 ## 7. Concurrency, Idempotency, and Auth
 
-### Optimistic concurrency via PostgreSQL `xmin`
+### Optimistic concurrency via `Auction.Version`
 
-EF Core maps the `xmin` system column (type `xid`) as the concurrency token on the `Auction` entity. On every `UPDATE`, PostgreSQL automatically rejects writes where `xmin` changed since the row was read, and EF Core raises `DbUpdateConcurrencyException`. The handler returns `DomainErrors.Bid.ConcurrentModification` (HTTP 409) and the client retries.
+`Auction.Version` is an integer column that every state change increments, and EF Core uses it as the concurrency token. On `UPDATE`, EF adds `WHERE version = <loaded value>`; if another transaction changed the row first, no row matches and EF raises `DbUpdateConcurrencyException`. `UnitOfWork` translates it into `ConcurrencyException`.
 
-No application-managed version counter is needed; the database itself is the authority.
+`PlaceBidCommandHandler` retries: it clears the change tracker, reloads the auction, re-validates the bid and tries again. When the retries run out it returns `DomainErrors.Auction.ConcurrencyConflict` (HTTP 409).
+
+PostgreSQL's `xmin` was the original choice (ADR-001) but is not used: Npgsql 10 does not reliably read `xid` system columns back through `RETURNING`, so the tracked value stayed 0 and every update failed (see the comment in `AuctionConfiguration`).
 
 ### Idempotency
 
-The `X-Request-Id` header carries a client-generated UUID per request. `IdempotencyBehavior<TRequest, TResponse>` checks:
+`BidsController.PlaceBid` is marked `[Idempotent]`; the globally registered `IdempotencyFilter` requires a GUID in the `X-Request-Id` header for such actions. The controller derives the command's idempotency key as `{UserId}:{AuctionId}:{RequestId}`, so one user cannot replay another's request.
 
-1. Redis cache (fast path, 24 h TTL).
-2. Persistent `IdempotencyStore` in PostgreSQL (survives cache eviction).
+`IdempotencyBehavior<TRequest, TResponse>` handles commands that implement `IIdempotentCommand`:
 
-If found, the stored response is returned immediately with no side effects. `PlaceBidCommand` derives its idempotency key as `{UserId}:{AuctionId}:{RequestId}`.
+1. Redis cache (fast path, 24 h TTL): a stored response is replayed with no side effects.
+2. Atomic reservation of the key in the PostgreSQL `IdempotencyStore` (survives cache eviction). A completed duplicate replays the stored response; a duplicate whose first request is still in flight raises `DuplicateCommandException` (HTTP 409).
 
-### JWT Authentication (current — dev)
+### JWT Authentication (current)
 
-Local HS256 tokens. The `sub` claim carries the user ID. SignalR hubs prefer the `X-SignalR-Token` header or `signalr_token` cookie over the query-string access token (query-string usage is logged as a warning).
+Local HS256 tokens. The signing key comes from `Jwt:Secret`; the API refuses to start if it is missing, shorter than 32 bytes or the old placeholder, and no key is committed (ADR-006). The `sub` claim carries the user ID, and the policies are `Bidder` and `Admin`. SignalR clients that cannot set headers on a WebSocket pass the token as the `access_token` query parameter, which is read only for paths under `/hubs`.
 
 ### JWT Authentication (roadmap — AWS Cognito)
 
-RS256 tokens issued by Cognito User Pools. See [cognito-integration.md](cognito-integration.md) for the full migration guide.
+RS256 tokens issued by Cognito User Pools. See [cognito-integration.md](cognito-integration.md) for the full migration guide. **None of this is implemented yet.** The local Moto stack provisions a Cognito pool for experiments, but the API validates only its own HS256 tokens.
 
-The Cognito auth layer adds:
+The planned Cognito auth layer adds:
 - **Token revocation:** `RedisTokenBlacklistService` checks the `jti` claim against a Redis key per revoked token. `RevokeAllUserTokensAsync` stores a `revoke_before` timestamp per user for global sign-out.
 - **Claim enrichment:** On token validation, the user profile is fetched and `reputation`, `is_verified`, and `total_bids` claims are added to the principal.
 - **Authorization policies:** `CanBid` (email verified + minimum reputation score), `CanCreateAuction`, and `HighValueBid` (MFA or KYC required for bids above $10,000) — enforced via `IAuthorizationHandler`.
@@ -263,31 +306,27 @@ The Cognito auth layer adds:
 
 ### Current implementation
 
-`[RateLimitAttribute]` is defined and wired to a Redis-backed `IDistributedRateLimiter`. The attribute is configurable per endpoint: `Limit` (default 10 requests) and `WindowSeconds` (default 60 seconds).
+`[RateLimit(policy, retryAfterSeconds, failOpen)]` is an action filter backed by the Redis `IRateLimiter`. It is applied to `BidsController.PlaceBid` (policy `place-bid`) and `AuctionsController.CreateAuction` (policy `create-auction`).
 
-**Current limit:** 10 bids per user per 10 seconds (configured in appsettings).
-
-**Known issue (audit H-6):** The attribute exists but is not yet applied to any controller action — rate limiting is currently inactive until `[RateLimit]` is added to `PlaceBid` and `CreateAuction`.
+- **Key:** `rate:{policy}:{userId}`, falling back to the client IP when unauthenticated.
+- **Limit:** `RateLimit:MaxRequests` per `RateLimit:Window` (defaults 10 per 10 s).
+- **Failure mode:** both write endpoints use `failOpen: false`: if Redis is unavailable they answer **503** instead of letting requests through. The hub throttling filter uses the same limiter and fails open (ADR-007).
+- **Responses:** `X-RateLimit-Limit` and `X-RateLimit-Remaining` on every response; on a rejection, **429** with `Retry-After`.
 
 ### Algorithm — distributed sliding window (Redis Lua)
 
-The rate limiter uses an atomic Lua script executed on Redis to avoid race conditions across multiple API instances:
+An atomic Lua script runs on Redis to avoid races across API instances:
 
 ```
-1. Remove expired entries from the sorted set: ZREMRANGEBYSCORE key 0 (now - window_ms)
+1. Remove expired entries from the sorted set: ZREMRANGEBYSCORE key -inf (now - window_ms)
 2. Count current entries: ZCARD key
 3. If count < limit:
-       Add new entry: ZADD key now <unique-member>
-       Set TTL: EXPIRE key (window_seconds + 1)
-       Return: allowed, remaining = limit - count - 1
+       Add a unique member scored by the timestamp (INCR on a sequence key): ZADD key now <now:seq>
+       Set TTL on both keys: PEXPIRE key window_ms
+       Return: allowed, current count = count + 1
    Else:
-       Get oldest entry score: ZRANGE key 0 0 WITHSCORES
-       Return: denied, retry_after = oldest_score + window_ms - now
+       Return: denied, current count = count
 ```
-
-Headers returned on every response: `X-RateLimit-Limit`, `X-RateLimit-Remaining`. On 429: `Retry-After`.
-
-**Fail-open behaviour:** if Redis is unavailable, requests are allowed through. Audit finding H-4 flags this — write operations should fail closed when Redis is down.
 
 ---
 
@@ -296,7 +335,7 @@ Headers returned on every response: `X-RateLimit-Limit`, `X-RateLimit-Remaining`
 ### Serilog structured JSON logging
 
 - All logs are emitted as structured JSON (enriched with `CorrelationId`, `UserId`, request path, elapsed ms).
-- `RequestLoggingMiddleware` records every HTTP request/response.
+- Serilog request logging (`UseSerilogRequestLogging`) records every HTTP request, and `CorrelationIdMiddleware` assigns the correlation id.
 - `LoggingBehavior` records every MediatR command/query with timing.
 - In production the sink targets AWS CloudWatch Logs.
 
@@ -330,11 +369,14 @@ An "AuctionKings Overview" dashboard is auto-provisioned in Grafana (`docker/gra
 docker/docker-compose.infra.yml
     ├── PostgreSQL 16      :5432  (DB: AuctionKingsDB, user: dev)
     ├── Redis 7            :6379
-    ├── LocalStack 4.3     :4566  (S3, SQS, SNS, DynamoDB emulation)
-    ├── Moto 5.1.4         :5555  (Cognito emulation)
+    ├── LocalStack 4.14    :4566  (SQS, SNS, S3, DynamoDB, Secrets Manager, Logs)
+    ├── Moto 5.2.5         :5555  (Cognito, AppConfig, EventBridge)
+    ├── aws-cli (init)            provisions both emulators, then exits
     ├── Prometheus         :9090  (scrapes /metrics every 15 s)
     └── Grafana            :3000  (auto-provisioned dashboard)
 ```
+
+Of the AWS services provisioned locally, only SQS is used by the application code today; the rest are provisioned for the roadmap.
 
 See the [Runbook](runbook.md) for operational commands, health check details, and troubleshooting.
 
@@ -347,14 +389,18 @@ The staging environment is provisioned with Terraform (`infra/terraform/staging/
 ```
 ALB (public, HTTP :80)
     └─► ECS Fargate (auction-kings-staging cluster)
-            │  Task: 0.25 vCPU / 512 MB — API container
-            │  Logs → CloudWatch /ecs/auction-kings-staging-api
+            │  API task:    0.25 vCPU / 512 MB — logs → CloudWatch /ecs/auction-kings-staging-api
+            │  Worker task: 0.25 vCPU / 512 MB — logs → CloudWatch /ecs/auction-kings-staging-worker
+            │  Images from GHCR: ghcr.io/<owner>/<repo>-api and -worker
             │
             ├─► RDS PostgreSQL 16 (db.t4g.micro, encrypted, private subnet)
             ├─► ElastiCache Redis 7 (cache.t4g.micro, TLS + AUTH, private subnet)
             ├─► SQS bid-events queue + DLQ
-            └─► Secrets Manager (DB password, Redis AUTH, JWT secret)
+            └─► Secrets Manager (DB password, Redis AUTH, JWT secret,
+                                 MediatR license: created empty, value set out of band)
 ```
+
+The pipeline is `CI` → `Publish Docker Images` → `Infrastructure – Staging` (Terraform plan/apply) → `Deploy to Staging`; each stage runs after the previous one succeeds. The task definitions do not read the MediatR secret yet.
 
 GitHub OIDC → `AssumeRoleWithWebIdentity` is used for the deploy workflow — no long-lived AWS access keys in CI.
 
@@ -417,7 +463,14 @@ Full context, consequences, and trade-offs for each ADR are in [decisions.md](de
 
 | ADR | Decision | Why |
 |---|---|---|
-| ADR-01 | PostgreSQL `xmin` as EF Core concurrency token | Zero schema overhead; DB-managed; no risk of app forgetting to increment |
-| ADR-02 | Outbox Pattern for domain event delivery | At-least-once delivery guarantee even on process crash between DB commit and publish |
-| ADR-03 | `X-Request-Id` + Redis cache + DB store for idempotency | Duplicate bids prevented at zero DB cost on hot path (Redis hit); DB store survives cache eviction |
-| ADR-04 | `SignalRNotificationService` lives in API project | Avoids circular dependency: Infrastructure → API; interface in Application keeps inner layers clean |
+| ADR-001 | Optimistic concurrency token on `Auction` (originally PostgreSQL `xmin`; implemented as the app-level `Version` column) | Concurrent bids cannot both win; see the note in ADR-001 |
+| ADR-002 | Outbox Pattern for domain event delivery | At-least-once delivery even on a crash between DB commit and publish |
+| ADR-003 | Documented system limits | Page sizes, rate limit, outbox and JWT defaults in one place |
+| ADR-004 | Explicit CORS origin allowlist | No cross-origin browser access unless an origin is listed |
+| ADR-005 | Bidding is never public | Bidder identities are never exposed to other users |
+| ADR-006 | No signing secrets in source control | The JWT key comes from configuration and is validated at startup |
+| ADR-007 | SignalR throttling | Per-user invocation, connection, group and message-size limits |
+| ADR-008 | Atomic connection tracking | Lua scripts keep the connection sets consistent and expiring |
+| ADR-009 | Versioned cache scopes | Constant-time invalidation without scanning keys |
+| ADR-010 | Aggregates report rule violations as `Result` | One error contract for the domain |
+| ADR-011 | Worker-to-API real-time notifications over a Redis Stream | The worker has no SignalR; one replica delivers each push |
