@@ -32,8 +32,9 @@ permissions:
 env:
   AWS_REGION: us-east-1
   TF_WORKING_DIR: infra/terraform/staging
-  TF_VAR_app_image: "ghcr.io/pellizzonicode/auction-kings-api:latest"
-  TF_VAR_worker_image: "ghcr.io/pellizzonicode/auction-kings-worker:latest"
+  # Same naming as docker-publish.yml (ghcr.io/<owner>/<repo>-api|worker; the repository is lowercase).
+  TF_VAR_app_image: "ghcr.io/${{ github.repository }}-api:latest"
+  TF_VAR_worker_image: "ghcr.io/${{ github.repository }}-worker:latest"
 
 jobs:
   destroy:
