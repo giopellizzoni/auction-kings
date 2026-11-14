@@ -30,7 +30,7 @@
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.15" />
-    <PackageVersion Include="StackExchange.Redis" Version="2.13.23" />
+    <PackageVersion Include="StackExchange.Redis" Version="3.4.35" />
     <PackageVersion
       Include="Microsoft.Extensions.Options.ConfigurationExtensions"
       Version="10.0.15"
