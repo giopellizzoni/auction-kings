@@ -34,6 +34,9 @@ public sealed class AuthApiFactory : WebApplicationFactory<AuctionsController>, 
 
     private readonly RedisContainer _redis = new RedisBuilder("redis:7-alpine").Build();
 
+    /// <summary>Connection string of the Redis container the host under test uses.</summary>
+    internal string RedisConnectionString => _redis.GetConnectionString();
+
     public async Task InitializeAsync()
     {
         await Task.WhenAll(_postgres.StartAsync(), _redis.StartAsync());
