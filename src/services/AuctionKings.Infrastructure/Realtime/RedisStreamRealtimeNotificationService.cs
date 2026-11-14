@@ -22,19 +22,19 @@ internal sealed partial class RedisStreamRealtimeNotificationService(
         decimal amount,
         string currency,
         CancellationToken cancellationToken = default) =>
-        PublishAsync(RealtimeKinds.BidPlaced, auctionId, new BidPlacedPayload(auctionId, bidId, amount, currency));
+        PublishAsync(RealtimeKinds.BidPlaced, auctionId, new BidPlacedPayload(auctionId, bidId, amount, currency), cancellationToken);
 
     public Task NotifyAuctionClosedAsync(
         Guid auctionId,
         Guid? winnerId,
         CancellationToken cancellationToken = default) =>
-        PublishAsync(RealtimeKinds.AuctionClosed, auctionId, new AuctionClosedPayload(auctionId, winnerId));
+        PublishAsync(RealtimeKinds.AuctionClosed, auctionId, new AuctionClosedPayload(auctionId, winnerId), cancellationToken);
 
     public Task NotifyAuctionExtendedAsync(
         Guid auctionId,
         DateTime newEndTime,
         CancellationToken cancellationToken = default) =>
-        PublishAsync(RealtimeKinds.AuctionExtended, auctionId, new AuctionExtendedPayload(auctionId, newEndTime));
+        PublishAsync(RealtimeKinds.AuctionExtended, auctionId, new AuctionExtendedPayload(auctionId, newEndTime), cancellationToken);
 
     public Task NotifyAuctionCancelledAsync(
         Guid sellerId,
@@ -45,9 +45,14 @@ internal sealed partial class RedisStreamRealtimeNotificationService(
         PublishAsync(
             RealtimeKinds.AuctionCancelled,
             auctionId,
-            new AuctionCancelledPayload(sellerId, auctionId, title, cancelledAt));
+            new AuctionCancelledPayload(sellerId, auctionId, title, cancelledAt),
+            cancellationToken);
 
-    private async Task PublishAsync<TPayload>(string kind, Guid auctionId, TPayload payload)
+    private async Task PublishAsync<TPayload>(
+        string kind,
+        Guid auctionId,
+        TPayload payload,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -59,6 +64,9 @@ internal sealed partial class RedisStreamRealtimeNotificationService(
                     RealtimeFeed.Serialize(kind, clock.UtcNow, payload),
                     maxLength: RealtimeFeed.MaxLength,
                     useApproximateMaxLength: true)
+                // StreamAddAsync has no token overload: stop waiting on cancellation (host shutdown, a cancelled
+                // command) instead of holding it up while Redis is slow. A lost push is logged, never thrown.
+                .WaitAsync(cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (Exception ex)

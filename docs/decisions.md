@@ -284,6 +284,8 @@ Through the API this was not reachable, because `ValidationBehavior` runs before
 - **The wire format is versioned** (`RealtimeFeed.CurrentVersion`, a JSON envelope with a typed payload per kind). The stream is capped at roughly 10,000 entries so an absent API cannot grow Redis without bound.
 - **Publishing never throws**, like the SignalR implementation: the operation already succeeded, only the push is lost.
 - All four notification kinds travel the same way (`BidPlaced`, `AuctionClosed`, `AuctionExtended`, `AuctionCancelled`).
+- **The in-process handlers run after the SQS publish**, not before. `OutboxProcessor` retries the whole message when any step throws; handlers such as the seller's push are best-effort side effects, so running them first would repeat the push on every retry of a failing SQS publish.
+- **The relay's tunables** (poll interval, claim idle time, maximum age, batch size) are bound from the `RealtimeRelay` configuration section and validated at startup. On graceful shutdown a replica deletes its own consumer from the group, unless it still owns unacknowledged entries (deleting it would drop them from the pending list).
 
 ### Limitations
 

@@ -11,6 +11,17 @@ updates:
       # One PR for routine minor/patch bumps; majors and security fixes stay separate.
       nuget-minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # The app targets net10.0. The .NET 11 packages cannot be used until the target framework moves, and a
+      # runtime 11 image cannot run a net10.0 app. Remove these when the project moves to net11.0.
+      - dependency-name: "Microsoft.Extensions.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.AspNetCore.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.EntityFrameworkCore*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Npgsql.EntityFrameworkCore.PostgreSQL"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
@@ -21,9 +32,21 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: docker
-    directory: /docker
+    # The Dockerfiles docker-compose.yml actually builds live under src/; /docker holds the standalone ones.
+    directories:
+      - /docker
+      - /src/services/AuctionKings.API
+      - /src/workers/AuctionKings.BackgroundWorkers
     schedule:
       interval: weekly
+    ignore:
+      # Same reason as the NuGet rule above: the images must match the net10.0 target framework.
+      - dependency-name: "dotnet/sdk"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "dotnet/aspnet"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "dotnet/runtime"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker-compose
     directory: /docker

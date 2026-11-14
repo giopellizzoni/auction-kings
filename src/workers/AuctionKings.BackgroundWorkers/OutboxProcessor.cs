@@ -106,11 +106,14 @@ public sealed partial class OutboxProcessor : BackgroundService
                 return;
             }
 
+            // SQS first: it is the step that can fail and make the whole message retry. The in-process handlers
+            // (e.g. the seller's push) are best-effort side effects, so they run only once SQS accepted the
+            // event; otherwise every retry of a failing SQS publish would repeat them.
+            await eventBus.PublishAsync((IDomainEvent)domainEvent, cancellationToken).ConfigureAwait(false);
+
             // Domain events are not MediatR notifications (Domain has no MediatR reference) and
             // Publish(object) throws for them, so wrap in the Application adapter first.
             await publisher.Publish((object)DomainEventNotification.Wrap((IDomainEvent)domainEvent), cancellationToken);
-
-            await eventBus.PublishAsync((IDomainEvent)domainEvent, cancellationToken).ConfigureAwait(false);
 
             message.MarkAsProcessed(_dateTimeProvider.UtcNow);
 

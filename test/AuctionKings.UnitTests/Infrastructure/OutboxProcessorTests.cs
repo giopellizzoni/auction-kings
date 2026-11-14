@@ -97,6 +97,43 @@ public sealed class OutboxProcessorTests : IDisposable
     }
 
     [Fact]
+    public async Task OutboxProcessor_WhenTheEventBusFails_ShouldNotRunTheInProcessHandlers()
+    {
+        // The seller's push is a side effect of the in-process publish. If SQS fails the message is retried,
+        // so running the handlers first would repeat the push on every retry.
+        var message = BuildAuctionCreatedMessage();
+        _repository
+            .FetchPendingAsync(_options.BatchSize, Arg.Any<CancellationToken>())
+            .Returns([message]);
+        _eventBus
+            .PublishAsync(Arg.Any<IDomainEvent>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("SQS unavailable"));
+
+        await _processor.ProcessBatchAsync(CancellationToken.None);
+
+        await _publisher.DidNotReceive().Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
+        Assert.Equal(1, message.RetryCount);
+        Assert.Null(message.ProcessedAt);
+    }
+
+    [Fact]
+    public async Task OutboxProcessor_ShouldRunTheInProcessHandlersAfterTheEventBus()
+    {
+        var message = BuildAuctionCreatedMessage();
+        _repository
+            .FetchPendingAsync(_options.BatchSize, Arg.Any<CancellationToken>())
+            .Returns([message]);
+
+        await _processor.ProcessBatchAsync(CancellationToken.None);
+
+        Received.InOrder(() =>
+        {
+            _eventBus.PublishAsync(Arg.Any<IDomainEvent>(), Arg.Any<CancellationToken>());
+            _publisher.Publish(Arg.Any<object>(), Arg.Any<CancellationToken>());
+        });
+    }
+
+    [Fact]
     public async Task OutboxProcessor_FailedMessage_ShouldRetry()
     {
         var message = BuildAuctionCreatedMessage();

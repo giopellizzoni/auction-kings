@@ -2,24 +2,10 @@ using System.Diagnostics;
 using AuctionKings.Application.Abstractions;
 using AuctionKings.Infrastructure.Realtime;
 using AuctionKings.Shared.Common;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
 namespace AuctionKings.API.Realtime;
-
-internal sealed record RealtimeRelayOptions
-{
-    public TimeSpan PollInterval { get; init; } = TimeSpan.FromMilliseconds(500);
-    public TimeSpan ErrorDelay { get; init; } = TimeSpan.FromSeconds(2);
-    public int BatchSize { get; init; } = 50;
-
-    /// <summary>How long an entry may sit unacknowledged with a consumer before another replica takes it over.</summary>
-    public TimeSpan ClaimIdle { get; init; } = TimeSpan.FromSeconds(60);
-
-    public TimeSpan ClaimEvery { get; init; } = TimeSpan.FromSeconds(30);
-
-    /// <summary>Entries older than this are dropped: a push that late is noise, not news.</summary>
-    public TimeSpan MaxAge { get; init; } = TimeSpan.FromMinutes(10);
-}
 
 /// <summary>
 /// Pushes the real-time notifications that other processes (the background worker) leave on the Redis Stream
@@ -32,13 +18,17 @@ internal sealed partial class RealtimeStreamRelay(
     IConnectionMultiplexer redis,
     IRealtimeNotificationService notifications,
     IDateTimeProvider clock,
-    RealtimeRelayOptions options,
+    IOptions<RealtimeRelayOptions> optionsAccessor,
     ILogger<RealtimeStreamRelay> logger) : BackgroundService
 {
+    private readonly RealtimeRelayOptions options = optionsAccessor.Value;
     private readonly string _consumer = $"{Environment.MachineName}-{Guid.NewGuid():N}";
     private readonly Stopwatch _sinceClaim = Stopwatch.StartNew();
     private bool _groupReady;
     private bool _claimedOnce;
+
+    /// <summary>The name this replica reads under (a new one per process).</summary>
+    internal string ConsumerName => _consumer;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -62,6 +52,36 @@ internal sealed partial class RealtimeStreamRelay(
                 _groupReady = false; // e.g. the stream was deleted (NOGROUP): recreate the group next time.
                 await DelayAsync(options.ErrorDelay, stoppingToken).ConfigureAwait(false);
             }
+        }
+    }
+
+    public override async Task StopAsync(CancellationToken cancellationToken)
+    {
+        await base.StopAsync(cancellationToken).ConfigureAwait(false);
+        await RemoveConsumerAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Every start uses a new consumer name, so without this each restart would leave a dead consumer in the
+    /// group for good. A consumer that still owns unacknowledged entries is kept (deleting it would drop them
+    /// from the pending list); another replica takes those over, and the record is then just an empty shell.
+    /// </summary>
+    internal async Task RemoveConsumerAsync()
+    {
+        try
+        {
+            var db = redis.GetDatabase();
+            var consumers = await db.StreamConsumerInfoAsync(RealtimeFeed.Key, RealtimeFeed.Group).ConfigureAwait(false);
+            var mine = consumers.FirstOrDefault(c => c.Name == _consumer);
+
+            if (mine.Name is not null && mine.PendingMessageCount == 0)
+            {
+                await db.StreamDeleteConsumerAsync(RealtimeFeed.Key, RealtimeFeed.Group, _consumer).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            LogRemoveConsumerFailed(logger, ex);
         }
     }
 
@@ -221,6 +241,9 @@ internal sealed partial class RealtimeStreamRelay(
             // Shutting down.
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not remove this replica's consumer from the real-time stream group on shutdown.")]
+    private static partial void LogRemoveConsumerFailed(ILogger logger, Exception ex);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "The real-time stream relay failed; retrying.")]
     private static partial void LogLoopFailed(ILogger logger, Exception ex);
