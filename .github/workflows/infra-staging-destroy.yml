@@ -1,26 +1,47 @@
 # ──────────────────────────────────────────────────────────────
-# Terraform Destroy — tears down the staging infrastructure.
+# Teardown — destroys every billable piece of the staging environment.
 #
 # Logical order:
 #   1.  ci.yml                    → Build & test (.NET)
-#   2.  docker-publish.yml        → Build & push Docker images
-#   3.  infra-staging.yml         → Terraform plan / apply
-#   4.  deploy-staging.yml        → Deploy containers to ECS
-#   5.  infra-staging-destroy.yml → Terraform destroy (this file) — MANUAL ONLY
+#   2.  docker-publish.yml        → Build & push Docker images (manual)
+#   3.  infra-staging.yml         → Terraform plan / apply (manual)
+#   4.  deploy-staging.yml        → Deploy containers to ECS (manual)
+#   5.  infra-staging-destroy.yml → Teardown (this file) — MANUAL ONLY
 #
-# Trigger: manual dispatch only (workflow_dispatch).
+# Trigger: manual dispatch only, and only when the `confirm` input is
+# exactly "destroy-staging".
 #
-# Prerequisites:
-#   1. S3 backend configured in infra/terraform/staging/main.tf
-#   2. AWS_STAGING_DEPLOY_ROLE_ARN secret set (OIDC role with Terraform perms)
+# What it removes: everything in the staging Terraform state — ECS
+# cluster/services, ALB, NAT gateway + Elastic IP, VPC, RDS (no final
+# snapshot), ElastiCache, SQS, Secrets Manager secrets (no recovery
+# window), CloudWatch log groups and the ECS IAM roles.
+#
+# What it keeps (free or near-free, needed to provision again):
+#   • the GitHub Actions deploy role and its inline policies — the
+#     identity this workflow runs as. It is moved out of the state first
+#     (scripts/staging-deploy-role.sh forget) and re-imported by the next
+#     infra-staging.yml run.
+#   • the S3 state bucket, the DynamoDB lock table and the GitHub OIDC
+#     provider (created outside this Terraform configuration).
+# docs/runbook.md §7 explains how to delete those too, with admin
+# credentials, for a complete wipe of the account.
+#
+# Bringing staging back: set the MediatR license secret value again
+# (the secret is recreated empty), then run infra-staging.yml and
+# deploy-staging.yml.
 # ──────────────────────────────────────────────────────────────
 
 name: "Infrastructure – Staging Destroy"
 
 on:
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "destroy-staging" to delete the staging environment. This cannot be undone (no database snapshot is kept).'
+        required: true
+        type: string
 
-# Never run two destroys in parallel.
+# Shares the group with infra-staging.yml: never destroy while an apply runs.
 concurrency:
   group: terraform-staging
   cancel-in-progress: false
@@ -32,14 +53,14 @@ permissions:
 env:
   AWS_REGION: us-east-1
   TF_WORKING_DIR: infra/terraform/staging
-  # Same naming as docker-publish.yml (ghcr.io/<owner>/<repo>-api|worker; the repository is lowercase).
-  TF_VAR_app_image: "ghcr.io/${{ github.repository }}-api:latest"
-  TF_VAR_worker_image: "ghcr.io/${{ github.repository }}-worker:latest"
+  TF_VAR_FILE: terraform.staging.tfvars
+  NAME_PREFIX: auction-kings-staging
 
 jobs:
   destroy:
     name: Terraform Destroy
     runs-on: ubuntu-latest
+    if: inputs.confirm == 'destroy-staging'
 
     steps:
       - name: Checkout
@@ -47,6 +68,8 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_wrapper: false
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v6
@@ -58,16 +81,59 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform init -input=false
 
+      - name: Keep the deploy role out of the destroy
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: ../../../scripts/staging-deploy-role.sh forget
+
       - name: Terraform Plan (destroy)
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform plan -destroy -input=false -no-color
+        run: terraform plan -destroy -input=false -no-color -var-file="$TF_VAR_FILE" -out=destroy.tfplan
 
       - name: Terraform Destroy
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform destroy -input=false -auto-approve
+        run: terraform apply -input=false -auto-approve destroy.tfplan
 
-      - name: Confirm destruction
+      - name: Check nothing billable is left
+        # Uses only Describe permissions the deploy role already has. Anything listed here was
+        # created outside Terraform (or the destroy missed it) and is still costing money.
         run: |
-          echo "::warning::Staging infrastructure destroyed."
-          echo "  Region: ${{ env.AWS_REGION }}"
-          echo "  Config: ${{ env.TF_WORKING_DIR }}"
+          LEFT=0
+          report() { # $1 = label, $2 = command output
+            if [ -n "$2" ] && [ "$2" != "None" ]; then
+              echo "::error::$1 still exists: $2"
+              LEFT=1
+            fi
+          }
+          report "ECS cluster" "$(aws ecs describe-clusters --clusters "$NAME_PREFIX" \
+            --query "clusters[?status=='ACTIVE'].clusterName" --output text)"
+          report "Load balancer" "$(aws elbv2 describe-load-balancers \
+            --query "LoadBalancers[?starts_with(LoadBalancerName, '$NAME_PREFIX')].LoadBalancerName" --output text)"
+          report "RDS instance" "$(aws rds describe-db-instances \
+            --query "DBInstances[?starts_with(DBInstanceIdentifier, '$NAME_PREFIX')].DBInstanceIdentifier" --output text)"
+          report "ElastiCache replication group" "$(aws elasticache describe-replication-groups \
+            --query "ReplicationGroups[?starts_with(ReplicationGroupId, '$NAME_PREFIX')].ReplicationGroupId" --output text)"
+          report "NAT gateway" "$(aws ec2 describe-nat-gateways \
+            --filter Name=tag:Project,Values=auction-kings Name=state,Values=pending,available \
+            --query "NatGateways[].NatGatewayId" --output text)"
+          report "Elastic IP" "$(aws ec2 describe-addresses \
+            --filters Name=tag:Project,Values=auction-kings \
+            --query "Addresses[].PublicIp" --output text)"
+          report "VPC" "$(aws ec2 describe-vpcs \
+            --filters Name=tag:Project,Values=auction-kings \
+            --query "Vpcs[].VpcId" --output text)"
+          if [ "$LEFT" -ne 0 ]; then
+            exit 1
+          fi
+          echo "No billable staging resources left in ${AWS_REGION}."
+
+      - name: Summary
+        run: |
+          {
+            echo "### Staging destroyed"
+            echo ""
+            echo "Kept: deploy role \`${NAME_PREFIX}-github-deploy\` (out of the state until the next infra run),"
+            echo "S3 state bucket, DynamoDB lock table, GitHub OIDC provider."
+            echo ""
+            echo "To bring staging back: set the MediatR license secret value, then run"
+            echo "**Infrastructure – Staging** and **Deploy to Staging**."
+          } >> "$GITHUB_STEP_SUMMARY"

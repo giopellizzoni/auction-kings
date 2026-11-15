@@ -6,7 +6,7 @@
 #   2.  docker-publish.yml        → Build & push Docker images (this file)
 #   3.  infra-staging.yml         → Terraform plan / apply
 #   4.  deploy-staging.yml        → Deploy containers to ECS
-#   5.  infra-staging-destroy.yml → Terraform destroy (manual only)
+#   5.  infra-staging-destroy.yml → Teardown (manual only)
 #
 # Trigger: manual dispatch only. Nothing is published on merge — run this
 # workflow (Actions → Publish Docker Images → Run workflow) and pick the branch
