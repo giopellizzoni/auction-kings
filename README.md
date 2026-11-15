@@ -19,7 +19,9 @@ A real-time auction platform built with ASP.NET Core 10, featuring WebSocket-bas
 - [.NET 10.0 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop)
 - Optional: EF Core CLI (`dotnet tool install --global dotnet-ef`) to add or apply migrations by hand
-- A POSIX shell with `openssl` for `scripts/setup-local-env.sh` (Git Bash works on Windows)
+- A POSIX shell with `openssl` for `scripts/setup-local-env.sh` (Git Bash works on Windows), **or**
+  PowerShell (Windows PowerShell 5.1 or PowerShell 7+) for the `.ps1` twins of the scripts. See
+  [Windows (PowerShell)](#windows-powershell).
 
 ## Running the Project
 
@@ -31,6 +33,9 @@ Both options below start from the same first step:
 # re-run, never overwrites a file that already exists.
 ./scripts/setup-local-env.sh
 ```
+
+On Windows without Git Bash, run `.\scripts\setup-local-env.ps1` instead (same files, same result; see
+[Windows (PowerShell)](#windows-powershell)).
 
 **Database schema.** In both options the API creates and upgrades the schema itself: on startup it
 applies any pending EF Core migrations when `Database:MigrateOnStartup` is `true`, which
@@ -233,6 +238,65 @@ any user id and role. It is handy for scripts and tests, and is never a way to s
 ```bash
 curl -s -X POST $API/dev/token -H "Content-Type: application/json" \
   -d '{"userId":"00000000-0000-0000-0000-000000000001","role":"Admin"}' | jq -r .token
+```
+
+## Windows (PowerShell)
+
+Everything above runs in Git Bash. Without it, use PowerShell (Windows PowerShell 5.1 or PowerShell 7+)
+and these `.ps1` twins of the bash scripts. Both are idempotent and write the same files as their bash
+versions: UTF-8 without BOM, LF line endings, because containers read them.
+
+| Bash                              | PowerShell                          |
+| --------------------------------- | ----------------------------------- |
+| `./scripts/setup-local-env.sh`    | `.\scripts\setup-local-env.ps1`     |
+| `./scripts/cognito-local-signup.sh` | `.\scripts\cognito-local-signup.ps1` |
+
+If PowerShell refuses to run scripts ("running scripts is disabled on this system"), either allow scripts for
+your user once with `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, or run one script with
+`powershell -ExecutionPolicy Bypass -File .\scripts\setup-local-env.ps1`.
+
+**Run the app** (from the repository root; the AWS CLI v2 is needed for the Cognito part, `jq` is not):
+
+```powershell
+.\scripts\setup-local-env.ps1
+docker compose -f docker/docker-compose.infra.yml up -d
+dotnet run --project src/services/AuctionKings.API/AuctionKings.API.csproj
+# Background workers, in a second terminal:
+dotnet run --project src/workers/AuctionKings.BackgroundWorkers/AuctionKings.BackgroundWorkers.csproj
+```
+
+**Create users and call the API** (a third terminal). `Invoke-RestMethod` parses the JSON, so no `jq`:
+
+```powershell
+$api = 'http://localhost:5081'
+
+# Sign up + confirm + join Bidder, and keep the access token (add -Group Admin or -Group none to change the group)
+$seller = .\scripts\cognito-local-signup.ps1 ann@example.com 'Correct-horse-42' Ann
+$buyer  = .\scripts\cognito-local-signup.ps1 bob@example.com 'Correct-horse-42' Bob
+
+# Create an auction as Ann; the response is the new auction id
+$auctionId = Invoke-RestMethod "$api/api/v1/auctions" -Method Post `
+  -Headers @{ Authorization = "Bearer $seller" } -ContentType 'application/json' `
+  -Body '{"title":"Vintage camera","description":"Works perfectly","startingPrice":100,"currency":"USD","durationInHours":24}'
+
+# Bid as Bob (X-Request-Id is a required idempotency key)
+Invoke-RestMethod "$api/api/v1/auctions/$auctionId/bids" -Method Post `
+  -Headers @{ Authorization = "Bearer $buyer"; 'X-Request-Id' = [guid]::NewGuid() } `
+  -ContentType 'application/json' -Body '{"amount":120,"currency":"USD"}'
+
+# Read it back
+Invoke-RestMethod "$api/api/v1/auctions/$auctionId"
+```
+
+To sign in again later (tokens last 60 minutes) or with a seeded account (`seller@test.com`,
+`buyer@test.com`, `admin@test.com`, password `Test1234!`):
+
+```powershell
+$env:AWS_ACCESS_KEY_ID = 'testing'; $env:AWS_SECRET_ACCESS_KEY = 'testing'; $env:AWS_DEFAULT_REGION = 'us-east-1'
+$token = aws cognito-idp --endpoint-url http://localhost:5555 initiate-auth `
+  --client-id 123b1f3863b67d1a3e89103c68 --auth-flow USER_PASSWORD_AUTH `
+  --auth-parameters 'USERNAME=buyer@test.com,PASSWORD=Test1234!' `
+  --query AuthenticationResult.AccessToken --output text
 ```
 
 ## Running Tests

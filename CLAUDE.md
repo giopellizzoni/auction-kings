@@ -8,7 +8,7 @@ AuctionKings is a real-time auction platform — ASP.NET Core 10, Clean Architec
 
 ```bash
 # First time on a checkout: generate docker/secrets/*.txt + .env.local (idempotent)
-./scripts/setup-local-env.sh
+./scripts/setup-local-env.sh        # Windows without Git Bash: .\scripts\setup-local-env.ps1
 
 # Infrastructure (run first)
 cd docker && docker-compose -f docker-compose.infra.yml up -d
@@ -119,6 +119,10 @@ Only `ci.yml` runs automatically. Publish, infra and deploy are manual (`workflo
 - `docs/decisions.md` — ADRs with context and trade-offs
 - `docs/cognito-integration.md` — Cognito design notes (implemented; README has the how-to)
 - `docs/runbook.md` — operational commands, health checks, troubleshooting
+
+## Windows
+
+Every bash script in `scripts/` that developers run has a PowerShell twin (`setup-local-env.ps1`, `cognito-local-signup.ps1`; Windows PowerShell 5.1 and 7+) that writes byte-identical formats (UTF-8 without BOM, LF). Keep the pairs in sync. `.gitattributes` forces LF on `*.sh`: with `core.autocrlf=true` they would otherwise be checked out with CRLF and fail inside the containers that run them (`moto-init.sh`, LocalStack `ready.d`).
 
 ## Custom Instructions
 
