@@ -6,41 +6,23 @@
 #   2.  docker-publish.yml        → Build & push Docker images
 #   3.  infra-staging.yml         → Terraform plan / apply
 #   4.  deploy-staging.yml        → Deploy containers to ECS (this file)
-#   5.  infra-staging-destroy.yml → Terraform destroy (manual only)
+#   5.  infra-staging-destroy.yml → Teardown (manual only)
+#
+# Trigger: manual dispatch only.
 #
 # This workflow assumes infrastructure has already been provisioned
-# by infra-staging.yml (Terraform). It only updates ECS task
-# definitions with new container images.
+# by infra-staging.yml (Terraform) and the image tag was pushed by
+# docker-publish.yml. It only updates ECS task definitions with new
+# container images. To tear staging down, use infra-staging-destroy.yml.
 # ──────────────────────────────────────────────────────────────
 
 name: Deploy to Staging
 
 on:
-  workflow_run:
-    workflows: ["Infrastructure \u2013 Staging"]
-    types:
-      - completed
-    branches:
-      - develop
-      - main
-
-  # Allow manual trigger with a specific image tag
   workflow_dispatch:
     inputs:
       image_tag:
-        description: "Image tag to deploy (e.g. abc1234). Defaults to latest commit SHA on main."
-        required: false
-        default: ""
-      action:
-        description: "Action to perform: 'deploy' (default) or 'destroy' (tears down the staging environment)."
-        required: false
-        default: deploy
-        type: choice
-        options:
-          - deploy
-          - destroy
-      confirm_destroy:
-        description: "Type 'yes' to confirm environment destruction. Required when action is 'destroy'."
+        description: "Image tag to deploy (a full commit SHA published by docker-publish.yml, or latest). Defaults to the SHA of the branch you run this on."
         required: false
         default: ""
 
@@ -49,10 +31,6 @@ jobs:
   deploy-api:
     name: Deploy API to ECS Staging
     runs-on: ubuntu-latest
-    if: |
-      (github.event.workflow_run.conclusion == 'success') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.action != 'destroy')
-
     permissions:
       id-token: write # Required for OIDC → AssumeRoleWithWebIdentity
       contents: read
@@ -75,8 +53,6 @@ jobs:
         run: |
           if [ -n "${{ github.event.inputs.image_tag }}" ]; then
             TAG="${{ github.event.inputs.image_tag }}"
-          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
-            TAG="${{ github.event.workflow_run.head_sha }}"
           else
             TAG="${{ github.sha }}"
           fi
@@ -126,10 +102,6 @@ jobs:
   deploy-worker:
     name: Deploy Worker to ECS Staging
     runs-on: ubuntu-latest
-    if: |
-      (github.event.workflow_run.conclusion == 'success') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.action != 'destroy')
-
     permissions:
       id-token: write
       contents: read
@@ -152,8 +124,6 @@ jobs:
         run: |
           if [ -n "${{ github.event.inputs.image_tag }}" ]; then
             TAG="${{ github.event.inputs.image_tag }}"
-          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
-            TAG="${{ github.event.workflow_run.head_sha }}"
           else
             TAG="${{ github.sha }}"
           fi
@@ -189,79 +159,3 @@ jobs:
           cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
           wait-for-minutes: 10
-
-  # ── Destroy (ECS services only) ─────────────────────────────
-  # This tears down ECS services and the cluster.
-  # For FULL infrastructure destruction (VPC, RDS, ElastiCache, etc.),
-  # use the "Infrastructure – Staging" workflow with action = destroy.
-  destroy:
-    name: Destroy Staging Environment
-    runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'workflow_dispatch' &&
-      github.event.inputs.action == 'destroy' &&
-      github.event.inputs.confirm_destroy == 'yes'
-
-    permissions:
-      id-token: write
-      contents: read
-
-    env:
-      AWS_REGION: us-east-1
-      ECS_CLUSTER: auction-kings-staging
-
-    steps:
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ secrets.AWS_STAGING_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Scale API service to zero
-        run: |
-          aws ecs update-service \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --service auction-kings-staging-api \
-            --desired-count 0
-
-      - name: Scale Worker service to zero
-        run: |
-          aws ecs update-service \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --service auction-kings-staging-worker \
-            --desired-count 0
-
-      - name: Wait for services to drain
-        run: |
-          aws ecs wait services-stable \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --services auction-kings-staging-api auction-kings-staging-worker
-
-      - name: Delete API service
-        run: |
-          aws ecs delete-service \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --service auction-kings-staging-api \
-            --force
-          echo "ECS service 'auction-kings-staging-api' deleted."
-
-      - name: Delete Worker service
-        run: |
-          aws ecs delete-service \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --service auction-kings-staging-worker \
-            --force
-          echo "ECS service 'auction-kings-staging-worker' deleted."
-
-      - name: Delete ECS cluster
-        run: |
-          aws ecs delete-cluster \
-            --cluster ${{ env.ECS_CLUSTER }}
-          echo "ECS cluster '${{ env.ECS_CLUSTER }}' deleted."
-
-      - name: Confirm destruction
-        run: |
-          echo "Staging environment destroyed:"
-          echo "  Cluster : ${{ env.ECS_CLUSTER }}"
-          echo "  Services: auction-kings-staging-api, auction-kings-staging-worker"
-          echo "  Region  : ${{ env.AWS_REGION }}"

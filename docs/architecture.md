@@ -400,7 +400,7 @@ ALB (public, HTTP :80)
                                  MediatR license: created empty, value set out of band)
 ```
 
-The pipeline is `CI` → `Publish Docker Images` → `Infrastructure – Staging` (Terraform plan/apply) → `Deploy to Staging`; each stage runs after the previous one succeeds. Both task definitions inject the MediatR secret as `MediatR__License`; the value must exist before they are applied.
+`CI` runs on every PR and push (build, tests and an image build that pushes nothing). Everything that publishes is manual (`workflow_dispatch`), run in this order: `Publish Docker Images` → `Infrastructure – Staging` (Terraform plan/apply) → `Deploy to Staging`. Nothing is pushed to GHCR or AWS on merge. Both task definitions inject the MediatR secret as `MediatR__License`; the value must exist before they are applied.
 
 GitHub OIDC → `AssumeRoleWithWebIdentity` is used for the deploy workflow — no long-lived AWS access keys in CI.
 
