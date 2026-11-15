@@ -96,6 +96,7 @@ jobs:
             -target=aws_iam_role_policy.github_actions_secrets \
             -target=aws_iam_role_policy.github_actions_logs \
             -target=aws_iam_role_policy.github_actions_cognito \
+            -target=aws_iam_role_policy.github_actions_lambda \
             -target=aws_iam_role_policy.github_actions_iam
         continue-on-error: true
 
@@ -123,7 +124,13 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: tfplan
-          path: ${{ env.TF_WORKING_DIR }}/tfplan
+          # The Lambda zip that data.archive_file built during the plan: the saved plan points at it, and the
+          # apply job runs on a fresh runner. Both land back under TF_WORKING_DIR on download.
+          path: |
+            ${{ env.TF_WORKING_DIR }}/tfplan
+            ${{ env.TF_WORKING_DIR }}/.build/
+          include-hidden-files: true
+          if-no-files-found: error
           retention-days: 1
 
   # ── Apply (automatic when plan detects changes) ───────────────

@@ -29,6 +29,7 @@ declare -A POLICIES=(
   [github_actions_secrets]="secrets-manager"
   [github_actions_logs]="cloudwatch-logs"
   [github_actions_cognito]="cognito"
+  [github_actions_lambda]="lambda"
   [github_actions_iam]="iam-roles"
 )
 

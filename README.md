@@ -125,16 +125,23 @@ API=http://localhost:5081
 ```
 
 **1. Create an account** (or skip to step 2 with a seeded one: `seller@test.com`, `buyer@test.com`
-(`Bidder`) and `admin@test.com` (`Admin`), password `Test1234!`):
+(`Bidder`) and `admin@test.com` (`Admin`), password `Test1234!`). One command signs up, confirms, adds
+the account to `Bidder` and prints an access token:
 
 ```bash
+SELLER_TOKEN=$(./scripts/cognito-local-signup.sh ann@example.com 'Correct-horse-42' Ann)
+# Optional 4th argument: the group (Bidder by default, Admin, or none).
+```
+
+The script runs these three calls, the same ones a frontend makes, plus an admin step:
+
+```bash
+# sign-up: public call, no AWS credentials needed on real Cognito
 $COGNITO sign-up --client-id $CLIENT --username ann@example.com --password 'Correct-horse-42' \
   --user-attributes Name=email,Value=ann@example.com Name=name,Value=Ann
-
-# Real Cognito emails a code (confirm-sign-up --confirmation-code ...); locally, confirm as admin:
+# confirm: real Cognito emails a code (confirm-sign-up --confirmation-code ...); locally, confirm as admin
 $COGNITO admin-confirm-sign-up --user-pool-id $POOL --username ann@example.com
-
-# A new account is in no group. Make it a Bidder:
+# join Bidder: staging's post-confirmation Lambda does this automatically; Moto runs no triggers
 $COGNITO admin-add-user-to-group --user-pool-id $POOL --username ann@example.com --group-name Bidder
 ```
 
@@ -145,7 +152,7 @@ signin() {  # signin <email> <password> → prints the access token
   $COGNITO initiate-auth --client-id $CLIENT --auth-flow USER_PASSWORD_AUTH \
     --auth-parameters "USERNAME=$1,PASSWORD=$2" --query AuthenticationResult.AccessToken --output text
 }
-SELLER_TOKEN=$(signin ann@example.com 'Correct-horse-42')
+SELLER_TOKEN=$(signin ann@example.com 'Correct-horse-42')   # tokens expire after 60 min: sign in again
 BUYER_TOKEN=$(signin buyer@test.com 'Test1234!')
 ```
 
@@ -203,10 +210,20 @@ CLIENT=$(terraform output -raw api_cognito_user_pool_client_id)
 API=$(terraform output -raw alb_url)
 ```
 
-The differences from local: `sign-up` emails a verification code, so confirm with
-`$COGNITO confirm-sign-up --client-id $CLIENT --username <email> --confirmation-code <code>`. Adding a user
-to a group (`admin-add-user-to-group`) needs IAM credentials for the pool. The password policy is
-8+ characters with a lowercase letter and a number. A staging teardown deletes the pool and its accounts.
+Sign-up works like a real user's, with no AWS credentials: register, then confirm with the code Cognito
+emails you. Confirming triggers a Lambda (`lambda.cognito-post-confirmation.tf`) that adds the account to
+`Bidder`, so it can create auctions and bid right away:
+
+```bash
+$COGNITO sign-up --client-id $CLIENT --username you@example.com --password 'Your-pass-42' \
+  --user-attributes Name=email,Value=you@example.com Name=name,Value=You
+$COGNITO confirm-sign-up --client-id $CLIENT --username you@example.com --confirmation-code 123456
+TOKEN=$(signin you@example.com 'Your-pass-42')
+```
+
+`Admin` is never granted automatically: run `admin-add-user-to-group ... --group-name Admin` with IAM
+credentials. The password policy is 8+ characters with a lowercase letter and a number. A staging teardown
+deletes the pool and its accounts.
 
 ### Without Cognito: dev tokens
 

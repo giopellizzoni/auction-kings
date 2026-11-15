@@ -361,7 +361,10 @@ resource "aws_iam_role_policy" "github_actions_logs" {
           "logs:TagLogGroup", "logs:UntagLogGroup", "logs:ListTagsLogGroup",
           "logs:TagResource", "logs:UntagResource", "logs:ListTagsForResource",
         ]
-        Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/${local.name_prefix}-*"
+        Resource = [
+          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/${local.name_prefix}-*",
+          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${local.name_prefix}-*",
+        ]
       },
       {
         # DescribeLogGroups is a list-level action; AWS evaluates it against
@@ -405,6 +408,30 @@ resource "aws_iam_role_policy" "github_actions_cognito" {
         Resource = "arn:aws:cognito-idp:${var.aws_region}:${data.aws_caller_identity.current.account_id}:userpool/*"
       }
     ]
+  })
+}
+
+# -- Lambda (Cognito post-confirmation trigger) --
+
+resource "aws_iam_role_policy" "github_actions_lambda" {
+  name = "lambda"
+  role = aws_iam_role.github_actions_deploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "LambdaFunctions"
+      Effect = "Allow"
+      Action = [
+        "lambda:CreateFunction", "lambda:DeleteFunction",
+        "lambda:GetFunction", "lambda:GetFunctionConfiguration", "lambda:GetFunctionCodeSigningConfig",
+        "lambda:GetRuntimeManagementConfig", "lambda:ListVersionsByFunction",
+        "lambda:UpdateFunctionCode", "lambda:UpdateFunctionConfiguration",
+        "lambda:AddPermission", "lambda:RemovePermission", "lambda:GetPolicy",
+        "lambda:TagResource", "lambda:UntagResource", "lambda:ListTags",
+      ]
+      Resource = "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.name_prefix}-*"
+    }]
   })
 }
 

@@ -34,6 +34,10 @@ resource "aws_cognito_user_pool" "users" {
     email_sending_account = "COGNITO_DEFAULT"
   }
 
+  lambda_config {
+    post_confirmation = aws_lambda_function.cognito_post_confirmation.arn
+  }
+
   schema {
     name                = "name"
     attribute_data_type = "String"
