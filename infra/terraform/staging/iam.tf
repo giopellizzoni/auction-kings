@@ -174,7 +174,9 @@ resource "aws_iam_role_policy" "github_actions_networking" {
         "ec2:CreateVpc", "ec2:DeleteVpc", "ec2:DescribeVpcs", "ec2:ModifyVpcAttribute", "ec2:DescribeVpcAttribute",
         "ec2:CreateSubnet", "ec2:DeleteSubnet", "ec2:DescribeSubnets",
         "ec2:CreateInternetGateway", "ec2:DeleteInternetGateway", "ec2:AttachInternetGateway", "ec2:DetachInternetGateway", "ec2:DescribeInternetGateways",
+        # Destroying the NAT's Elastic IP disassociates it first; without DisassociateAddress the teardown stops there.
         "ec2:AllocateAddress", "ec2:ReleaseAddress", "ec2:DescribeAddresses",
+        "ec2:AssociateAddress", "ec2:DisassociateAddress",
         "ec2:CreateNatGateway", "ec2:DeleteNatGateway", "ec2:DescribeNatGateways",
         "ec2:CreateRouteTable", "ec2:DeleteRouteTable", "ec2:DescribeRouteTables",
         "ec2:CreateRoute", "ec2:DeleteRoute", "ec2:AssociateRouteTable", "ec2:DisassociateRouteTable",
