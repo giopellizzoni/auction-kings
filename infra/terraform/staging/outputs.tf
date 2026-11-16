@@ -58,3 +58,13 @@ output "dev_token_key_secretsmanager_secret_name" {
   description = "Secrets Manager name of the key POST /dev/token requires in the X-Dev-Token-Key header."
   value       = aws_secretsmanager_secret.dev_token_key.name
 }
+
+output "users_cognito_user_pool_id" {
+  description = "Cognito user pool id (sign-up / sign-in; README → Authenticating with Cognito)."
+  value       = aws_cognito_user_pool.users.id
+}
+
+output "api_cognito_user_pool_client_id" {
+  description = "Cognito app client id to sign in with."
+  value       = aws_cognito_user_pool_client.api.id
+}

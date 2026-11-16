@@ -19,4 +19,9 @@ locals {
 
   # Redis connection string — TLS required by ElastiCache AUTH token.
   redis_connection_string = "${aws_elasticache_replication_group.redis.primary_endpoint_address}:6379,password=${random_password.redis.result},ssl=true,abortConnect=false"
+
+  # Cognito post-confirmation trigger. The group every new account joins is a literal shared by the group
+  # resource and the function: the pool references the function, so the function cannot reference the group.
+  post_confirmation_function_name = "${local.name_prefix}-cognito-post-confirmation"
+  default_user_group              = "Bidder"
 }

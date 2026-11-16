@@ -1,6 +1,25 @@
 @AuctionKings.API_HostAddress = http://localhost:5081
 
-GET {{AuctionKings.API_HostAddress}}/weatherforecast/
-Accept: application/json
+# Paste a Cognito access token here. Get one with the README walkthrough ("Authenticating with Cognito"):
+#   aws cognito-idp --endpoint-url http://localhost:5555 initiate-auth --client-id 123b1f3863b67d1a3e89103c68
+#     --auth-flow USER_PASSWORD_AUTH --auth-parameters USERNAME=seller@test.com,PASSWORD=Test1234!
+#     --query AuthenticationResult.AccessToken --output text
+@token = paste-access-token-here
+
+### Public: active auctions
+GET {{AuctionKings.API_HostAddress}}/api/v1/auctions
+
+### Create an auction (Bidder group)
+POST {{AuctionKings.API_HostAddress}}/api/v1/auctions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Vintage camera",
+  "description": "Works perfectly",
+  "startingPrice": 100,
+  "currency": "USD",
+  "durationInHours": 24
+}
 
 ###

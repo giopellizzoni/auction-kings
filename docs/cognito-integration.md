@@ -1,5 +1,13 @@
 # AWS Cognito Integration Guide
 
+> **Status: implemented.** The API now validates Cognito access tokens (`API/Auth/AuthenticationSetup.cs`,
+> `CognitoOptions`), with Moto emulating Cognito locally and a Terraform-managed pool in staging
+> (`infra/terraform/staging/cognito*.tf`). How it differs from the plan below: groups are mapped with
+> `RoleClaimType = "cognito:groups"` (step 7's alternative), the metadata address is configurable so Moto
+> works, only **access** tokens of the configured app clients are accepted, and `/dev/token` was kept
+> (step 8): its HS256 tokens are routed by issuer to a second, local scheme. To sign up and sign in, follow
+> the README section "Authenticating with Cognito". The rest of this guide is the original migration plan.
+
 ## Overview
 
 AuctionKings currently uses locally-generated JWTs (HMAC-SHA256, symmetric key) for authentication. This document describes how to replace that with **AWS Cognito User Pools** — an OAuth 2.0 / OpenID Connect identity provider that issues RS256-signed JWTs verified against Cognito's public JWKS endpoint.

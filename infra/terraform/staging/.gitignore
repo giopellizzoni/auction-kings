@@ -12,5 +12,8 @@ terraform.tfvars
 crash.log
 crash.*.log
 
+# Lambda packages built by data.archive_file at plan time
+.build/
+
 # Plan output files
 *.tfplan

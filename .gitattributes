@@ -1,0 +1,10 @@
+# Normalize text files to LF in the repository; each platform checks out its native endings...
+* text=auto
+
+# ...except files that Linux containers or bash execute. With core.autocrlf=true (the Windows default) they
+# would be checked out with CRLF, and bash then fails on them (e.g. `set: pipefail: invalid option name`
+# when docker-compose.infra.yml runs moto-init.sh or LocalStack runs its ready.d hooks).
+*.sh text eol=lf
+
+# Windows-only scripts: CRLF, as Windows PowerShell 5.1 and editors on Windows expect.
+*.ps1 text eol=crlf
