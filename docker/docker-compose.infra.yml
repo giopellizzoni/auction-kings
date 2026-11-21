@@ -23,7 +23,7 @@ services:
       - "${POSTGRES_HOST_PORT}:${POSTGRES_CONTAINER_PORT}"
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     container_name: infra-redis
     restart: unless-stopped
     command: >
